@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { DEMO_FOLLOWING } from '@trustpool/core'
 import { send, source } from './data'
+import { toast } from '@/components/ui/Toast'
 
 /**
  * Small client store for what the user toggles: callers followed, calls watched
@@ -62,6 +63,7 @@ function writeThrough(next: Partial<State>, write: () => Promise<void>) {
   if (!remote) return
   write().catch((err) => {
     console.warn('could not save', err)
+    toast('Could not save that. Try again.')
     set({ following: before.following, watching: before.watching, read: before.read })
   })
 }
