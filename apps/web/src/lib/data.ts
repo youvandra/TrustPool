@@ -23,7 +23,9 @@ export interface EarlyBuyerReport {
   callId: number
   fromBlock: number
   toBlock: number
-  buyers: { wallet: string; amount: number; firstBlock: number; transfers: number; isCaller: boolean }[]
+  buyers: { wallet: string; amount: number; firstBlock: number; transfers: number; isCaller: boolean; fundedByCaller: boolean }[]
+  /** Whether `fundedByCaller` was checked for this call. */
+  fundingChecked: boolean
   note: string
 }
 

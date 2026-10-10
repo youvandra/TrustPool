@@ -31,6 +31,7 @@ if (cfg.chain) {
   const early = new EarlyBuyers(database.db, client, {
     pool: cfg.chain.deployment.trustPool,
     windowBlocks: cfg.chain.earlyBuyerWindow,
+    fundingWindowBlocks: cfg.chain.fundingWindow,
     maxBlockRange: cfg.chain.maxBlockRange,
   })
   const hub = new AlertHub()

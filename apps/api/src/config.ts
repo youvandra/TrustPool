@@ -32,6 +32,8 @@ export interface ChainConfig {
   priceSampleMs: number
   /** Blocks before an open that the early-buyer check scans (~30 min of Monad blocks). */
   earlyBuyerWindow: number
+  /** Blocks before an early buyer's first buy in which MON from the caller counts as funding it. */
+  fundingWindow: number
   /** How long price samples are kept. */
   priceRetainMs: number
 }
@@ -89,6 +91,7 @@ export function loadConfig(env: Env = process.env): Config {
       pollMs: int(env.POLL_MS, chainId === 31337 ? 1_000 : 2_000),
       priceSampleMs: int(env.PRICE_SAMPLE_MS, 5 * 60_000),
       earlyBuyerWindow: int(env.EARLY_BUYER_WINDOW_BLOCKS, 4_500),
+      fundingWindow: int(env.FUNDING_WINDOW_BLOCKS, 1_500),
       priceRetainMs: int(env.PRICE_RETAIN_DAYS, 90) * 86_400_000,
     }
   }

@@ -15,6 +15,13 @@
       "when": 1791660023698,
       "tag": "0001_plain_lockheed",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791664144224,
+      "tag": "0002_early_buyer_funding",
+      "breakpoints": true
     }
   ]
 }

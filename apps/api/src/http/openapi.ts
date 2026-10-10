@@ -107,18 +107,26 @@ export const openapi = {
       EarlyBuyers: {
         type: 'object',
         description: 'Wallets that received the token just before the call opened. Review input, never proof.',
-        required: ['callId', 'fromBlock', 'toBlock', 'buyers', 'note'],
+        required: ['callId', 'fromBlock', 'toBlock', 'buyers', 'fundingChecked', 'note'],
         properties: {
           callId: { type: 'integer' },
           fromBlock: { type: 'integer' },
           toBlock: { type: 'integer' },
+          fundingChecked: { type: 'boolean', description: 'whether fundedByCaller was checked for this call' },
           note: { type: 'string' },
           buyers: {
             type: 'array',
             items: {
               type: 'object',
-              required: ['wallet', 'amount', 'firstBlock', 'transfers', 'isCaller'],
-              properties: { wallet: address, amount: { type: 'number' }, firstBlock: { type: 'integer' }, transfers: { type: 'integer' }, isCaller: { type: 'boolean' } },
+              required: ['wallet', 'amount', 'firstBlock', 'transfers', 'isCaller', 'fundedByCaller'],
+              properties: {
+                wallet: address,
+                amount: { type: 'number' },
+                firstBlock: { type: 'integer' },
+                transfers: { type: 'integer' },
+                isCaller: { type: 'boolean' },
+                fundedByCaller: { type: 'boolean', description: 'received MON in a transaction from the caller shortly before its first buy' },
+              },
             },
           },
         },

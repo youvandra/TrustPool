@@ -21,7 +21,7 @@ const SECTIONS = [
 const FAQ: [string, string][] = [
   [
     'Can a caller also buy with a second wallet?',
-    'Nothing stops it completely. It costs them: their own money is locked, a bond is at stake, and a wallet they funded that buys just before a call is grounds for a public slash.',
+    'Nothing stops it completely. It costs them: their own money is locked, a bond is at stake, and a wallet they funded that buys just before a call is grounds for a public slash. Each call lists the wallets that bought just before it, and marks any that received MON straight from the caller shortly before buying.',
   ],
   ['Do I deposit money into trustpool?', 'No. You buy on your own. trustpool only holds the caller’s position.'],
   [

@@ -32,13 +32,17 @@ function EarlyBuyers({ call }: { call: Call }) {
               No wallet received {call.token.symbol} in blocks {report.fromBlock} to {report.toBlock}.
             </p>
           ) : (
-            report.buyers.slice(0, 8).map((b) => (
+            // Wallets the caller paid come first, so the cut at eight never hides one.
+            [...report.buyers].sort((x, y) => Number(y.fundedByCaller) - Number(x.fundedByCaller)).slice(0, 8).map((b) => (
               <Row
                 key={b.wallet}
                 label={
-                  <span className="num">
-                    {shortAddress(b.wallet)}
-                    {b.isCaller ? ' (caller)' : ''}
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="num">
+                      {shortAddress(b.wallet)}
+                      {b.isCaller ? ' (caller)' : ''}
+                    </span>
+                    {b.fundedByCaller && <span className="rounded-full bg-ink/[0.07] px-2 py-0.5 text-[11.5px] font-medium text-ink">funded by the caller</span>}
                   </span>
                 }
                 hint={`block ${b.firstBlock}`}

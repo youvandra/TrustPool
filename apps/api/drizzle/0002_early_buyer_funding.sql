@@ -1,0 +1,2 @@
+ALTER TABLE "early_buyer_scans" ADD COLUMN "funding_checked" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "early_buyers" ADD COLUMN "funded_by_caller" boolean DEFAULT false NOT NULL;

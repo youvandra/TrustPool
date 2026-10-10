@@ -20,7 +20,7 @@ describe.skipIf(!rpc || !deployment)('indexer against anvil', () => {
     const database = await openDatabase('')
     const db = database.db
     const client = chainClient(31337, rpc!)
-    const cfg = { chainId: 31337, rpcUrl: rpc!, deployment: deployment!, confirmations: 0, maxBlockRange: 3, pollMs: 0, priceSampleMs: 0, earlyBuyerWindow: 50, priceRetainMs: 0 }
+    const cfg = { chainId: 31337, rpcUrl: rpc!, deployment: deployment!, confirmations: 0, maxBlockRange: 3, pollMs: 0, priceSampleMs: 0, earlyBuyerWindow: 50, fundingWindow: 50, priceRetainMs: 0 }
     const indexer = await new Indexer(database, client, cfg).init()
     while (await indexer.tick()) {}
     expect(indexer.status().caughtUp).toBe(true)
@@ -48,10 +48,11 @@ describe.skipIf(!rpc || !deployment)('indexer against anvil', () => {
     expect(await new PriceSampler(db, client, 0).sample()).toBe(open)
 
     // The seed's own buys land in the open transaction, which the window excludes.
-    const early = new EarlyBuyers(db, client, { pool, windowBlocks: 50, maxBlockRange: 7 })
+    const early = new EarlyBuyers(db, client, { pool, windowBlocks: 50, maxBlockRange: 7, fundingWindowBlocks: 50 })
     const last = (await store.listCalls()).at(0)!
     const report = await early.report(last.id)
     expect(report?.toBlock).toBeGreaterThanOrEqual(0)
+    expect(report?.fundingChecked).toBe(true) // anvil keeps historical state
     expect(report?.buyers.every((b) => b.wallet.toLowerCase() !== pool.toLowerCase())).toBe(true)
     expect(await early.report(last.id)).toEqual(report) // cached
     await database.close()

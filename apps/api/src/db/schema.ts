@@ -151,6 +151,8 @@ export const earlyBuyers = pgTable(
     amount: doublePrecision('amount').notNull(),
     firstBlock: bigint('first_block', { mode: 'number' }).notNull(),
     transfers: integer('transfers').notNull(),
+    /** Received MON straight from the caller's address shortly before its first buy. */
+    fundedByCaller: boolean('funded_by_caller').notNull().default(false),
   },
   (t) => [primaryKey({ columns: [t.callId, t.wallet] })],
 )
@@ -162,4 +164,6 @@ export const earlyBuyerScans = pgTable('early_buyer_scans', {
   fromBlock: bigint('from_block', { mode: 'number' }).notNull(),
   toBlock: bigint('to_block', { mode: 'number' }).notNull(),
   at: ms('at').notNull(),
+  /** False when the funding check could not run (no historical state, or over its budget). */
+  fundingChecked: boolean('funding_checked').notNull().default(false),
 })
