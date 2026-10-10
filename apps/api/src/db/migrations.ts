@@ -105,4 +105,24 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX alerts_user ON alerts (user_id, at DESC);
   `,
+  `
+  ALTER TABLE calls ADD COLUMN open_block INTEGER;
+
+  -- Wallets that received the call's token in the blocks just before it opened.
+  -- Input for a manual review, never proof of anything.
+  CREATE TABLE early_buyers (
+    call_id INTEGER NOT NULL REFERENCES calls (id),
+    wallet  TEXT NOT NULL COLLATE NOCASE,
+    amount  REAL NOT NULL,
+    first_block INTEGER NOT NULL,
+    transfers INTEGER NOT NULL,
+    PRIMARY KEY (call_id, wallet)
+  );
+  CREATE TABLE early_buyer_scans (
+    call_id    INTEGER PRIMARY KEY REFERENCES calls (id),
+    from_block INTEGER NOT NULL,
+    to_block   INTEGER NOT NULL,
+    at         INTEGER NOT NULL
+  );
+  `,
 ]

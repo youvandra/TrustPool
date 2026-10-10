@@ -2,6 +2,7 @@ import { loadConfig } from './config'
 import { openDatabase } from './db/database'
 import { createApp } from './http/app'
 import { chainClient } from './indexer/chain'
+import { EarlyBuyers } from './indexer/earlyBuyers'
 import { Indexer } from './indexer/indexer'
 import { PriceSampler } from './indexer/prices'
 import { log } from './log'
@@ -21,9 +22,20 @@ if (cfg.chain) {
   const client = chainClient(cfg.chain.chainId, cfg.chain.rpcUrl)
   const indexer = new Indexer(db, client, cfg.chain)
   const prices = new PriceSampler(db, client, cfg.chain.priceSampleMs)
+  const early = new EarlyBuyers(db, client, {
+    pool: cfg.chain.deployment.trustPool,
+    windowBlocks: cfg.chain.earlyBuyerWindow,
+    maxBlockRange: cfg.chain.maxBlockRange,
+  })
   indexer.start()
   prices.start()
-  app = createApp({ store: sqliteStore(db), privy: cfg.privy, corsOrigins: cfg.corsOrigins, indexer: () => indexer.status() })
+  app = createApp({
+    store: sqliteStore(db),
+    privy: cfg.privy,
+    corsOrigins: cfg.corsOrigins,
+    indexer: () => indexer.status(),
+    earlyBuyers: (id) => early.report(id),
+  })
   shutdown = () => {
     indexer.stop()
     prices.stop()
