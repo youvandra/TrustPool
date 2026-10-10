@@ -8,7 +8,7 @@ import { setAuth } from '@/lib/data'
 
 /**
  * One session shape for the whole app. With VITE_PRIVY_APP_ID set, Privy runs
- * login (email, Google, or an external wallet; an embedded wallet is created
+ * login (email or an external wallet; an embedded wallet is created
  * for users without one). Without it, a demo login signs in as a fixed caller
  * so every screen can be shown. Pages only ever call useSession().
  */
@@ -136,7 +136,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     <PrivyProvider
       appId={PRIVY_APP_ID}
       config={{
-        loginMethods: ['email', 'google', 'wallet'],
+        loginMethods: ['email', 'wallet'],
         appearance: { theme: 'light', accentColor: '#0F1D24', logo: '/brand/mark.svg', landingHeader: 'Sign in to trustpool' },
         embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } },
         defaultChain: chain,

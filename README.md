@@ -67,7 +67,7 @@ npm run typecheck
 ```
 
 Set `VITE_PRIVY_APP_ID` in `apps/web/.env` (see `.env.example`) to sign in with
-Privy: email, Google or a wallet. Without it the app offers a demo sign-in.
+Privy: email or a wallet. Without it the app offers a demo sign-in.
 
 ### Full stack on a local chain
 

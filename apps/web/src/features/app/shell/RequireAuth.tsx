@@ -18,7 +18,7 @@ export default function RequireAuth({ title, body, children }: { title: string; 
       <Button className="mt-6" onClick={s.login}>
         Sign in
       </Button>
-      <p className="mt-3 text-[12px] text-ink-3">Email, Google or a wallet. A wallet is created for you if you have none.</p>
+      <p className="mt-3 text-[12px] text-ink-3">Email or a wallet. A wallet is created for you if you have none.</p>
     </Card>
   )
 }
