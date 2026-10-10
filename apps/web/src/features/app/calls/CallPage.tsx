@@ -33,7 +33,16 @@ function EarlyBuyers({ call }: { call: Call }) {
             </p>
           ) : (
             report.buyers.slice(0, 8).map((b) => (
-              <Row key={b.wallet} label={<span className="num">{shortAddress(b.wallet)}{b.isCaller ? ' (caller)' : ''}</span>} hint={`block ${b.firstBlock}`}>
+              <Row
+                key={b.wallet}
+                label={
+                  <span className="num">
+                    {shortAddress(b.wallet)}
+                    {b.isCaller ? ' (caller)' : ''}
+                  </span>
+                }
+                hint={`block ${b.firstBlock}`}
+              >
                 <span className="num">{tokens(b.amount)}</span>
               </Row>
             ))
@@ -65,15 +74,21 @@ function Status({ call }: { call: Call }) {
         </p>
         <p className="mt-3 text-[13px] text-white/60">Lock ends in</p>
         <Countdown at={call.unlockAt} done="lock ended" className="mt-1 block text-[40px] font-medium leading-none tracking-[-0.03em] sm:text-[48px]" />
-        <p className="mt-3 text-[13px] text-white/60">Even then, the caller has to announce an exit and wait {duration(call.notice)} before selling. Nothing announced yet.</p>
+        <p className="mt-3 text-[13px] text-white/60">
+          Even then, the caller has to announce an exit and wait {duration(call.notice)} before selling. Nothing announced yet.
+        </p>
       </div>
     )
   const r = returnBps(call)!
   return (
     <div className={`rounded-2xl p-5 sm:p-6 ${r < 0 ? 'bg-loss-fill' : r > 0 ? 'bg-gain-fill' : 'bg-subtle'}`}>
-      <p className="text-[13px] text-ink-2">{call.state === 'Released' ? 'Released unsold. Recorded as a total loss.' : `Settled ${call.exitAt ? `on ${date(call.exitAt)}` : ''}`}</p>
+      <p className="text-[13px] text-ink-2">
+        {call.state === 'Released' ? 'Released unsold. Recorded as a total loss.' : `Settled ${call.exitAt ? `on ${date(call.exitAt)}` : ''}`}
+      </p>
       <Signed bps={r} className="mt-3 block text-[40px] font-medium leading-none tracking-[-0.03em] sm:text-[48px]" />
-      <p className="mt-3 text-[13px] text-ink-2">From the caller&apos;s own fill: {mon(call.monIn)} in, {mon(call.monOut ?? 0)} out.</p>
+      <p className="mt-3 text-[13px] text-ink-2">
+        From the caller&apos;s own fill: {mon(call.monIn)} in, {mon(call.monOut ?? 0)} out.
+      </p>
     </div>
   )
 }
@@ -153,7 +168,7 @@ export default function CallPage() {
               </p>
             </div>
             <div className="mt-6">
-              <Sparkline data={call.series} width={720} height={200} strokeWidth={2} />
+              <Sparkline data={call.series} width={720} height={200} strokeWidth={2} className="h-[150px] sm:h-[200px]" />
             </div>
             {open && call.markedValue !== undefined && (
               <p className="mt-4 flex flex-wrap items-baseline gap-2 text-[13.5px] text-ink-2">
@@ -163,7 +178,8 @@ export default function CallPage() {
               </p>
             )}
             <p className="mt-3 text-[12px] text-ink-3">
-              {source.kind === 'api' ? 'Sell quotes, sampled every few minutes.' : 'Illustrative demo series.'}{open ? ' Unrealised until the exit.' : ''}
+              {source.kind === 'api' ? 'Sell quotes, sampled every few minutes.' : 'Illustrative demo series.'}
+              {open ? ' Unrealised until the exit.' : ''}
             </p>
           </Card>
 
@@ -231,7 +247,15 @@ export default function CallPage() {
                   {dexIsMarket ? `Buy ${call.token.symbol} on your own` : `View ${call.token.symbol} on the explorer`}
                 </ButtonLink>
               ) : (
-                <ButtonLink href="#" variant="secondary" block iconRight={ExternalLink} onClick={(e) => e.preventDefault()} aria-disabled title="No public DEX on this chain">
+                <ButtonLink
+                  href="#"
+                  variant="secondary"
+                  block
+                  iconRight={ExternalLink}
+                  onClick={(e) => e.preventDefault()}
+                  aria-disabled
+                  title="No public DEX on this chain"
+                >
                   Buy {call.token.symbol} on your own
                 </ButtonLink>
               )}

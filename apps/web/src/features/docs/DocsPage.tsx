@@ -19,9 +19,15 @@ const SECTIONS = [
 ]
 
 const FAQ: [string, string][] = [
-  ['Can a caller also buy with a second wallet?', 'Nothing stops it completely. It costs them: their own money is locked, a bond is at stake, and a wallet they funded that buys just before a call is grounds for a public slash.'],
+  [
+    'Can a caller also buy with a second wallet?',
+    'Nothing stops it completely. It costs them: their own money is locked, a bond is at stake, and a wallet they funded that buys just before a call is grounds for a public slash.',
+  ],
   ['Do I deposit money into trustpool?', 'No. You buy on your own. trustpool only holds the caller’s position.'],
-  ['Can a caller hide a losing call?', 'A settled call is permanent. Releasing an unsellable token counts as −100%. A call left open past its max hold is marked stale on the record.'],
+  [
+    'Can a caller hide a losing call?',
+    'A settled call is permanent. Releasing an unsellable token counts as −100%. A call left open past its max hold is marked stale on the record.',
+  ],
   ['Who keeps the token list and slashes bonds?', 'An admin, in this version. The admin can never touch a locked position.'],
   ['Is this investment advice?', 'No. It shows what callers did with their own money. No rankings by return, no price targets.'],
 ]
@@ -40,7 +46,9 @@ function Steps({ items }: { items: string[] }) {
     <ol className="space-y-2.5">
       {items.map((t, i) => (
         <li key={t} className="flex gap-3">
-          <span className="num mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-accent-fill text-[11.5px] font-medium text-accent-strong">{i + 1}</span>
+          <span className="num mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-accent-fill text-[11.5px] font-medium text-accent-strong">
+            {i + 1}
+          </span>
           <span>{t}</span>
         </li>
       ))}
@@ -54,7 +62,12 @@ function AddressRow({ label, address }: { label: string; address: string }) {
     <div className="flex items-center justify-between gap-4 border-t border-line px-5 py-3.5 first:border-t-0">
       <span className="text-[14px] text-ink-2">{label}</span>
       {url ? (
-        <a href={`${url}/address/${address}`} target="_blank" rel="noopener noreferrer" className="num inline-flex items-center gap-1.5 text-[13.5px] text-accent hover:text-accent-strong">
+        <a
+          href={`${url}/address/${address}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="num inline-flex items-center gap-1.5 text-[13.5px] text-accent hover:text-accent-strong"
+        >
           {shortAddress(address, 8, 6)} <ExternalLink size={12} />
         </a>
       ) : (
@@ -99,9 +112,16 @@ function Faq() {
     <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
       {FAQ.map(([q, a], i) => (
         <div key={q}>
-          <button type="button" onClick={() => setOpen(open === i ? -1 : i)} className="flex w-full items-center justify-between gap-6 px-5 py-4 text-left" aria-expanded={open === i}>
+          <button
+            type="button"
+            onClick={() => setOpen(open === i ? -1 : i)}
+            className="flex w-full items-center justify-between gap-6 px-5 py-4 text-left"
+            aria-expanded={open === i}
+          >
             <span className="text-[15px] font-medium text-ink">{q}</span>
-            <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${open === i ? 'bg-accent text-white' : 'bg-accent-fill text-accent-strong'}`}>
+            <span
+              className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${open === i ? 'bg-accent text-white' : 'bg-accent-fill text-accent-strong'}`}
+            >
               {open === i ? <Minus size={13} /> : <Plus size={13} />}
             </span>
           </button>
@@ -148,9 +168,16 @@ export default function DocsPage() {
           </nav>
         </aside>
 
-        <article className="max-w-[720px]">
+        <article className="min-w-0 max-w-[720px]">
           <h1 className="text-[clamp(2.2rem,5vw,3.2rem)] font-semibold leading-[1.02] tracking-[-0.045em]">Docs</h1>
           <p className="mt-4 text-[17px] text-ink-2">Everything a follower or a caller needs, in one page.</p>
+          <nav className="scroll-quiet -mx-5 mt-6 flex gap-2 overflow-x-auto px-5 lg:hidden" aria-label="Docs sections">
+            {SECTIONS.map((s) => (
+              <a key={s.id} href={`#${s.id}`} className="shrink-0 rounded-full border border-line bg-surface px-3.5 py-1.5 text-[13px] text-ink-2">
+                {s.label}
+              </a>
+            ))}
+          </nav>
 
           <div className="mt-12">
             <Section id="overview" title="Overview">
@@ -161,7 +188,13 @@ export default function DocsPage() {
             </Section>
 
             <Section id="followers" title="For followers">
-              <Steps items={['Browse calls without signing in.', 'Check the caller’s record, bond and entry price.', 'Watch a call to get alerted the moment its exit is announced.']} />
+              <Steps
+                items={[
+                  'Browse calls without signing in.',
+                  'Check the caller’s record, bond and entry price.',
+                  'Watch a call to get alerted the moment its exit is announced.',
+                ]}
+              />
             </Section>
 
             <Section id="callers" title="For callers">
