@@ -42,32 +42,28 @@ export default function CallerPage() {
       </Link>
 
       <Card className="overflow-hidden">
-        <div className="relative h-24 overflow-hidden bg-accent sm:h-28">
-          <div className="absolute inset-0 opacity-[0.18] [background-image:radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:18px_18px]" />
-          <div className="absolute inset-x-0 top-1/2 h-[3px] bg-white/25" />
-        </div>
-        <div className="px-5 pb-6 sm:px-7">
-          <div className="-mt-10 flex flex-wrap items-end justify-between gap-4">
-            <CallerAvatar address={caller.address} size={80} className="ring-4 ring-surface" />
-            <FollowButton address={caller.address} handle={caller.handle} size="md" />
+        <div className="flex flex-wrap items-start justify-between gap-5 p-5 sm:p-7">
+          <div className="flex min-w-0 items-center gap-4">
+            <CallerAvatar address={caller.address} size={64} />
+            <div className="min-w-0">
+              <h1 className="text-[24px] font-semibold tracking-[-0.03em]">{caller.handle}</h1>
+              <p className="mt-0.5 text-[13px] text-ink-3">
+                <span className="num">{shortAddress(caller.address)}</span> · {compact(caller.followers)} followers
+              </p>
+              {caller.bio && <p className="mt-2 max-w-[60ch] text-[14.5px] text-ink-2">{caller.bio}</p>}
+            </div>
           </div>
-          <h1 className="mt-4 text-[24px] font-semibold tracking-[-0.03em]">{caller.handle}</h1>
-          <p className="num mt-0.5 text-[12.5px] text-ink-3">{shortAddress(caller.address, 8, 6)}</p>
-          {caller.bio && <p className="mt-3 max-w-[60ch] text-[14.5px] leading-[1.55] text-ink-2">{caller.bio}</p>}
-          <p className="mt-3 text-[13px] text-ink-3">
-            {compact(caller.followers)} followers · on trustpool since {date(caller.joinedAt).split(',')[0]}
-          </p>
+          <FollowButton address={caller.address} handle={caller.handle} size="md" />
         </div>
-        <div className="grid grid-cols-2 gap-px border-t border-line bg-line sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-px border-t border-line bg-line sm:grid-cols-5">
           {[
             ['Settled', r.settled + r.released],
             ['At a loss', r.losses],
-            ['Released unsold', r.released],
             ['Open now', r.open],
             ['Average result', <Signed key="a" bps={averageBps(r)} />],
             ['Bond', mon(caller.bond, 0)],
-          ].map(([l, v]) => (
-            <Stat key={String(l)} label={String(l)} value={v} className="bg-surface px-5 py-4" />
+          ].map(([l, v], i, all) => (
+            <Stat key={String(l)} label={String(l)} value={v} className={`bg-surface px-5 py-4 ${i === all.length - 1 ? 'col-span-2 sm:col-span-1' : ''}`} />
           ))}
         </div>
       </Card>
@@ -121,7 +117,7 @@ export default function CallerPage() {
         </Card>
       ) : caller.slashHistory.length === 0 ? (
         <Card>
-          <Empty icon={<ShieldAlert size={18} />} title="No slashes" body="If this caller's bond is ever cut, it shows here with the reason, permanently." />
+          <Empty icon={<ShieldAlert size={18} />} title="No slashes" body="A slash would show here with its reason." />
         </Card>
       ) : (
         <Card className="divide-y divide-line">
