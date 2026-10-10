@@ -176,7 +176,12 @@ export class Indexer {
         times.set(n, Number(block.timestamp) * 1000)
       }),
     )
-    const opened = [...new Set(sorted.flatMap((l) => (l.eventName === 'CallOpened' ? [getAddress(l.args.token)] : [])))]
+    // Token metadata is read for every token a call opens on and every token the allow list touches.
+    const opened = [
+      ...new Set(
+        sorted.flatMap((l) => (l.eventName === 'CallOpened' || l.eventName === 'TokenAllowed' ? [getAddress(l.args.token)] : [])),
+      ),
+    ]
     const known = await Promise.all(opened.map((t) => this.writer.hasToken(t)))
     const tokens = await Promise.all(opened.filter((_, i) => !known[i]).map((t) => readToken(this.client, t)))
 
@@ -234,8 +239,11 @@ export class Indexer {
         return w.callMarkedStale(l.args.id, getAddress(l.args.caller), at)
       case 'CallAdapterMoved':
         return w.callAdapterMoved(l.args.id, getAddress(l.args.adapter))
+      case 'TokenAllowed':
+        // The open-a-call form offers exactly the tokens the contract would accept.
+        return w.tokenAllowed(getAddress(l.args.token), l.args.allowed)
       default:
-        // admin bookkeeping (params, allow list, admin handover) is not served by the API
+        // admin bookkeeping (params, admin handover) is not served by the API
         log.debug('event not indexed', { event: l.eventName })
     }
   }

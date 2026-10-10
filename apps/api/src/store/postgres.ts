@@ -26,7 +26,11 @@ export function postgresStore(db: Db): Store {
       .leftJoin(profiles, eq(profiles.address, callers.address))
 
   async function listTokens(): Promise<Token[]> {
-    return db.select({ address: tokens.address, symbol: tokens.symbol, name: tokens.name, hue: tokens.hue }).from(tokens).orderBy(asc(tokens.symbol))
+    return db
+      .select({ address: tokens.address, symbol: tokens.symbol, name: tokens.name, hue: tokens.hue })
+      .from(tokens)
+      .where(eq(tokens.allowed, true))
+      .orderBy(asc(tokens.symbol))
   }
 
   async function toCalls(rows: CallRow[]): Promise<Call[]> {

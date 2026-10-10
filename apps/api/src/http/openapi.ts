@@ -184,7 +184,7 @@ export const openapi = {
         responses: { 204: noContent, 400: error('Bad fields or old signature'), 401: error('Wrong signer'), 403: error('Never bonded'), 409: error('Handle taken or newer claim stored') },
       },
     },
-    '/tokens': { get: { summary: 'Tokens seen in calls', tags: ['public'], responses: { 200: json({ type: 'array', items: ref('Token') }) } } },
+    '/tokens': { get: { summary: 'Tokens on the allow list (the ones a call can open on)', tags: ['public'], responses: { 200: json({ type: 'array', items: ref('Token') }) } } },
     '/me/alerts': {
       get: {
         summary: 'Your alerts, newest first',

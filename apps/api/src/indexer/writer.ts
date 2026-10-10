@@ -43,6 +43,10 @@ export class EventWriter {
       .onConflictDoUpdate({ target: tokens.address, set: { symbol: t.symbol, name: t.name, decimals: t.decimals } })
   }
 
+  async tokenAllowed(address: string, allowed: boolean) {
+    await this.db.update(tokens).set({ allowed }).where(eq(tokens.address, address))
+  }
+
   async hasToken(address: string): Promise<boolean> {
     const [row] = await this.db.select({ a: tokens.address }).from(tokens).where(eq(tokens.address, address))
     return !!row

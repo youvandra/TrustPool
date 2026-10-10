@@ -24,6 +24,8 @@ export const tokens = pgTable('tokens', {
   name: text('name').notNull(),
   decimals: integer('decimals').notNull(),
   hue: integer('hue').notNull(),
+  /** On TrustPool's allow list right now (TokenAllowed). Tokens of past calls stay listed in calls. */
+  allowed: boolean('allowed').notNull().default(false),
 })
 
 export const callers = pgTable('callers', {

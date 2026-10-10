@@ -147,3 +147,13 @@ describe('indexer lock', () => {
     expect(await database.tryIndexerLock()).toBe(true) // re-entrant on the same session
   })
 })
+
+describe('allow list', () => {
+  test('lists only the tokens the contract would accept a call on', async () => {
+    expect(await store.listTokens()).toEqual([])
+    await w.tokenAllowed(TOKEN, true)
+    expect((await store.listTokens()).map((t) => t.symbol)).toEqual(['CHOG'])
+    await w.tokenAllowed(TOKEN, false)
+    expect(await store.listTokens()).toEqual([])
+  })
+})

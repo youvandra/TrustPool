@@ -1,0 +1,1 @@
+ALTER TABLE "tokens" ADD COLUMN "allowed" boolean DEFAULT false NOT NULL;
