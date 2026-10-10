@@ -92,3 +92,13 @@ jobs:
           cd apps/api && E2E_RPC_URL=http://127.0.0.1:8545 bun test indexer.e2e
       - run: npm run build
 
+  api-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f apps/api/Dockerfile -t trustpool-api .
+      - name: image starts and answers /health
+        run: |
+          docker run -d --name api -p 8787:8787 trustpool-api
+          for i in $(seq 1 20); do curl -fsS localhost:8787/api/health && exit 0; sleep 1; done
+          docker logs api; exit 1
