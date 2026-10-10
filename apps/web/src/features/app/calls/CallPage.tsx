@@ -17,6 +17,33 @@ async function load(id: number) {
   return { call, caller: await source.getCaller(call.caller) }
 }
 
+/** Review input for slashing, never proof. Only the API source has the chain to scan. */
+function EarlyBuyers({ call }: { call: Call }) {
+  const report = useLoad(() => source.earlyBuyers(call.id), [call.id])
+  if (source.kind !== 'api' || report === null) return null
+  return (
+    <Card className="p-5 sm:p-6">
+      <p className="text-[15px] font-semibold">Bought just before the call</p>
+      <p className="mt-1 text-[12.5px] leading-[1.5] text-ink-3">{report?.note ?? 'Scanning the blocks before the open…'}</p>
+      {report && (
+        <div className="mt-4">
+          {report.buyers.length === 0 ? (
+            <p className="text-[13.5px] text-ink-2">
+              No wallet received {call.token.symbol} in blocks {report.fromBlock} to {report.toBlock}.
+            </p>
+          ) : (
+            report.buyers.slice(0, 8).map((b) => (
+              <Row key={b.wallet} label={<span className="num">{shortAddress(b.wallet)}{b.isCaller ? ' (caller)' : ''}</span>} hint={`block ${b.firstBlock}`}>
+                <span className="num">{tokens(b.amount)}</span>
+              </Row>
+            ))
+          )}
+        </div>
+      )}
+    </Card>
+  )
+}
+
 /** The big status block: what a follower needs to know first, in one glance. */
 function Status({ call }: { call: Call }) {
   if (call.state === 'Exiting')
@@ -217,6 +244,8 @@ export default function CallPage() {
               </p>
             </Card>
           )}
+
+          <EarlyBuyers call={call} />
 
           <Card className="p-5 sm:p-6">
             <p className="text-[15px] font-semibold">Timeline</p>
