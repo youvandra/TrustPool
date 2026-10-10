@@ -11,8 +11,9 @@
     "dev": "npm run dev -w @trustpool/web",
     "dev:api": "cd apps/api && bun --watch src/index.ts",
     "build": "npm run build -w @trustpool/web",
-    "typecheck": "npm run typecheck -w @trustpool/web && npm run typecheck -w @trustpool/api",
-    "test:contracts": "cd contracts && forge test"
+    "typecheck": "npm run typecheck -w @trustpool/core && npm run typecheck -w @trustpool/web && npm run typecheck -w @trustpool/api",
+    "test:contracts": "cd contracts && forge test",
+    "sync:contracts": "cd contracts && forge build && cd .. && node scripts/sync-contracts.mjs"
   },
   "devDependencies": {
     "typescript": "5.9.3"
