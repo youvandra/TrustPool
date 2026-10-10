@@ -24,7 +24,7 @@ function Sidebar() {
       <nav className="scroll-quiet flex-1 overflow-y-auto px-3 pt-2" aria-label="App">
         {NAV.map((g) => (
           <div key={g.group} className="mb-5">
-            <p className="eyebrow px-3 pb-2 text-ink-3/80">{g.group}</p>
+            <p className="eyebrow px-3 pb-2 text-ink-3">{g.group}</p>
             <ul className="space-y-0.5">
               {g.items.map((it) => (
                 <li key={it.to}>
@@ -32,8 +32,8 @@ function Sidebar() {
                     to={it.to}
                     end={it.end}
                     className={({ isActive }) =>
-                      `flex h-9 items-center gap-2.5 rounded-lg px-3 text-[14px] transition-colors ${
-                        isActive ? 'bg-ink/[0.05] font-medium text-ink' : 'text-ink-2 hover:bg-ink/[0.03] hover:text-ink'
+                      `group flex h-9 items-center gap-2.5 rounded-lg px-3 text-[14px] transition-colors ${
+                        isActive ? 'bg-accent-fill font-medium text-accent-deep [&_svg]:text-accent' : 'text-ink-2 hover:bg-ink/[0.04] hover:text-ink [&_svg]:text-ink-3'
                       }`
                     }
                   >
@@ -48,10 +48,10 @@ function Sidebar() {
         ))}
       </nav>
       <div className="space-y-3 p-3">
-        <div className="rounded-2xl bg-subtle p-4 ring-1 ring-inset ring-line">
-          <p className="text-[13.5px] font-semibold">Have a call?</p>
-          <p className="mt-1 text-[12.5px] leading-[1.5] text-ink-3">You buy first and lock it. Followers see your entry after it lands.</p>
-          <ButtonLink to="/app/new" size="sm" icon={Plus} className="mt-3" block>
+        <div className="relative overflow-hidden rounded-2xl bg-accent-soft p-4 ring-1 ring-inset ring-accent/15">
+          <p className="relative text-[13.5px] font-semibold text-accent-deep">Have a call?</p>
+          <p className="relative mt-1 text-[12.5px] leading-[1.5] text-ink-2">You buy first and lock it. Followers see your entry after it lands.</p>
+          <ButtonLink to="/app/new" size="sm" variant="accent" icon={Plus} className="relative mt-3" block>
             Open a call
           </ButtonLink>
         </div>
@@ -85,7 +85,7 @@ function Topbar() {
     navigate(`/app/calls${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`)
   }
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur-md">
+    <header className="sticky top-0 z-20 border-b border-line bg-surface/90 backdrop-blur-md">
       <div className="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
         <div className="lg:hidden">
           <Wordmark to="/app" />
@@ -94,11 +94,11 @@ function Topbar() {
           <Link to="/app" className="hover:text-ink">
             trustpool
           </Link>
-          <span className="mx-2 text-line-strong">/</span>
+          <span className="mx-2 text-ink-3/50">/</span>
           <span className="font-medium text-ink">{title}</span>
         </p>
         <form onSubmit={submit} className="ml-auto hidden w-full max-w-[340px] md:block">
-          <label className="flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-3 text-ink-3 transition-shadow focus-within:border-accent/50 focus-within:shadow-ring">
+          <label className="flex h-10 items-center gap-2 rounded-xl border border-line bg-subtle px-3 text-ink-3 transition-shadow focus-within:border-accent/50 focus-within:bg-surface focus-within:shadow-ring">
             <Search size={16} />
             <input
               value={q}
@@ -110,7 +110,7 @@ function Topbar() {
         </form>
         <Link to="/app/alerts" className="relative ml-auto grid h-10 w-10 place-items-center rounded-xl text-ink-2 hover:bg-ink/[0.04] md:ml-0" aria-label="Alerts">
           <Bell size={18} />
-          {unread > 0 && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-accent ring-2 ring-bg" />}
+          {unread > 0 && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-accent ring-2 ring-surface" />}
         </Link>
         <div className="lg:hidden">
           <Account compact />
@@ -128,7 +128,7 @@ function MobileTabs() {
           <Tab key={it.to} {...it} />
         ))}
         <li className="grid place-items-center">
-          <Link to="/app/new" className="grid h-11 w-11 place-items-center rounded-2xl bg-ink text-white shadow-card" aria-label="Open a call">
+          <Link to="/app/new" className="grid h-11 w-11 place-items-center rounded-2xl bg-accent text-white shadow-card" aria-label="Open a call">
             <Plus size={20} />
           </Link>
         </li>
@@ -143,7 +143,7 @@ function MobileTabs() {
 function Tab({ to, label, icon: Icon, end }: (typeof MOBILE_NAV)[number]) {
   return (
     <li>
-      <NavLink to={to} end={end} className={({ isActive }) => `flex h-16 flex-col items-center justify-center gap-1 text-[10.5px] ${isActive ? 'text-ink' : 'text-ink-3'}`}>
+      <NavLink to={to} end={end} className={({ isActive }) => `flex h-16 flex-col items-center justify-center gap-1 text-[10.5px] ${isActive ? 'font-medium text-accent' : 'text-ink-3'}`}>
         <Icon size={19} strokeWidth={1.9} />
         {label}
       </NavLink>
@@ -158,7 +158,7 @@ export default function AppShell() {
       <Sidebar />
       <div className="lg:pl-[248px]">
         <Topbar />
-        <main className="mx-auto w-full max-w-[1240px] px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pb-16 lg:pt-8">
+        <main className="mx-auto w-full max-w-[1400px] px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-16 lg:pt-8">
           <Outlet />
         </main>
       </div>

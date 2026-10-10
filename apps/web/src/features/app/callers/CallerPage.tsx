@@ -42,7 +42,10 @@ export default function CallerPage() {
       </Link>
 
       <Card className="overflow-hidden">
-        <div className="dots h-24 bg-accent-soft sm:h-28" />
+        <div className="relative h-24 overflow-hidden bg-accent sm:h-28">
+          <div className="absolute inset-0 opacity-[0.18] [background-image:radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:18px_18px]" />
+          <div className="absolute inset-x-0 top-1/2 h-[3px] bg-white/25" />
+        </div>
         <div className="px-5 pb-6 sm:px-7">
           <div className="-mt-10 flex flex-wrap items-end justify-between gap-4">
             <CallerAvatar address={caller.address} size={80} className="ring-4 ring-surface" />

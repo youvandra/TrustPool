@@ -46,7 +46,7 @@ function OpenPosition({ call, onAnnounce }: { call: Call; onAnnounce: (c: Call) 
         </div>
       </Link>
       {call.state === 'Locked' ? (
-        <Button variant="secondary" icon={BellRing} onClick={() => onAnnounce(call)}>
+        <Button variant="accent" icon={BellRing} onClick={() => onAnnounce(call)}>
           Announce exit
         </Button>
       ) : (
@@ -87,25 +87,27 @@ function Inner({ address }: { address: string }) {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1.2fr]">
-        <Card className="p-5">
+        <Card tone="accent" className="p-5">
           <div className="flex items-center justify-between">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent-fill text-accent-deep">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15 text-white">
               <Shield size={16} />
             </span>
-            <span className="rounded-full bg-subtle px-2.5 py-1 text-[11.5px] text-ink-2 ring-1 ring-inset ring-line">{open.length ? 'Locked by open calls' : 'Withdrawable after 7 days'}</span>
+            <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11.5px] font-medium text-white">{open.length ? 'Locked by open calls' : 'Withdrawable after 7 days'}</span>
           </div>
-          <Stat className="mt-4" label="Bond" value={mon(caller.bond)} foot={`Slashed ${caller.record.slashes} times`} />
+          <p className="mt-4 text-[13px] text-white/80">Bond</p>
+          <p className="num mt-1.5 text-[28px] font-medium tracking-[-0.03em]">{mon(caller.bond)}</p>
+          <p className="mt-1 text-[12.5px] text-white/75">Slashed {caller.record.slashes} times</p>
           <div className="mt-4 flex gap-2">
-            <Button size="sm" variant="secondary" onClick={() => toast('Bond top-up arrives with the contract wiring')}>
+            <button type="button" onClick={() => toast('Bond top-up arrives with the contract wiring')} className="h-8 rounded-lg bg-white px-3 text-[13px] font-medium text-accent-deep hover:bg-white/90">
               Add
-            </Button>
-            <Button size="sm" variant="ghost" disabled={open.length > 0}>
+            </button>
+            <button type="button" disabled={open.length > 0} className="h-8 rounded-lg px-3 text-[13px] font-medium text-white/90 ring-1 ring-inset ring-white/30 disabled:opacity-40">
               Withdraw
-            </Button>
+            </button>
           </div>
         </Card>
         <Card className="p-5">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-subtle text-ink-2 ring-1 ring-inset ring-line">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-ink text-white">
             <Lock size={16} />
           </span>
           <Stat className="mt-4" label="Locked in open calls" value={mon(open.reduce((s, c) => s + c.monIn, 0))} foot={`${open.length} open`} />
@@ -185,6 +187,7 @@ function Inner({ address }: { address: string }) {
               </Button>
               <Button
                 block
+                variant="accent"
                 onClick={() => {
                   actions.announce(confirm.id)
                   setConfirm(null)

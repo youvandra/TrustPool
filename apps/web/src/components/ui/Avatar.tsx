@@ -15,7 +15,7 @@ export function CallerAvatar({ address, size = 36, className = '' }: { address: 
   const h = hash(address.toLowerCase())
   const hue = h % 360
   const hue2 = (hue + 35 + ((h >>> 9) % 60)) % 360
-  const fills = [`hsl(${hue} 60% 90%)`, `hsl(${hue} 45% 72%)`, `hsl(${hue2} 50% 80%)`, '#12212A', `hsl(${hue2} 55% 62%)`]
+  const fills = [`hsl(${hue} 70% 88%)`, `hsl(${hue} 55% 66%)`, `hsl(${hue2} 60% 76%)`, '#0F1D24', `hsl(${hue2} 55% 62%)`]
   const c = (i: number) => fills[i]!
   const rot = ((h >>> 20) % 4) * 90
   return (
@@ -40,9 +40,9 @@ export function TokenIcon({ token, size = 36, className = '' }: { token: Token; 
         width: size,
         height: size,
         fontSize: size * 0.42,
-        background: `hsl(${token.hue} 70% 94%)`,
-        color: `hsl(${token.hue} 45% 32%)`,
-        boxShadow: `inset 0 0 0 1px hsl(${token.hue} 50% 86%)`,
+        background: `hsl(${token.hue} 85% 91%)`,
+        color: `hsl(${token.hue} 65% 30%)`,
+        boxShadow: `inset 0 0 0 1px hsl(${token.hue} 60% 80%)`,
       }}
       aria-hidden="true"
     >

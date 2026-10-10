@@ -29,13 +29,13 @@ function Stepper({ step }: { step: number }) {
         <li key={s} className="flex items-center gap-2">
           <span
             className={`num grid h-7 w-7 place-items-center rounded-full text-[12px] font-medium transition-colors ${
-              i < step ? 'bg-ink text-white' : i === step ? 'bg-accent text-white' : 'bg-surface text-ink-3 ring-1 ring-inset ring-line-strong'
+              i < step ? 'bg-accent-fill text-accent-strong' : i === step ? 'bg-accent text-white' : 'bg-surface text-ink-3 ring-1 ring-inset ring-line-strong'
             }`}
           >
             {i < step ? <Check size={13} /> : i + 1}
           </span>
           <span className={`hidden text-[13px] sm:inline ${i === step ? 'font-medium text-ink' : 'text-ink-3'}`}>{s}</span>
-          {i < STEPS.length - 1 && <span className={`mx-1 h-px w-6 sm:w-10 ${i < step ? 'bg-ink' : 'bg-line-strong'}`} />}
+          {i < STEPS.length - 1 && <span className={`mx-1 h-px w-6 sm:w-10 ${i < step ? 'bg-accent' : 'bg-line-strong'}`} />}
         </li>
       ))}
     </ol>
@@ -54,7 +54,7 @@ function Slider({ label, value, unit, min, max, step = 1, onChange, hint }: { la
           <span className="ml-1 text-[13px] text-ink-3">{unit}</span>
         </p>
       </div>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className="mt-3 w-full accent-[#12212A]" />
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className="mt-3 w-full accent-[#1F6E9C]" />
       <p className="mt-1 text-[12.5px] text-ink-3">{hint}</p>
     </div>
   )
@@ -119,14 +119,14 @@ function Flow({ address }: { address: string }) {
                           key={t.address}
                           type="button"
                           onClick={() => setToken(t)}
-                          className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition-[border-color,box-shadow] ${on ? 'border-ink shadow-ring' : 'border-line hover:border-line-strong'}`}
+                          className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition-[border-color,box-shadow] ${on ? 'border-accent bg-accent-soft shadow-ring' : 'border-line hover:border-line-strong'}`}
                         >
                           <TokenIcon token={t} size={40} />
                           <span className="min-w-0 flex-1">
                             <span className="block text-[15px] font-semibold">{t.symbol}</span>
                             <span className="block text-[12.5px] text-ink-3">{t.name}</span>
                           </span>
-                          <span className={`grid h-5 w-5 place-items-center rounded-full ${on ? 'bg-ink text-white' : 'ring-1 ring-inset ring-line-strong'}`}>{on && <Check size={12} />}</span>
+                          <span className={`grid h-5 w-5 place-items-center rounded-full ${on ? 'bg-accent text-white' : 'ring-1 ring-inset ring-line-strong'}`}>{on && <Check size={12} />}</span>
                         </button>
                       )
                     })}
@@ -209,7 +209,7 @@ function Flow({ address }: { address: string }) {
                     </Row>
                   </div>
                   <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-line p-4">
-                    <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#12212A]" />
+                    <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#1F6E9C]" />
                     <span className="text-[13.5px] leading-[1.55] text-ink-2">
                       I understand I cannot sell before the lock ends, every exit is announced {noticeH} hours ahead, and this call stays on my record whatever the result.
                     </span>
@@ -227,7 +227,7 @@ function Flow({ address }: { address: string }) {
               Continue
             </Button>
           ) : (
-            <Button icon={Lock} disabled={!ok} onClick={() => setSigning('wait')}>
+            <Button variant="accent" icon={Lock} disabled={!ok} onClick={() => setSigning('wait')}>
               Buy and lock
             </Button>
           )}

@@ -46,7 +46,7 @@ function List() {
               key={a.id}
               to={`/app/calls/${call.id}`}
               onClick={() => actions.markRead([a.id])}
-              className={`flex items-center gap-4 px-4 py-4 transition-colors hover:bg-subtle sm:px-5 ${isNew ? 'bg-accent-soft/60' : ''}`}
+              className={`flex items-center gap-4 px-4 py-4 transition-colors hover:bg-subtle sm:px-5 ${isNew ? 'bg-accent-soft shadow-[inset_3px_0_0_#1F6E9C]' : ''}`}
             >
               <span className="relative">
                 <CallerAvatar address={call.caller} size={40} />

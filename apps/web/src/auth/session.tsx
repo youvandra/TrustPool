@@ -86,7 +86,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       appId={PRIVY_APP_ID}
       config={{
         loginMethods: ['email', 'google', 'wallet'],
-        appearance: { theme: 'light', accentColor: '#12212A', logo: '/brand/mark.svg', landingHeader: 'Sign in to trustpool' },
+        appearance: { theme: 'light', accentColor: '#0F1D24', logo: '/brand/mark.svg', landingHeader: 'Sign in to trustpool' },
         embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } },
         defaultChain: monadTestnet,
         supportedChains: [monadTestnet],
