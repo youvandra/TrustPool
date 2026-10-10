@@ -14,6 +14,7 @@ export interface TokenInfo {
 export interface At {
   at: number
   tx: string
+  block?: bigint
 }
 
 /**
@@ -72,12 +73,12 @@ export class EventWriter {
     this.ensureCaller(c.caller, e.at)
     this.db
       .query(
-        `INSERT OR IGNORE INTO calls (id, caller, token, adapter, mon_in_wei, tokens_wei, mon_in, tokens, opened_at, unlock_at, notice, state, thesis, open_tx)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Locked', ?, ?)`,
+        `INSERT OR IGNORE INTO calls (id, caller, token, adapter, mon_in_wei, tokens_wei, mon_in, tokens, opened_at, unlock_at, notice, state, thesis, open_tx, open_block)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Locked', ?, ?, ?)`,
       )
       .run(
         Number(c.id), c.caller, c.token, c.adapter, c.monIn.toString(), c.tokens.toString(), mon(c.monIn),
-        amount(c.tokens, decimals), e.at, ms(c.unlockAt), ms(c.notice), c.thesis, e.tx,
+        amount(c.tokens, decimals), e.at, ms(c.unlockAt), ms(c.notice), c.thesis, e.tx, e.block === undefined ? null : Number(e.block),
       )
     this.db.query('UPDATE callers SET open = open + 1, last_active = ?, withdraw_ready_at = NULL WHERE address = ?').run(e.at, c.caller)
     this.alert('call_opened', Number(c.id), e.at)

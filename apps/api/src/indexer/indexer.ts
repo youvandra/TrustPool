@@ -149,7 +149,7 @@ export class Indexer {
 
     this.db.transaction(() => {
       tokens.forEach((t) => this.writer.upsertToken(t))
-      for (const l of sorted) this.applyOne(l, { at: times.get(l.blockNumber)!, tx: l.transactionHash })
+      for (const l of sorted) this.applyOne(l, { at: times.get(l.blockNumber)!, tx: l.transactionHash, block: l.blockNumber })
       meta.set(this.db, 'cursor', to)
     })()
   }

@@ -5,6 +5,7 @@ import { HTTPException } from 'hono/http-exception'
 import { logger } from 'hono/logger'
 import { secureHeaders } from 'hono/secure-headers'
 import { isAddress } from 'viem'
+import type { EarlyBuyerReport } from '../indexer/earlyBuyers'
 import type { IndexerStatus } from '../indexer/indexer'
 import { log } from '../log'
 import type { Store } from '../store/types'
@@ -16,6 +17,8 @@ export interface AppDeps {
   corsOrigins?: string[]
   /** Present in chain mode; reported by /health. */
   indexer?: () => IndexerStatus
+  /** Present in chain mode: wallets that received a call's token just before it opened. */
+  earlyBuyers?: (callId: number) => Promise<EarlyBuyerReport | undefined>
   /** Request log lines; off in tests. */
   requestLog?: boolean
 }
@@ -27,7 +30,7 @@ const MAX_PAGE = 500
  * The HTTP surface. Route shapes are fixed: apps/web consumes them (VITE_DATA=api).
  * Public reads need no account; everything under /me needs a verified user.
  */
-export function createApp({ store, privy, corsOrigins = ['*'], indexer, requestLog = true }: AppDeps) {
+export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuyers, requestLog = true }: AppDeps) {
   const app = new Hono<AuthEnv>().basePath('/api')
   if (requestLog) app.use('*', logger())
   app.use('*', secureHeaders())
@@ -66,6 +69,14 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, requestL
     const id = intParam(c.req.param('id'))
     const call = store.getCall(id)
     return call ? c.json(call) : c.json({ error: 'not found' }, 404)
+  })
+
+  app.get('/calls/:id/early-buyers', async (c) => {
+    const id = intParam(c.req.param('id'))
+    if (!earlyBuyers) throw new HTTPException(501, { message: 'early buyers need chain mode' })
+    if (!store.getCall(id)) return c.json({ error: 'not found' }, 404)
+    const report = await earlyBuyers(id)
+    return report ? c.json(report) : c.json({ error: 'this call was indexed before block numbers were kept' }, 404)
   })
 
   app.get('/callers', (c) => c.json(store.listCallers()))

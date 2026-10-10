@@ -24,6 +24,8 @@ export interface ChainConfig {
   maxBlockRange: number
   pollMs: number
   priceSampleMs: number
+  /** Blocks before an open that the early-buyer check scans (~30 min of Monad blocks). */
+  earlyBuyerWindow: number
 }
 
 type Env = Record<string, string | undefined>
@@ -64,6 +66,7 @@ export function loadConfig(env: Env = process.env): Config {
       maxBlockRange: int(env.MAX_BLOCK_RANGE, 100),
       pollMs: int(env.POLL_MS, chainId === 31337 ? 1_000 : 2_000),
       priceSampleMs: int(env.PRICE_SAMPLE_MS, 5 * 60_000),
+      earlyBuyerWindow: int(env.EARLY_BUYER_WINDOW_BLOCKS, 4_500),
     }
   }
   return cfg
