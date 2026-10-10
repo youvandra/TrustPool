@@ -1,8 +1,9 @@
 import { PrivyProvider, usePrivy, useWallets } from '@privy-io/react-auth'
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { createWalletClient, custom, getAddress, type WalletClient } from 'viem'
+import { createWalletClient, custom, getAddress, http, type WalletClient } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { DEMO_ME } from '@trustpool/core'
-import { chain } from '@/lib/chain'
+import { chain, CHAIN_ID } from '@/lib/chain'
 import { setAuth } from '@/lib/data'
 
 /**
@@ -12,7 +13,7 @@ import { setAuth } from '@/lib/data'
  * so every screen can be shown. Pages only ever call useSession().
  */
 export interface Session {
-  mode: 'privy' | 'demo'
+  mode: 'privy' | 'local' | 'demo'
   ready: boolean
   authenticated: boolean
   address?: string
@@ -100,7 +101,36 @@ function DemoSession({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 
+/**
+ * Local development only: signs with a private key from VITE_DEV_WALLET_KEY (an anvil
+ * account), so the whole transaction flow runs without Privy. Refused on any chain but anvil.
+ */
+const DEV_KEY = import.meta.env.VITE_DEV_WALLET_KEY as `0x${string}` | undefined
+const LOCAL = !!DEV_KEY && CHAIN_ID === 31337
+
+function LocalWalletSession({ children }: { children: ReactNode }) {
+  const account = useMemo(() => privateKeyToAccount(DEV_KEY!), [])
+  const [on, setOn] = useState(true)
+  useEffect(() => setAuth(undefined), [])
+  const value = useMemo<Session>(
+    () => ({
+      mode: 'local',
+      ready: true,
+      authenticated: on,
+      address: on ? account.address : undefined,
+      label: on ? `anvil ${account.address.slice(0, 6)}…` : undefined,
+      login: () => setOn(true),
+      logout: () => setOn(false),
+      walletClient: async () => createWalletClient({ account, chain, transport: http(chain.rpcUrls.default.http[0]) }),
+    }),
+    [on, account],
+  )
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
+  if (DEV_KEY && !LOCAL) console.warn('VITE_DEV_WALLET_KEY is ignored outside anvil (VITE_CHAIN_ID=31337)')
+  if (LOCAL) return <LocalWalletSession>{children}</LocalWalletSession>
   if (!PRIVY_APP_ID) return <DemoSession>{children}</DemoSession>
   return (
     <PrivyProvider
