@@ -125,4 +125,13 @@ export const MIGRATIONS: string[] = [
     at         INTEGER NOT NULL
   );
   `,
+  `
+  -- Handles and bios, claimed by signing with the caller's wallet (see @trustpool/core profile.ts).
+  CREATE TABLE profiles (
+    address   TEXT PRIMARY KEY COLLATE NOCASE,
+    handle    TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    bio       TEXT NOT NULL,
+    signed_at INTEGER NOT NULL
+  );
+  `,
 ]

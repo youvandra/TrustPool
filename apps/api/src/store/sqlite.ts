@@ -35,6 +35,8 @@ interface CallerRow {
   sum_return_bps: number
   last_active: number
   followers: number
+  handle: string | null
+  bio: string | null
 }
 
 /** Longest sparkline served; older samples are thinned evenly. */
@@ -45,8 +47,8 @@ const CALL_SELECT = `
   FROM calls c`
 
 const CALLER_SELECT = `
-  SELECT k.*, (SELECT COUNT(*) FROM follows f WHERE f.caller = k.address) AS followers
-  FROM callers k`
+  SELECT k.*, p.handle, p.bio, (SELECT COUNT(*) FROM follows f WHERE f.caller = k.address) AS followers
+  FROM callers k LEFT JOIN profiles p ON p.address = k.address`
 
 export const shortAddress = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
 
@@ -117,7 +119,8 @@ export function sqliteStore(db: Database): Store {
       .all(r.address)
     return {
       address: r.address,
-      handle: shortAddress(r.address),
+      handle: r.handle ?? shortAddress(r.address),
+      bio: r.bio ?? undefined,
       followers: r.followers,
       joinedAt: r.first_seen,
       bond: r.bond,
@@ -170,6 +173,18 @@ export function sqliteStore(db: Database): Store {
     },
 
     listTokens,
+
+    setProfile(claim) {
+      const prev = db.query<{ signed_at: number }, [string]>('SELECT signed_at FROM profiles WHERE address = ?').get(claim.address)
+      if (prev && prev.signed_at >= claim.signedAt) return 'stale'
+      const owner = db.query<{ address: string }, [string]>('SELECT address FROM profiles WHERE handle = ?').get(claim.handle)
+      if (owner && owner.address.toLowerCase() !== claim.address.toLowerCase()) return 'taken'
+      db.query(
+        `INSERT INTO profiles (address, handle, bio, signed_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT (address) DO UPDATE SET handle = excluded.handle, bio = excluded.bio, signed_at = excluded.signed_at`,
+      ).run(claim.address, claim.handle, claim.bio, claim.signedAt)
+      return 'ok'
+    },
 
     following(user) {
       return db

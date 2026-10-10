@@ -1,4 +1,4 @@
-import type { Alert, Call, Caller, CallState, Token } from '@trustpool/core'
+import type { Alert, Call, Caller, CallState, ProfileClaim, Token } from '@trustpool/core'
 
 export interface CallFilter {
   state?: CallState[]
@@ -15,6 +15,8 @@ export interface ReadStore {
   listCallers(): Caller[]
   getCaller(address: string): Caller | undefined
   listTokens(): Token[]
+  /** Stores a verified claim. `taken`: another address has the handle. `stale`: an equal or newer claim exists. */
+  setProfile(claim: ProfileClaim): 'ok' | 'taken' | 'stale'
 }
 
 /** Per-user state, keyed by the verified user id (the Privy `sub`). */

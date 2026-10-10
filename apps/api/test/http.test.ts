@@ -104,3 +104,42 @@ describe('per-user routes, Privy auth', async () => {
     expect((await secured.request('/api/calls')).status).toBe(200)
   })
 })
+
+describe('profiles', async () => {
+  const { generatePrivateKey, privateKeyToAccount } = await import('viem/accounts')
+  const { profileMessage, CALLERS } = await import('@trustpool/core')
+  const store = demoStore()
+  const app = createApp({ store, requestLog: false })
+  const owner = CALLERS[0]!
+  const key = generatePrivateKey()
+  const account = privateKeyToAccount(key)
+
+  const put = async (address: string, handle: string, signer = account, signedAt = Date.now(), bio = 'Small caps.') => {
+    const signature = await signer.signMessage({ message: profileMessage({ address, handle, bio, signedAt }) })
+    return app.request(`/api/callers/${address}/profile`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ handle, bio, signedAt, signature }),
+    })
+  }
+
+  test('the wallet that signs names itself', async () => {
+    expect((await put(account.address, 'new_caller')).status).toBe(204)
+  })
+
+  test('someone else cannot name an address', async () => {
+    expect((await put(owner.address, 'hijack')).status).toBe(401)
+  })
+
+  test('a handle in use is refused, a bad one is a 400, an old signature is refused', async () => {
+    expect((await put(account.address, owner.handle!)).status).toBe(409)
+    expect((await put(account.address, 'No Spaces')).status).toBe(400)
+    expect((await put(account.address, 'later', account, Date.now() - 11 * 60_000)).status).toBe(400)
+  })
+
+  test('an older claim cannot overwrite a newer one', async () => {
+    const t = Date.now()
+    expect((await put(account.address, 'second', account, t)).status).toBe(204)
+    expect((await put(account.address, 'first', account, t - 1000)).status).toBe(409)
+  })
+})
