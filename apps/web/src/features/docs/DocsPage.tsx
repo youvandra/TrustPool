@@ -10,6 +10,7 @@ import { useLoad, useTitle } from '@/lib/hooks'
 
 const SECTIONS = [
   { id: 'overview', label: 'Overview' },
+  { id: 'monad', label: 'Why Monad' },
   { id: 'followers', label: 'For followers' },
   { id: 'callers', label: 'For callers' },
   { id: 'rules', label: 'Rules' },
@@ -185,6 +186,14 @@ export default function DocsPage() {
                 A caller buys a token with their own MON through the trustpool contract. The position is locked, every exit is announced before it can happen,
                 and every result stays on their record. Nothing is pooled: followers buy on their own.
               </p>
+            </Section>
+
+            <Section id="monad" title="Why Monad">
+              <ul className="list-disc space-y-2 pl-5 marker:text-ink-3">
+                <li>Cheap, fast blocks make it practical to settle every call on chain.</li>
+                <li>Open calls are priced every few minutes, and exit notices can be minutes rather than days.</li>
+                <li>Swaps are real Uniswap v4 swaps on Monad testnet, on two demo tokens and pools we seeded.</li>
+              </ul>
             </Section>
 
             <Section id="followers" title="For followers">
