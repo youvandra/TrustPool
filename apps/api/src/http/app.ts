@@ -10,6 +10,7 @@ import type { IndexerStatus } from '../indexer/indexer'
 import { log } from '../log'
 import type { Store } from '../store/types'
 import { auth, type AuthEnv } from './auth'
+import { rateLimit, type RateLimitOptions } from './rateLimit'
 
 export interface AppDeps {
   store: Store
@@ -21,6 +22,8 @@ export interface AppDeps {
   earlyBuyers?: (callId: number) => Promise<EarlyBuyerReport | undefined>
   /** Checks a wallet signature. Chain mode passes the RPC client's, which also accepts smart wallets. */
   verifySignature?: (p: { address: `0x${string}`; message: string; signature: Hex }) => Promise<boolean>
+  /** Per-IP limits; omit to turn limiting off (tests). */
+  limits?: { read: RateLimitOptions; write: RateLimitOptions }
   /** Request log lines; off in tests. */
   requestLog?: boolean
 }
@@ -32,11 +35,17 @@ const MAX_PAGE = 500
  * The HTTP surface. Route shapes are fixed: apps/web consumes them (VITE_DATA=api).
  * Public reads need no account; everything under /me needs a verified user.
  */
-export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuyers, verifySignature = verifyMessage, requestLog = true }: AppDeps) {
+export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuyers, verifySignature = verifyMessage, limits, requestLog = true }: AppDeps) {
   const app = new Hono<AuthEnv>().basePath('/api')
   if (requestLog) app.use('*', logger())
   app.use('*', secureHeaders())
   app.use('*', cors({ origin: corsOrigins.includes('*') ? '*' : corsOrigins, allowHeaders: ['Authorization', 'Content-Type', 'X-Demo-User'] }))
+
+  if (limits) {
+    const read = rateLimit(limits.read)
+    const write = rateLimit(limits.write)
+    app.use('*', (c, next) => (c.req.method === 'GET' || c.req.method === 'OPTIONS' ? read(c, next) : write(c, next)))
+  }
 
   app.onError((err, c) => {
     if (err instanceof HTTPException) return c.json({ error: err.message }, err.status)

@@ -40,6 +40,7 @@ if (cfg.chain) {
     indexer: () => indexer.status(),
     earlyBuyers: (id) => early.report(id),
     verifySignature: (p) => client.verifyMessage(p),
+    limits: cfg.limits,
   })
   shutdown = async () => {
     indexer.stop()
@@ -47,7 +48,7 @@ if (cfg.chain) {
     await database.close()
   }
 } else {
-  app = createApp({ store: demoStore(), privy: cfg.privy, corsOrigins: cfg.corsOrigins })
+  app = createApp({ store: demoStore(), privy: cfg.privy, corsOrigins: cfg.corsOrigins, limits: cfg.limits })
 }
 
 if (!cfg.privy) log.warn('no Privy keys: /me routes trust X-Demo-User. Local use only.')

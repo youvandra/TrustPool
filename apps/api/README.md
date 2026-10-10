@@ -50,6 +50,12 @@ drizzle/              generated SQL migrations; never edit one that has shipped
   `watches`, `alerts` and `profiles` cannot.
 - **Record = contract.** The e2e test compares every caller's record with `recordOf` on chain.
 
+## Limits
+
+Token bucket per client IP and per instance: reads (GET) 120 burst / 20 per second,
+writes 20 burst / 2 per second, answering 429 with `Retry-After`. Set `TRUST_PROXY=1`
+behind a proxy you control so the client IP comes from `X-Forwarded-For`.
+
 ## Routes
 
 Public: `GET /api/health`, `/calls?state=&caller=&limit=&offset=`, `/calls/:id`, `/callers`,
