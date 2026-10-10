@@ -62,6 +62,7 @@ npm install
 npm run dev                  # http://localhost:5280, demo data and demo sign-in
 npm run dev:api              # optional Bun API on :8787 (with VITE_DATA=api)
 npm test                     # contracts (forge) and API (bun) tests
+npm run test:e2e             # browser test of a whole call on a local chain
 npm run typecheck
 ```
 
@@ -71,14 +72,14 @@ Privy: email, Google or a wallet. Without it the app offers a demo sign-in.
 ### Full stack on a local chain
 
 ```bash
-anvil
-cd contracts
-forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --private-key <anvil key 0>
-forge script script/SeedLocal.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
-cd .. && npm run sync:contracts
-DATA=chain CHAIN_ID=31337 DATABASE_URL=pglite://data/dev npm run dev:api
-VITE_DATA=api VITE_CHAIN_ID=31337 npm run dev
+npm run dev:local                          # anvil + contracts + API + web, one command
+node scripts/local-stack.mjs warp 3d       # move the chain past a lock or notice
+npm run test:e2e                           # the same stack, driven by Playwright
 ```
+
+Open http://127.0.0.1:5290/app. The web app signs with an anvil key (a new caller, no
+bond yet), so every button sends a real transaction; no Privy app needed. Needs foundry
+and bun on PATH.
 
 ### Monad testnet
 
