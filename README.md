@@ -7,7 +7,7 @@ sale is announced publicly hours ahead, and every result, losses included, stays
 caller's record. Followers buy on their own; the contract only holds the caller's position.
 
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.28-363636)](contracts)
-[![Foundry](https://img.shields.io/badge/Foundry-55%20tests%20%2B%20invariants-2f855a)](#testing)
+[![Foundry](https://img.shields.io/badge/Foundry-54%20tests%20%2B%20invariants-2f855a)](#testing)
 [![Monad testnet](https://img.shields.io/badge/Monad%20testnet-10143-6E54FF)](https://testnet.monadscan.com/address/0x98eee74eBcCe4d109B8eA7D653A594435503f0Ab)
 [![Uniswap v4](https://img.shields.io/badge/Uniswap-v4-FF007A)](contracts/src/adapters/UniswapV4Adapter.sol)
 [![Bun](https://img.shields.io/badge/Bun-Hono%20API-000000)](apps/api)
@@ -219,7 +219,7 @@ docs/                         product.md, design.md, writeup.md
 ## Testing
 
 ```bash
-npm test             # forge (55 tests + invariants) and API (42 tests)
+npm test             # forge (54 tests + invariants) and API (42 tests)
 npm run test:e2e     # browser drives a whole call on a local chain
 npm run typecheck
 ```
