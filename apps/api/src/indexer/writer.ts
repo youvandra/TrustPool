@@ -4,6 +4,9 @@ import type { Executor } from '../db/client'
 import { callers, calls, slashes, tokens } from '../db/schema'
 import { amount, mon, ms } from './units'
 
+/** Postgres channel that carries every new alert, as JSON: LiveAlert. */
+export const ALERT_CHANNEL = 'trustpool_alerts'
+
 export interface TokenInfo {
   address: string
   symbol: string
@@ -173,16 +176,23 @@ export class EventWriter {
   /**
    * One alert per follower of the caller and per watcher of the call. A user who both
    * follows and watches gets one. The unique key makes a replayed event harmless.
+   * Each new alert is announced on ALERT_CHANNEL; Postgres delivers it only if the
+   * surrounding transaction commits, so a rolled-back range never reaches a browser.
    */
   private async alert(kind: AlertKind, callId: number, at: number) {
     await this.db.execute(sql`
-      INSERT INTO alerts (user_id, kind, call_id, at)
-      SELECT user_id, ${kind}, ${callId}, ${at} FROM (
-        SELECT f.user_id FROM follows f JOIN calls c ON c.caller = f.caller WHERE c.id = ${callId}
-        UNION
-        SELECT w.user_id FROM watches w WHERE w.call_id = ${callId}
-      ) AS recipients
-      ON CONFLICT ON CONSTRAINT alerts_once DO NOTHING`)
+      WITH inserted AS (
+        INSERT INTO alerts (user_id, kind, call_id, at)
+        SELECT user_id, ${kind}, ${callId}, ${at} FROM (
+          SELECT f.user_id FROM follows f JOIN calls c ON c.caller = f.caller WHERE c.id = ${callId}
+          UNION
+          SELECT w.user_id FROM watches w WHERE w.call_id = ${callId}
+        ) AS recipients
+        ON CONFLICT ON CONSTRAINT alerts_once DO NOTHING
+        RETURNING id, user_id, kind, call_id, at
+      )
+      SELECT pg_notify(${ALERT_CHANNEL}, json_build_object('id', id::text, 'userId', user_id, 'kind', kind, 'callId', call_id, 'at', at)::text)
+      FROM inserted`)
   }
 
   private async ensureCaller(address: string, at: number) {

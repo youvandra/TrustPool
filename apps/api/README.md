@@ -65,6 +65,12 @@ Per user (`Authorization: Bearer <Privy access token>`): `GET /me/alerts`,
 `POST /me/alerts/read {ids}`, `GET /me/following`, `PUT|DELETE /me/following/:address`,
 `GET /me/watching`, `PUT|DELETE /me/watching/:id`.
 
+Live: `GET /me/stream` is a server-sent event stream (`ready`, then `alert` per new alert,
+`ping` every 25 s). Read it with fetch so the access token travels in a header. The
+indexer announces each alert with `pg_notify` inside its transaction, and every instance
+`LISTEN`s, so a browser on any instance hears an alert the moment its block range commits,
+and never hears one from a range that rolled back.
+
 Alerts are written by the indexer to every follower of the caller and every watcher of the
 call: `call_opened`, `exit_announced`, `exit_executable` (by chain time), `call_settled`,
 `call_released`, `call_stale`.

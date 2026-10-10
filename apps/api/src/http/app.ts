@@ -4,10 +4,12 @@ import { bodyLimit } from 'hono/body-limit'
 import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
 import { logger } from 'hono/logger'
+import { streamSSE } from 'hono/streaming'
 import { secureHeaders } from 'hono/secure-headers'
 import { getAddress, isAddress, verifyMessage, type Hex } from 'viem'
 import type { EarlyBuyerReport } from '../indexer/earlyBuyers'
 import type { IndexerStatus } from '../indexer/indexer'
+import type { AlertHub } from '../live/hub'
 import { log } from '../log'
 import type { Store } from '../store/types'
 import { auth, type AuthEnv } from './auth'
@@ -23,6 +25,10 @@ export interface AppDeps {
   earlyBuyers?: (callId: number) => Promise<EarlyBuyerReport | undefined>
   /** Checks a wallet signature. Chain mode passes the RPC client's, which also accepts smart wallets. */
   verifySignature?: (p: { address: `0x${string}`; message: string; signature: Hex }) => Promise<boolean>
+  /** Live alerts; without it /me/stream only sends heartbeats (demo mode). */
+  hub?: AlertHub
+  /** Seconds between SSE heartbeats, so proxies keep the stream open. */
+  heartbeatSec?: number
   /** Per-IP limits; omit to turn limiting off (tests). */
   limits?: { read: RateLimitOptions; write: RateLimitOptions }
   /** Request log lines; off in tests. */
@@ -39,7 +45,7 @@ const MAX_WATCHES = 500
  * The HTTP surface. Route shapes are fixed: apps/web consumes them (VITE_DATA=api).
  * Public reads need no account; everything under /me needs a verified user.
  */
-export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuyers, verifySignature = verifyMessage, limits, requestLog = true }: AppDeps) {
+export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuyers, verifySignature = verifyMessage, limits, hub, heartbeatSec = 25, requestLog = true }: AppDeps) {
   const app = new Hono<AuthEnv>().basePath('/api')
   if (requestLog) app.use('*', logger())
   app.use('*', secureHeaders())
@@ -143,6 +149,25 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuy
     await store.markRead(c.var.user, body.ids as string[])
     return c.body(null, 204)
   })
+
+  /**
+   * Server-sent events: `alert` for each new alert of this user, `ping` as a heartbeat.
+   * Read it with fetch (EventSource cannot send the Authorization header).
+   */
+  me.get('/stream', (c) =>
+    streamSSE(c, async (stream) => {
+      const unsubscribe = hub?.subscribe(c.var.user, (a) => {
+        void stream.writeSSE({ event: 'alert', id: a.id, data: JSON.stringify(a) })
+      })
+      stream.onAbort(() => unsubscribe?.())
+      await stream.writeSSE({ event: 'ready', data: JSON.stringify({ live: !!hub }) })
+      while (!stream.aborted) {
+        await stream.sleep(heartbeatSec * 1000)
+        if (!stream.aborted) await stream.writeSSE({ event: 'ping', data: String(Date.now()) })
+      }
+      unsubscribe?.()
+    }),
+  )
 
   me.get('/following', async (c) => c.json(await store.following(c.var.user)))
   me.put('/following/:address', async (c) => {
