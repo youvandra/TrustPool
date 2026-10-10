@@ -15,6 +15,16 @@ export interface DataSource {
   alerts(): Promise<Alert[]>
   following(): Promise<string[]>
   watching(): Promise<number[]>
+  /** Wallets that received the token just before the call opened. API source only. */
+  earlyBuyers(id: number): Promise<EarlyBuyerReport | undefined>
+}
+
+export interface EarlyBuyerReport {
+  callId: number
+  fromBlock: number
+  toBlock: number
+  buyers: { wallet: string; amount: number; firstBlock: number; transfers: number; isCaller: boolean }[]
+  note: string
 }
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
@@ -35,6 +45,7 @@ const demo: DataSource = {
   alerts: async () => wait(ALERTS),
   following: async () => wait(DEMO_FOLLOWING),
   watching: async () => wait([7, 9]),
+  earlyBuyers: async () => undefined,
 }
 
 /** Supplies the Privy access token for /me routes; set by the session. */
@@ -80,6 +91,7 @@ const api: DataSource = {
   alerts: async () => (await get<Alert[]>('/me/alerts')) ?? [],
   following: async () => (await get<string[]>('/me/following')) ?? [],
   watching: async () => (await get<number[]>('/me/watching')) ?? [],
+  earlyBuyers: (id) => get<EarlyBuyerReport>(`/calls/${id}/early-buyers`).catch(() => undefined),
 }
 
 export const source: DataSource = import.meta.env.VITE_DATA === 'api' ? api : demo
