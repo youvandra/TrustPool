@@ -1,4 +1,4 @@
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { CALLERS, CALLS, type Call } from '@trustpool/core'
 import { ArrowLink } from '@/components/ui'
@@ -38,12 +38,13 @@ const CYCLE_MS = 4200
 /** Steps through the three moments, like Kinsign's phone. Rests while the page is hidden. */
 function HeroVisual() {
   const visible = usePageVisible()
+  const still = useReducedMotion()
   const [i, setI] = useState(0)
   useEffect(() => {
-    if (!visible) return
+    if (!visible || still) return
     const id = setInterval(() => setI((n) => (n + 1) % STATES.length), CYCLE_MS)
     return () => clearInterval(id)
-  }, [visible])
+  }, [visible, still])
   return (
     <div className="relative mx-auto w-full max-w-[470px] pt-8">
       <HeroCard call={STATES[i]!} caller={CALLER} />
