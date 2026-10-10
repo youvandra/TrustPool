@@ -5,6 +5,7 @@ import { useSession } from '@/auth/session'
 import { ButtonLink, Toaster, Wordmark } from '@/components/ui'
 import { source } from '@/lib/data'
 import { useLoad } from '@/lib/hooks'
+import { useLiveAlerts, useLiveVersion } from '@/lib/live'
 import { useServerState, useStore } from '@/lib/store'
 import Account from './Account'
 import { MOBILE_NAV, NAV } from './nav'
@@ -12,7 +13,8 @@ import { MOBILE_NAV, NAV } from './nav'
 function useUnread() {
   const read = useStore((s) => s.read)
   const { authenticated } = useSession()
-  const alerts = useLoad(() => (authenticated ? source.alerts().catch(() => []) : Promise.resolve([])), [authenticated])
+  const live = useLiveVersion()
+  const alerts = useLoad(() => (authenticated ? source.alerts().catch(() => []) : Promise.resolve([])), [authenticated, live])
   return authenticated && alerts ? alerts.filter((a) => !a.read && !read.includes(a.id)).length : 0
 }
 
@@ -155,7 +157,9 @@ function Tab({ to, label, icon: Icon, end }: (typeof MOBILE_NAV)[number]) {
 
 /** The product: sidebar on desktop, top bar plus bottom tabs on phones. */
 export default function AppShell() {
-  useServerState(useSession().authenticated)
+  const { authenticated } = useSession()
+  useServerState(authenticated)
+  useLiveAlerts(authenticated)
   return (
     <div className="min-h-screen bg-bg">
       <Sidebar />

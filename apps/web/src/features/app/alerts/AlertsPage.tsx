@@ -5,6 +5,7 @@ import { Button, Card, CallerAvatar, Empty, Skeleton, TokenIcon } from '@/compon
 import { ago } from '@/lib/format'
 import { source } from '@/lib/data'
 import { useLoad, useTitle } from '@/lib/hooks'
+import { useLiveVersion } from '@/lib/live'
 import { actions, useStore } from '@/lib/store'
 import RequireAuth from '../shell/RequireAuth'
 
@@ -23,7 +24,7 @@ async function load() {
 }
 
 function List() {
-  const data = useLoad(load, [])
+  const data = useLoad(load, [useLiveVersion()])
   const read = useStore((s) => s.read)
   if (!data) return <Skeleton className="h-[360px] rounded-2xl" />
   if (!data.alerts.length) return <Card><Empty icon={<Bell size={18} />} title="Nothing yet" body="Follow callers or watch calls. Exits show up here first." /></Card>

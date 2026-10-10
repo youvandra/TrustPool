@@ -54,7 +54,7 @@ export function setAuth(getter: typeof authToken) {
   authToken = getter
 }
 
-async function headers(): Promise<HeadersInit> {
+export async function headers(): Promise<HeadersInit> {
   const token = await authToken?.()
   return token ? { authorization: `Bearer ${token}` } : {}
 }
