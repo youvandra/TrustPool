@@ -30,4 +30,5 @@ export const NAV: { group: string; items: NavItem[] }[] = [
   },
 ]
 
-export const MOBILE_NAV: NavItem[] = NAV.flatMap((g) => g.items).filter((i) => i.to !== '/docs')
+/** Alerts and Docs stay off the bottom bar: the top bar already has the bell. */
+export const MOBILE_NAV: NavItem[] = NAV.flatMap((g) => g.items).filter((i) => i.to !== '/docs' && i.to !== '/app/alerts')

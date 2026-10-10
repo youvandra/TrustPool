@@ -37,13 +37,17 @@ function Sidebar() {
                     end={it.end}
                     className={({ isActive }) =>
                       `group flex h-9 items-center gap-2.5 rounded-lg px-3 text-[14px] transition-colors ${
-                        isActive ? 'bg-accent-fill font-medium text-accent-deep [&_svg]:text-accent' : 'text-ink-2 hover:bg-ink/[0.04] hover:text-ink [&_svg]:text-ink-3'
+                        isActive
+                          ? 'bg-accent-fill font-medium text-accent-deep [&_svg]:text-accent'
+                          : 'text-ink-2 hover:bg-ink/[0.04] hover:text-ink [&_svg]:text-ink-3'
                       }`
                     }
                   >
                     <it.icon size={17} strokeWidth={1.9} />
                     <span className="flex-1">{it.label}</span>
-                    {it.label === 'Alerts' && unread > 0 && <span className="num grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1.5 text-[11px] text-white">{unread}</span>}
+                    {it.label === 'Alerts' && unread > 0 && (
+                      <span className="num grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1.5 text-[11px] text-white">{unread}</span>
+                    )}
                   </NavLink>
                 </li>
               ))}
@@ -112,7 +116,11 @@ function Topbar() {
             />
           </label>
         </form>
-        <Link to="/app/alerts" className="relative ml-auto grid h-10 w-10 place-items-center rounded-xl text-ink-2 hover:bg-ink/[0.04] md:ml-0" aria-label="Alerts">
+        <Link
+          to="/app/alerts"
+          className="relative ml-auto grid h-10 w-10 place-items-center rounded-xl text-ink-2 hover:bg-ink/[0.04] md:ml-0"
+          aria-label="Alerts"
+        >
           <Bell size={18} />
           {unread > 0 && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-accent ring-2 ring-surface" />}
         </Link>
@@ -126,9 +134,12 @@ function Topbar() {
 
 function MobileTabs() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden" aria-label="App">
-      <ul className="grid grid-cols-6">
-        {MOBILE_NAV.slice(0, 3).map((it) => (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+      aria-label="App"
+    >
+      <ul className="grid grid-cols-5">
+        {MOBILE_NAV.slice(0, 2).map((it) => (
           <Tab key={it.to} {...it} />
         ))}
         <li className="grid place-items-center">
@@ -136,7 +147,7 @@ function MobileTabs() {
             <Plus size={20} />
           </Link>
         </li>
-        {MOBILE_NAV.slice(3).map((it) => (
+        {MOBILE_NAV.slice(2).map((it) => (
           <Tab key={it.to} {...it} />
         ))}
       </ul>
@@ -147,7 +158,13 @@ function MobileTabs() {
 function Tab({ to, label, icon: Icon, end }: (typeof MOBILE_NAV)[number]) {
   return (
     <li>
-      <NavLink to={to} end={end} className={({ isActive }) => `flex h-16 flex-col items-center justify-center gap-1 text-[10.5px] ${isActive ? 'font-medium text-accent' : 'text-ink-3'}`}>
+      <NavLink
+        to={to}
+        end={end}
+        className={({ isActive }) =>
+          `flex h-16 flex-col items-center justify-center gap-1 text-[10.5px] ${isActive ? 'font-medium text-accent' : 'text-ink-3'}`
+        }
+      >
         <Icon size={19} strokeWidth={1.9} />
         {label}
       </NavLink>
