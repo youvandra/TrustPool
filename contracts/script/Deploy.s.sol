@@ -35,7 +35,7 @@ contract Deploy is Script {
         address[] tokens;
     }
 
-    function run() external returns (Deployed memory d) {
+    function run() external virtual returns (Deployed memory d) {
         uint256 startBlock = block.number;
         vm.startBroadcast();
         address me = msg.sender;
