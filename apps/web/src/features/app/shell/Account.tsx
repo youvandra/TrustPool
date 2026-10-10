@@ -12,8 +12,13 @@ export default function Account({ compact = false }: { compact?: boolean }) {
   useEffect(() => {
     if (!open) return
     const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [open])
 
   if (!s.ready) return <div className="skeleton h-10 w-full rounded-xl" />
@@ -31,6 +36,8 @@ export default function Account({ compact = false }: { compact?: boolean }) {
         onClick={() => setOpen((v) => !v)}
         className={`flex w-full items-center gap-2.5 rounded-xl text-left transition-colors hover:bg-ink/[0.04] ${compact ? 'p-1' : 'p-2'}`}
         aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="Account"
       >
         <CallerAvatar address={addr} size={compact ? 30 : 34} />
         {!compact && (
@@ -43,6 +50,7 @@ export default function Account({ compact = false }: { compact?: boolean }) {
       </button>
       {open && (
         <div
+          role="menu"
           className={`absolute z-50 w-56 rounded-xl border border-line bg-surface p-1.5 shadow-pop ${compact ? 'right-0 top-full mt-2' : 'bottom-full left-0 mb-2'}`}
         >
           <p className="px-2.5 py-2 text-[12px] text-ink-3">
@@ -50,6 +58,7 @@ export default function Account({ compact = false }: { compact?: boolean }) {
           </p>
           <button
             type="button"
+            role="menuitem"
             onClick={s.logout}
             className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13.5px] text-ink-2 hover:bg-subtle hover:text-ink"
           >

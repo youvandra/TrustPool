@@ -14,8 +14,11 @@ export default function MarketingNav() {
   const [open, setOpen] = useState(false)
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    if (open) document.addEventListener('keydown', onKey)
     return () => {
       document.body.style.overflow = ''
+      document.removeEventListener('keydown', onKey)
     }
   }, [open])
   return (
@@ -45,7 +48,7 @@ export default function MarketingNav() {
                 Launch app
               </ArrowLink>
             </div>
-            <button type="button" onClick={() => setOpen((v) => !v)} className="grid h-11 w-11 place-items-center rounded-full bg-ink text-white sm:hidden" aria-label={open ? 'Close menu' : 'Open menu'}>
+            <button type="button" onClick={() => setOpen((v) => !v)} className="grid h-11 w-11 place-items-center rounded-full bg-ink text-white sm:hidden" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open}>
               {open ? <X size={18} /> : <Menu size={18} />}
             </button>
           </div>
