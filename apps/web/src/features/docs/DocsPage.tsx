@@ -193,6 +193,7 @@ export default function DocsPage() {
                   'Browse calls without signing in.',
                   'Check the caller’s record, bond and entry price.',
                   'Watch a call to get alerted the moment its exit is announced.',
+                  'Every open, exit and result also goes to a Telegram channel.',
                 ]}
               />
             </Section>

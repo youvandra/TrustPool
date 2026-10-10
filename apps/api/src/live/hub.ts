@@ -40,12 +40,13 @@ export class AlertHub {
   }
 
   private deliver(payload: string) {
-    let a: { id: string; userId: string; kind: Alert['kind']; callId: number; at: number }
+    let a: { id: string; userId: string | null; kind: Alert['kind']; callId: number; at: number }
     try {
       a = JSON.parse(payload)
     } catch {
       return log.warn('unreadable alert notification', { payload })
     }
+    if (!a.userId) return // a broadcast, for channel feeds only
     const alert: Alert = { id: a.id, kind: a.kind, callId: a.callId, at: Number(a.at), read: false }
     for (const fn of this.listeners.get(a.userId) ?? []) fn(alert)
   }

@@ -6,6 +6,7 @@ import { EarlyBuyers } from './indexer/earlyBuyers'
 import { Indexer } from './indexer/indexer'
 import { PriceSampler } from './indexer/prices'
 import { AlertHub } from './live/hub'
+import { TelegramFeed } from './live/telegram'
 import { log } from './log'
 import { demoStore } from './store/demo'
 import { postgresStore } from './store/postgres'
@@ -34,10 +35,13 @@ if (cfg.chain) {
   })
   const hub = new AlertHub()
   await hub.start(database)
+  const store = postgresStore(database.db)
+  const telegram = cfg.telegram && new TelegramFeed(store, { ...cfg.telegram, isLeader: () => indexer.status().leader })
+  await telegram?.start(database)
   indexer.start()
   prices.start()
   app = createApp({
-    store: postgresStore(database.db),
+    store,
     privy: cfg.privy,
     corsOrigins: cfg.corsOrigins,
     indexer: () => indexer.status(),
@@ -48,6 +52,7 @@ if (cfg.chain) {
   })
   shutdown = async () => {
     await hub.close()
+    await telegram?.close()
     indexer.stop()
     prices.stop()
     await database.close()

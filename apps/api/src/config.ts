@@ -14,6 +14,8 @@ export interface Config {
   limits: { read: { burst: number; perSecond: number; trustProxy: boolean }; write: { burst: number; perSecond: number; trustProxy: boolean } }
   chain?: ChainConfig
   privy?: { appId: string; verificationKey: string }
+  /** Posts call events to one Telegram chat. Off unless both are set. */
+  telegram?: { botToken: string; chatId: string }
 }
 
 export interface ChainConfig {
@@ -58,6 +60,10 @@ export function loadConfig(env: Env = process.env): Config {
   // Without Privy, /me trusts a header: anyone could read anyone's alerts. Never in production.
   if (data === 'chain' && !cfg.privy && env.NODE_ENV === 'production' && env.ALLOW_DEMO_AUTH !== '1') {
     throw new Error('DATA=chain in production needs PRIVY_APP_ID and PRIVY_VERIFICATION_KEY (or ALLOW_DEMO_AUTH=1 for a throwaway demo)')
+  }
+
+  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    cfg.telegram = { botToken: env.TELEGRAM_BOT_TOKEN, chatId: env.TELEGRAM_CHAT_ID }
   }
 
   if (data === 'chain') {

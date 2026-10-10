@@ -104,8 +104,8 @@ trustpool turns a call into a commitment the caller pays for:
 - **Contract** holds positions and bonds, enforces every timing rule and writes the record.
 - **Adapter** is the only code that touches a DEX. Each call keeps the adapter it opened
   with, so a later admin change cannot redirect a locked position.
-- **API** indexes events into Postgres, samples prices, fans out alerts and serves the
-  app. One instance indexes at a time (advisory lock); any number can serve.
+- **API** indexes events into Postgres, samples prices, fans out alerts (in the app and
+  to a Telegram channel) and serves the app. One instance indexes at a time (advisory lock); any number can serve.
 - **Web** reads from the API and sends transactions straight to the chain.
 
 ---

@@ -4,7 +4,11 @@ import type { Executor } from '../db/client'
 import { callers, calls, slashes, tokens } from '../db/schema'
 import { amount, mon, ms } from './units'
 
-/** Postgres channel that carries every new alert, as JSON: LiveAlert. */
+/**
+ * Postgres channel that carries every new alert as JSON `{ id, userId, kind, callId, at }`.
+ * Each call event also sends one broadcast with `userId: null`, whether or not anyone
+ * follows the caller, for channel-wide feeds such as Telegram.
+ */
 export const ALERT_CHANNEL = 'trustpool_alerts'
 
 export interface TokenInfo {
@@ -197,6 +201,12 @@ export class EventWriter {
       )
       SELECT pg_notify(${ALERT_CHANNEL}, json_build_object('id', id::text, 'userId', user_id, 'kind', kind, 'callId', call_id, 'at', at)::text)
       FROM inserted`)
+    // exit_executable is re-checked every poll, so only one-off events are broadcast.
+    if (kind !== 'exit_executable') {
+      await this.db.execute(
+        sql`SELECT pg_notify(${ALERT_CHANNEL}, json_build_object('id', NULL, 'userId', NULL, 'kind', ${kind}::text, 'callId', ${callId}::int, 'at', ${at}::bigint)::text)`,
+      )
+    }
   }
 
   private async ensureCaller(address: string, at: number) {
