@@ -16,11 +16,11 @@ function Cell({ label, children, tone }: { label: string; children: React.ReactN
 
 /** The clock cell: lock time while locked, exit time once announced, the result when done. */
 export function ClockCell({ call }: { call: Call }) {
-  if (call.state === 'Locked') return <Cell label="Lock ends in">{<Countdown at={call.unlockAt} done="ended" />}</Cell>
+  if (call.state === 'Locked') return <Cell label="Lock ends in">{<Countdown at={call.unlockAt} done="ended" short />}</Cell>
   if (call.state === 'Exiting')
     return (
       <Cell label="Exit in" tone="accent">
-        <Countdown at={call.exitAt!} done="executable" />
+        <Countdown at={call.exitAt!} done="executable" short />
       </Cell>
     )
   return (
