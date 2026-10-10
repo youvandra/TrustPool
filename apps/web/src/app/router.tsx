@@ -14,6 +14,7 @@ export const routes: RouteObject[] = [
     HydrateFallback: () => <div className="min-h-screen bg-bg" />,
     children: [
       { index: true, lazy: page(() => import('@/features/landing/LandingPage')) },
+      { path: 'docs', lazy: page(() => import('@/features/docs/DocsPage')) },
       {
         path: 'app',
         element: <AppShell />,

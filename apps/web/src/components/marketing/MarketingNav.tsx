@@ -5,10 +5,8 @@ import { ArrowLink, Wordmark } from '@/components/ui'
 import { useScrolled } from '@/lib/hooks'
 
 const LINKS = [
-  { label: 'How it works', href: '#how' },
-  { label: 'Followers', href: '#followers' },
-  { label: 'Callers', href: '#callers' },
-  { label: 'Limits', href: '#limits' },
+  { label: 'How it works', to: '/#how' },
+  { label: 'Docs', to: '/docs' },
 ]
 
 export default function MarketingNav() {
@@ -32,9 +30,9 @@ export default function MarketingNav() {
             <Wordmark />
             <nav className="hidden items-center gap-1 md:flex">
               {LINKS.map((l) => (
-                <a key={l.href} href={l.href} className="rounded-full px-3 py-2 text-[14px] text-ink-2 transition-colors hover:text-ink">
+                <Link key={l.to} to={l.to} className="rounded-full px-3 py-2 text-[14px] text-ink-2 transition-colors hover:text-ink">
                   {l.label}
-                </a>
+                </Link>
               ))}
             </nav>
           </div>
@@ -57,9 +55,9 @@ export default function MarketingNav() {
         <div className="fixed inset-0 -z-10 bg-bg px-5 pt-24 sm:hidden">
           <nav className="flex flex-col">
             {LINKS.map((l) => (
-              <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="border-b border-line py-4 text-[28px] font-medium tracking-[-0.03em]">
+              <Link key={l.to} to={l.to} onClick={() => setOpen(false)} className="border-b border-line py-4 text-[28px] font-medium tracking-[-0.03em]">
                 {l.label}
-              </a>
+              </Link>
             ))}
           </nav>
           <ArrowLink to="/app" className="mt-8 w-full justify-between">

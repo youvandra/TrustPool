@@ -16,15 +16,15 @@ export default function MarketingFooter() {
         </div>
         {[
           { t: 'Product', l: [['Launch app', '/app'], ['Calls', '/app/calls'], ['Callers', '/app/callers'], ['Open a call', '/app/new']] },
-          { t: 'Learn', l: [['How it works', '/#how'], ['Known limits', '/#limits']] },
-          { t: 'Build', l: [['Source code', REPO]] },
+          { t: 'Learn', l: [['How it works', '/#how'], ['Docs', '/docs'], ['Known limits', '/docs#limits']] },
+          { t: 'Build', l: [['Contracts', '/docs#contracts'], ['API reference', '/api/docs'], ['Source code', REPO]] },
         ].map((col) => (
           <div key={col.t}>
             <p className="eyebrow text-ink-3">{col.t}</p>
             <ul className="mt-4 space-y-2.5">
               {col.l.map(([label, to]) => (
                 <li key={label}>
-                  {to!.startsWith('http') ? (
+                  {to!.startsWith('http') || to!.startsWith('/api') ? (
                     <a href={to} target="_blank" rel="noopener" className="text-[14px] text-ink-2 hover:text-ink">
                       {label}
                     </a>

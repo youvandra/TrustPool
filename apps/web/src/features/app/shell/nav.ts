@@ -1,4 +1,4 @@
-import { Bell, Compass, Home, LayoutGrid, Users, type LucideIcon } from 'lucide-react'
+import { Bell, BookOpen, Compass, Home, LayoutGrid, Users, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   label: string
@@ -24,6 +24,10 @@ export const NAV: { group: string; items: NavItem[] }[] = [
       { label: 'Alerts', to: '/app/alerts', icon: Bell, auth: true },
     ],
   },
+  {
+    group: 'Learn',
+    items: [{ label: 'Docs', to: '/docs', icon: BookOpen }],
+  },
 ]
 
-export const MOBILE_NAV: NavItem[] = NAV.flatMap((g) => g.items)
+export const MOBILE_NAV: NavItem[] = NAV.flatMap((g) => g.items).filter((i) => i.to !== '/docs')
