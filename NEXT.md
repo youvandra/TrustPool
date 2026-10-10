@@ -6,25 +6,30 @@ then `docs/design.md`. Update the "State" section whenever something lands.
 **Deadline: 13 Oct 2026, 23:59 ET** (Monad Metropolis). Everything below is
 ordered so that a submittable product exists as early as possible.
 
-## State (10 Oct 2026)
+## State (10 Oct 2026, evening)
+
+The front end was rebuilt as a product on 10 Oct (owner's call: "make it feel
+like a product, light theme, Privy, a light backend; contracts come after").
 
 | Part | Status |
 | --- | --- |
-| `contracts/src/TrustPool.sol` | Done for MVP: bond, open (buy + lock), announce, execute, release, slash, allow list. 14 Foundry tests green. |
-| `contracts/src/interfaces/ISwapAdapter.sol` | Interface only. |
-| `contracts/src/mocks/*` | Mock DEX (fixed price, can freeze a token) and mock ERC-20 with optional transfer fee. |
-| `contracts/script/DeployLocal.s.sol` | Anvil deploy on the mock DEX. |
-| Real DEX adapter | **Missing.** Task 2. |
-| Testnet deploy | **Missing.** Task 3. |
-| `apps/web` | Landing, feed, call page, caller profile, open-call form. Runs on demo data (`lib/data.ts`). Builds clean, light + dark, no horizontal scroll at 375px. |
-| Chain reads / wallet | **Missing.** Tasks 4 and 5. |
-| Submission material | **Missing.** Task 8. |
+| `contracts/` | MVP contract done, 14 Foundry tests green. Untouched since the morning. |
+| `packages/core` | Shared types (mirror the contract) and the demo data set. Records are derived from calls, never hand-written. |
+| `apps/api` | Bun + Hono read API over the demo set: `/api/calls`, `/calls/:id`, `/callers`, `/callers/:address`, `/tokens`, `/me/alerts`, `/me/following`, `/health`. No auth, no persistence yet. |
+| `apps/web` | Landing at `/`, app at `/app` (Home, Calls, Call, Callers, Caller, Portfolio, Alerts, Open-a-call wizard). Light only. Builds clean, no horizontal scroll at 375px. |
+| Auth | `src/auth/session.tsx`: Privy when `VITE_PRIVY_APP_ID` is set (email, Google, wallet; embedded wallet for users without one; Monad testnet), otherwise a demo login as caller `olu`. Pages only use `useSession()`. |
+| Data | `src/lib/data.ts`: `VITE_DATA=demo` (default, in-browser) or `api` (Bun API via the Vite proxy). |
+| User state | `src/lib/store.ts`: follows, watches, read alerts, demo-announced exits, in localStorage. Moves to the API with accounts. |
+| Real DEX adapter, deploy, chain reads, transactions | **Missing.** Tasks 1 to 5. Every button that would send a transaction is wired to a demo action or a toast. |
 
 ## Run
 
 ```bash
+git submodule update --init
 npm install
-npm run dev              # web on http://localhost:5280
+cp apps/web/.env.example apps/web/.env   # optional: VITE_PRIVY_APP_ID, VITE_DATA
+npm run dev            # web, http://localhost:5280
+npm run dev:api        # Bun API, http://localhost:8787 (needed only with VITE_DATA=api)
 npm run typecheck
 npm run build
 cd contracts && forge test
@@ -68,26 +73,33 @@ cd contracts && forge script script/DeployLocal.s.sol --rpc-url http://127.0.0.1
   and say so.
 - Write the addresses to `apps/web/src/lib/chain.ts` (create it) and to the README.
 
-### 4. Chain data source
+### 4. Indexer and chain reads (backend)
 
-- Add `viem` to `apps/web`. Create `chainSource: DataSource` next to
-  `demoSource` in `lib/data.ts`, and pick between them with `VITE_DATA=chain|demo`.
-- `listCalls`: read `callCount()`, then `getCall(i)` (multicall). Token
-  symbol/name via ERC-20 reads, cached.
-- `getCaller`: `records(addr)`, `bonds(addr)`, `callsOf(addr)`; slash history
-  from `Slashed` events.
-- Units: contract uses wei and seconds; `lib/types.ts` uses MON and ms. Convert in
-  the source, nowhere else.
-- Keep `DemoNote` showing whenever `source.live` is false.
+- In `apps/api`: follow TrustPool events (`CallOpened`, `ExitAnnounced`,
+  `CallSettled`, `CallReleased`, `Slashed`, `BondPosted`) with viem into
+  `bun:sqlite`, and answer the existing routes from it. Keep the route shapes:
+  the web app already consumes them (`VITE_DATA=api`).
+- Price series for the sparklines: sample the pair price every few minutes per
+  open call. Until then the series is illustrative and the call page says so.
+- Alerts: when `ExitAnnounced` lands, write an alert for every watcher and
+  follower. Watches and follows move from `lib/store.ts` into the API, keyed by
+  the Privy user (verify the Privy access token server side).
+- Units: contract is wei and seconds; `@trustpool/core` types are MON and ms.
+  Convert in the indexer, nowhere else.
 
-### 5. Wallet and caller actions
+### 5. Transactions from the web app
 
-- Injected wallet via viem (or wagmi if it saves time). Chain switch to Monad.
-- Wire `OpenCallPage`: `postBond` if the bond is short, then `openCall`. Compute
-  `minOut` from a quote with a slippage setting; never send 0 on a real DEX.
-- A caller console (e.g. `/me`): bond, post/withdraw, own open calls with
-  "Announce exit", "Execute exit" (after `exitAt`), "Release tokens" (after grace).
-- Every button that sends a transaction says exactly what it locks or spends.
+- Create a Privy app (dashboard.privy.io), set `VITE_PRIVY_APP_ID`. Add Monad
+  testnet to the app's allowed chains.
+- With the Privy wallet (`useWallets()` to a viem wallet client), wire:
+  - `/app/new` "Buy and lock": `postBond` if the bond is short, then `openCall`.
+    Compute `minOut` from a quote with a slippage setting; never send 0 on a real DEX.
+  - `/app/portfolio` "Announce exit" to `announceExit`; "Sell and settle" to
+    `executeExit` after `exitAt`; add "Release tokens" after `exitAt + releaseGrace`.
+  - Bond "Add" / "Withdraw" to `postBond`, `requestBondWithdraw`, `withdrawBond`.
+- Replace the demo `actions.announce` path and the "Simulate signature" button.
+- Call page "Buy on your own": link to the DEX pair for the token (nad.fun or
+  Uniswap), opening in a new tab. Today it is a disabled placeholder.
 
 ### 6. Design question still open: losing calls that never close
 
@@ -128,9 +140,13 @@ Recommendation: (b) plus (a).
 - Product language rules in `docs/design.md` "Voice" apply to code comments and
   commit messages too.
 - Animation never gates visibility. Content must be readable at frame one; only
-  transform moves (`Reveal`, `usePageVisible`). Browsers pause animation frames
-  in hidden tabs.
+  transform moves on entrance (`Reveal`, `usePageVisible`). No `opacity: 0`
+  starts and no `AnimatePresence mode="wait"` around content. Browsers pause
+  animation frames in hidden tabs.
+- Light theme only (owner's preference). Follow `docs/design.md` for tokens,
+  components and the route map before adding a screen.
+- Browsing never needs an account; ask for sign-in only at the action that needs it.
 - A loss is shown exactly like a gain. If a change makes losses smaller, greyer
   or harder to find, it is a bug.
-- Demo data must stay internally consistent: caller records in `lib/data.ts` are
-  derived from the call list, so never hand-write a record.
+- Demo data must stay internally consistent: caller records in
+  `packages/core/src/demo.ts` are derived from the call list, so never hand-write a record.

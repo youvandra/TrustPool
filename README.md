@@ -35,10 +35,12 @@ Built on Monad for Metropolis 2026.
 ## Repository
 
 ```
-contracts/   Foundry: TrustPool.sol, swap adapter interface, mocks, tests
-apps/web/    Vite + React + Tailwind front end
-docs/        product.md (spec), design.md (brand and UI rules)
-NEXT.md      current state and the ordered task list
+contracts/      Foundry: TrustPool.sol, swap adapter interface, mocks, tests
+packages/core/  Shared types and the demo data set
+apps/api/       Bun + Hono read API
+apps/web/       Vite + React + Tailwind: landing at /, app at /app, Privy sign-in
+docs/           product.md (spec), design.md (design system and route map)
+NEXT.md         current state and the ordered task list
 ```
 
 ## Run
@@ -46,9 +48,13 @@ NEXT.md      current state and the ordered task list
 ```bash
 git submodule update --init
 npm install
-npm run dev                  # http://localhost:5280, demo data
+npm run dev                  # http://localhost:5280, demo data and demo sign-in
+npm run dev:api              # optional Bun API on :8787 (with VITE_DATA=api)
 cd contracts && forge test
 ```
+
+Set `VITE_PRIVY_APP_ID` in `apps/web/.env` (see `.env.example`) to sign in with
+Privy: email, Google or a wallet. Without it the app offers a demo sign-in.
 
 ## License
 
