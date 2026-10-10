@@ -5,8 +5,10 @@ import { Link } from 'react-router'
 import type { CallState } from '@trustpool/core'
 import { signedPct, toneOf } from '@/lib/format'
 
-export function Card({ className = '', children, as: As = 'div' }: { className?: string; children: ReactNode; as?: 'div' | 'section' }) {
-  return <As className={`rounded-2xl border border-line bg-surface shadow-card ${className}`}>{children}</As>
+/** White card. `tone="accent"` swaps the surface for the solid brand blue, for the one tile that must lead. */
+export function Card({ className = '', children, as: As = 'div', tone = 'plain' }: { className?: string; children: ReactNode; as?: 'div' | 'section'; tone?: 'plain' | 'accent' }) {
+  const t = tone === 'accent' ? 'border-accent bg-accent text-white' : 'border-line bg-surface'
+  return <As className={`rounded-2xl border shadow-card ${t} ${className}`}>{children}</As>
 }
 
 /** Section header inside a card or page: title left, optional action right. */
@@ -14,8 +16,8 @@ export function SectionHead({ title, sub, action, className = '' }: { title: Rea
   return (
     <div className={`flex items-end justify-between gap-4 ${className}`}>
       <div className="min-w-0">
-        <h2 className="text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>
-        {sub && <p className="mt-0.5 text-[13px] text-ink-3">{sub}</p>}
+        <h2 className="text-[16px] font-semibold tracking-[-0.015em]">{title}</h2>
+        {sub && <p className="mt-0.5 text-[13.5px] text-ink-3">{sub}</p>}
       </div>
       {action}
     </div>
@@ -24,17 +26,17 @@ export function SectionHead({ title, sub, action, className = '' }: { title: Rea
 
 export function SeeAll({ to, children = 'See all' }: { to: string; children?: ReactNode }) {
   return (
-    <Link to={to} className="shrink-0 text-[13px] font-medium text-ink-3 transition-colors hover:text-ink">
+    <Link to={to} className="shrink-0 text-[13px] font-medium text-accent transition-colors hover:text-accent-strong">
       {children} →
     </Link>
   )
 }
 
 const STATE: Record<CallState, { label: string; cls: string; dot: string }> = {
-  Locked: { label: 'Locked', cls: 'bg-subtle text-ink-2 ring-line', dot: '' },
-  Exiting: { label: 'Exit announced', cls: 'bg-accent-fill text-accent-deep ring-accent/20', dot: 'bg-accent animate-pulse2' },
-  Settled: { label: 'Settled', cls: 'bg-subtle text-ink-2 ring-line', dot: 'bg-ink-3' },
-  Released: { label: 'Released unsold', cls: 'bg-subtle text-ink-2 ring-line', dot: 'bg-ink-3' },
+  Locked: { label: 'Locked', cls: 'bg-ink/[0.06] text-ink ring-ink/10', dot: '' },
+  Exiting: { label: 'Exit announced', cls: 'bg-accent text-white ring-accent', dot: 'bg-white' },
+  Settled: { label: 'Settled', cls: 'bg-subtle text-ink-2 ring-line-strong', dot: 'bg-ink-3' },
+  Released: { label: 'Released unsold', cls: 'bg-loss-fill text-loss ring-loss/20', dot: 'bg-loss' },
 }
 
 /** The one pulsing thing in the product is an announced exit: the moment a follower must see. */
@@ -44,7 +46,16 @@ export function StateTag({ state, size = 'md' }: { state: CallState; size?: 'sm'
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full font-medium ring-1 ring-inset ${s.cls} ${size === 'sm' ? 'h-6 px-2 text-[11.5px]' : 'h-7 px-2.5 text-[12px]'}`}
     >
-      {state === 'Locked' ? <Lock size={11} strokeWidth={2.4} /> : <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />}
+      {state === 'Locked' ? (
+        <Lock size={11} strokeWidth={2.4} />
+      ) : state === 'Exiting' ? (
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="absolute inset-0 animate-ping rounded-full bg-white/70 motion-reduce:animate-none" />
+          <span className="relative h-1.5 w-1.5 rounded-full bg-white" />
+        </span>
+      ) : (
+        <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+      )}
       {s.label}
     </span>
   )
@@ -128,7 +139,7 @@ export function Stat({ label, value, foot, className = '' }: { label: string; va
   return (
     <div className={className}>
       <p className="text-[12.5px] text-ink-3">{label}</p>
-      <p className="num mt-1.5 text-[24px] font-medium tracking-[-0.02em]">{value}</p>
+      <p className="num mt-1.5 text-[26px] font-medium tracking-[-0.03em]">{value}</p>
       {foot && <div className="mt-1 text-[12.5px] text-ink-3">{foot}</div>}
     </div>
   )

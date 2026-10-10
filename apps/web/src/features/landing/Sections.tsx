@@ -42,15 +42,15 @@ export function Ticker() {
 
 function BondVisual() {
   return (
-    <div className="rounded-2xl border border-line bg-surface p-4 shadow-card">
+    <div className="rounded-2xl border border-line bg-subtle p-4">
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-[13px] font-semibold">
           <CallerAvatar address={CALLERS[0]!.address} size={24} /> olu
         </span>
-        <span className="rounded-full bg-accent-fill px-2 py-0.5 text-[11px] font-medium text-accent-deep">Bonded</span>
+        <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-white">Bonded</span>
       </div>
       <p className="num mt-4 text-[30px] font-medium tracking-[-0.03em]">25.00 MON</p>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-subtle">
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-line">
         <motion.div className="h-full rounded-full bg-accent" initial={{ width: '30%' }} whileInView={{ width: '100%' }} viewport={{ once: true }} transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }} />
       </div>
       <p className="mt-2 text-[12px] text-ink-3">Locked while any call is open · slashable with a public reason</p>
@@ -65,13 +65,13 @@ function LockVisual() {
   return (
     <div className="flex items-center gap-5">
       <svg width="132" height="132" viewBox="0 0 132 132" className="shrink-0 -rotate-90">
-        <circle cx="66" cy="66" r={r} fill="none" stroke="#E4EAED" strokeWidth="10" />
+        <circle cx="66" cy="66" r={r} fill="none" stroke="#DBEAF4" strokeWidth="10" />
         <motion.circle
           cx="66"
           cy="66"
           r={r}
           fill="none"
-          stroke="#12212A"
+          stroke="#1F6E9C"
           strokeWidth="10"
           strokeLinecap="round"
           strokeDasharray={len}
@@ -103,7 +103,7 @@ function ExitVisual() {
           whileInView={{ x: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.15 * i, type: 'spring', stiffness: 260, damping: 26 }}
-          className={`flex items-center gap-3 rounded-2xl border p-3 ${i === 0 ? 'border-accent/30 bg-surface shadow-card' : 'border-line bg-surface/70'}`}
+          className={`flex items-center gap-3 rounded-2xl border p-3 ${i === 0 ? 'border-accent/30 bg-accent-soft' : 'border-line bg-subtle'}`}
         >
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent text-white">
             <BellRing size={15} />
@@ -123,7 +123,7 @@ function ExitVisual() {
 
 function LedgerVisual() {
   return (
-    <div className="divide-y divide-line rounded-2xl border border-line bg-surface shadow-card">
+    <div className="divide-y divide-line rounded-2xl border border-line bg-subtle">
       {DONE.slice(0, 5).map((c) => (
         <div key={c.id} className="flex items-center gap-3 px-4 py-2.5">
           <TokenIcon token={c.token} size={26} />
@@ -151,18 +151,18 @@ export function HowItWorks() {
         <div className="mt-14 grid gap-4 lg:grid-cols-5">
           {tiles.map((t, i) => (
             <Reveal key={t.n} delay={0.06 * i} className={t.span}>
-              <div className="flex h-full flex-col justify-between gap-8 rounded-3xl border border-line bg-subtle p-6 sm:p-8">
+              <div className="flex h-full flex-col gap-8 rounded-3xl border border-line bg-surface p-6 shadow-card sm:p-8">
                 <div>
                   <div className="flex items-center gap-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-surface text-ink ring-1 ring-inset ring-line">
-                      <t.icon size={16} />
+                    <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-white">
+                      <t.icon size={17} />
                     </span>
-                    <span className="num text-[12px] text-ink-3">{t.n}</span>
+                    <span className="num text-[12px] font-medium text-accent">{t.n}</span>
                   </div>
                   <h3 className="mt-5 text-[22px] font-semibold tracking-[-0.03em]">{t.title}</h3>
                   <p className="mt-2 max-w-[44ch] text-[15px] leading-[1.6] text-ink-2">{t.body}</p>
                 </div>
-                <div>{t.visual}</div>
+                <div className="flex flex-1 flex-col justify-center">{t.visual}</div>
               </div>
             </Reveal>
           ))}
@@ -229,11 +229,10 @@ export function Compare() {
     ['Warning before the caller sells', false, true],
     ['Losing calls stay in the history', false, true],
     ['Something at stake if the caller misbehaves', false, true],
-    ['Your money pooled with strangers', false, false],
   ]
   const Mark = ({ on }: { on: boolean }) =>
     on ? (
-      <span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-ink text-white">
+      <span className="mx-auto grid h-7 w-7 place-items-center rounded-full bg-accent text-white">
         <Check size={14} strokeWidth={2.6} />
       </span>
     ) : (
@@ -250,7 +249,7 @@ export function Compare() {
             <div className="grid grid-cols-[1fr_96px_96px] bg-subtle px-5 py-4 text-[13px] font-medium sm:grid-cols-[1fr_150px_150px] sm:px-7">
               <span />
               <span className="text-center text-ink-3">Call group</span>
-              <span className="flex items-center justify-center gap-1.5">trustpool</span>
+              <span className="flex items-center justify-center gap-1.5 font-semibold text-accent">trustpool</span>
             </div>
             {rows.map(([label, a, b]) => (
               <div key={label} className="grid grid-cols-[1fr_96px_96px] items-center border-t border-line px-5 py-4 sm:grid-cols-[1fr_150px_150px] sm:px-7">
@@ -286,7 +285,7 @@ export function Limits() {
               <div key={q}>
                 <button type="button" onClick={() => setOpen(open === i ? -1 : i)} className="flex w-full items-center justify-between gap-6 px-6 py-5 text-left" aria-expanded={open === i}>
                   <span className="text-[16px] font-medium tracking-[-0.01em]">{q}</span>
-                  <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full transition-colors ${open === i ? 'bg-ink text-white' : 'bg-subtle text-ink-2'}`}>
+                  <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full transition-colors ${open === i ? 'bg-accent text-white' : 'bg-accent-fill text-accent-strong'}`}>
                     {open === i ? <Minus size={14} /> : <Plus size={14} />}
                   </span>
                 </button>
@@ -311,10 +310,9 @@ export function FinalCta() {
     <section className="px-3 pb-3 sm:px-5 sm:pb-5">
       <div className="relative mx-auto max-w-[1240px] overflow-hidden rounded-[32px] bg-ink px-6 py-20 text-center text-white sm:px-10 sm:py-28">
         <div className="pointer-events-none absolute inset-0 opacity-[0.15] [background-image:radial-gradient(rgba(255,255,255,0.6)_1px,transparent_1px)] [background-size:20px_20px]" aria-hidden="true" />
-        <div className="pointer-events-none absolute inset-x-0 top-1/2 h-[3px] bg-accent-lift/60" aria-hidden="true" />
         <Reveal className="relative">
           <h2 className="mx-auto max-w-[16ch] text-[clamp(2.2rem,5vw,4rem)] font-semibold leading-[1] tracking-[-0.045em]">Read the record before you follow anyone.</h2>
-          <p className="mx-auto mt-6 max-w-[48ch] text-[17px] leading-[1.6] text-white/70">Browse every call without signing in. Sign in when you want alerts, or when you are ready to call.</p>
+          <p className="mx-auto mt-6 max-w-[48ch] text-[17px] leading-[1.6] text-white/75">Browse every call without signing in. Sign in when you want alerts, or when you are ready to call.</p>
           <div className="mt-10 flex justify-center">
             <ArrowLink to="/app" tone="light">
               Launch app

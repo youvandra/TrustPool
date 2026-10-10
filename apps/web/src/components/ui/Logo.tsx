@@ -1,7 +1,7 @@
 import { Link } from 'react-router'
 
 /** Concept A, "Vessel": a pool in section with one flat surface line — one price line. */
-export function Mark({ className = 'h-7 w-7', line = '#2E6E8E' }: { className?: string; line?: string }) {
+export function Mark({ className = 'h-7 w-7', line = '#1F6E9C' }: { className?: string; line?: string }) {
   return (
     <svg viewBox="0 0 64 64" className={`shrink-0 ${className}`} aria-hidden="true">
       <path d="M13 13 V49 H51 V13" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="square" />

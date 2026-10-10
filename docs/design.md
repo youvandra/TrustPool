@@ -43,15 +43,32 @@ Defined in `apps/web/tailwind.config.js`.
 
 | Token | Hex | Use |
 | --- | --- | --- |
-| `bg` | #F3F6F7 | App and page ground |
-| `surface` | #FFFFFF | Cards, sidebar |
-| `subtle` | #F7F9FA | Insets, table heads |
-| `line` / `line-strong` | #E4EAED / #D3DDE2 | Borders |
-| `ink` / `ink-2` / `ink-3` | #12212A / #3F525D / #7A8B95 | Text levels, primary buttons |
-| `accent` | #2E6E8E | Identity and the one live state: an announced exit |
-| `accent-fill` / `accent-soft` | #E3EFF5 / #F0F6F9 | Pastel fields |
-| `gain` / `gain-fill` | #0B7A57 / #E3F4EC | Positive results only |
-| `loss` / `loss-fill` | #C0352E / #FBEAE8 | Negative results only |
+| `bg` | #F2F5F7 | App and page ground |
+| `surface` | #FFFFFF | Cards, sidebar, top bar |
+| `subtle` | #F6F8FA | Insets, table heads, search field |
+| `line` / `line-strong` | #E2E8EC / #CCD5DC | Borders |
+| `ink` / `ink-2` / `ink-3` | #0F1D24 / #364852 / #66777F | Text levels, primary buttons |
+| `accent` | #1F6E9C | Brand blue (white text passes AA) |
+| `accent-strong` / `accent-deep` | #165578 / #123F5A | Hover, text on pastel fields |
+| `accent-fill` / `accent-soft` | #DBEAF4 / #EDF5FA | Active nav, soft buttons, selected rows |
+| `accent-bright` / `accent-lift` | #3A97D4 / #9CCBE8 | Decorative lines, accent text on ink |
+| `gain` / `gain-fill` | #0A8A5F / #DCF3E8 | Positive results only |
+| `loss` / `loss-fill` | #D23A2F / #FDE8E5 | Negative results only |
+
+### Where colour goes (revised 10 Oct, "too pale" feedback)
+
+Each screen gets one solid-blue anchor and blue on every active state:
+
+- Solid `accent` surfaces: the "Exits announced" tile on Home, the bond card in
+  Portfolio, the panel behind the landing product shot, profile covers, the
+  "Exit announced" state tag, the call page's exit countdown.
+- Active states in `accent-fill`: current nav item, Following/Watching buttons,
+  selected token in the wizard, unread alerts (plus a 3px left bar).
+- Accent buttons are for the one action a screen exists for: Open a call,
+  Announce exit, Buy and lock. Everything else stays ink or white.
+- Ink (`#0F1D24`) carries the second weight: Locked tiles and chips, the lock
+  countdown, the "Fixed at open" chip, the final landing CTA.
+- Secondary text never goes lighter than `ink-3`.
 
 Type: Geist for everything, Geist Mono for numbers (`.num`). Cards are 16px
 radius with `shadow-card`; popovers and modals use `shadow-pop`. Buttons: ink

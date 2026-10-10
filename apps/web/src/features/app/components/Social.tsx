@@ -11,7 +11,7 @@ export function FollowButton({ address, handle, size = 'sm' }: { address: string
   return (
     <Button
       size={size}
-      variant={on ? 'secondary' : 'primary'}
+      variant={on ? 'soft' : 'primary'}
       icon={on ? UserCheck : UserPlus}
       onClick={(e) => {
         e.preventDefault()
@@ -33,7 +33,7 @@ export function WatchButton({ id, size = 'md', block }: { id: number; size?: 'sm
     <Button
       size={size}
       block={block}
-      variant={on ? 'secondary' : 'primary'}
+      variant={on ? 'soft' : 'primary'}
       icon={on ? BellRing : Bell}
       onClick={(e) => {
         e.preventDefault()

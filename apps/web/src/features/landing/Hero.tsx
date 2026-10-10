@@ -28,8 +28,8 @@ function ProductShot() {
             { l: 'Locked now', v: CALLS.filter((c) => c.state === 'Locked').length },
             { l: 'Settled', v: RECENT.length + 4 },
           ].map((t) => (
-            <div key={t.l} className={`rounded-xl border p-3 ${t.a ? 'border-accent/30 bg-accent-soft' : 'border-line bg-surface'}`}>
-              <p className="text-[10.5px] text-ink-3">{t.l}</p>
+            <div key={t.l} className={`rounded-xl border p-3 ${t.a ? 'border-accent bg-accent text-white' : 'border-line bg-surface'}`}>
+              <p className={`text-[10.5px] ${t.a ? 'text-white/80' : 'text-ink-3'}`}>{t.l}</p>
               <p className="num mt-1 text-[20px] font-medium">{t.v}</p>
             </div>
           ))}
@@ -138,7 +138,7 @@ export default function Hero() {
       <div className="relative mx-auto grid max-w-[1240px] items-center gap-16 px-5 sm:px-8 lg:grid-cols-[1.05fr_1fr]">
         <div>
           <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-3 text-[13px] shadow-card">
-            <span className="rounded-full bg-accent-fill px-2 py-0.5 text-[11.5px] font-medium text-accent-deep">Monad</span>
+            <span className="rounded-full bg-accent px-2 py-0.5 text-[11.5px] font-medium text-white">Monad</span>
             <span className="text-ink-2">Accountable calls, on chain</span>
           </span>
           <h1 className="mt-7 text-[clamp(2.7rem,6.6vw,5.4rem)] font-semibold leading-[0.98] tracking-[-0.05em]">
@@ -155,7 +155,7 @@ export default function Hero() {
                 </motion.span>
               ))}
             </span>
-            <span className="block text-ink-3">Hear before they sell.</span>
+            <span className="block text-accent">Hear before they sell.</span>
           </h1>
           <p className="mt-7 max-w-[50ch] text-[17px] leading-[1.6] text-ink-2 sm:text-[18px]">
             On trustpool a caller buys with their own money before anyone sees the call. The position is locked, every exit is announced hours ahead, and every
@@ -167,7 +167,7 @@ export default function Hero() {
               How it works
             </a>
           </div>
-          <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-[13.5px] text-ink-2">
+          <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-[13.5px] font-medium text-ink-2">
             {[
               [Lock, 'Caller money locked first'],
               [BellRing, 'Exits announced ahead'],
@@ -176,7 +176,7 @@ export default function Hero() {
               const Icon = I as typeof Lock
               return (
                 <li key={t as string} className="flex items-center gap-2">
-                  <span className="grid h-6 w-6 place-items-center rounded-full bg-surface text-accent ring-1 ring-inset ring-line">
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-accent-fill text-accent-strong">
                     <Icon size={13} />
                   </span>
                   {t as string}
@@ -186,7 +186,10 @@ export default function Hero() {
           </ul>
         </div>
         <motion.div className="relative" initial={visible ? { y: 40 } : false} animate={{ y: 0 }} transition={{ delay: 0.15, duration: 1, ease: [0.22, 1, 0.36, 1] }}>
-          <div className="absolute -inset-6 rounded-[40px] bg-accent-fill/70 sm:-inset-10" aria-hidden="true" />
+          <div className="absolute -inset-6 overflow-hidden rounded-[40px] bg-accent sm:-inset-10" aria-hidden="true">
+            <div className="absolute inset-0 opacity-[0.18] [background-image:radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:18px_18px]" />
+            <div className="absolute inset-x-0 top-[58%] h-[3px] bg-white/25" />
+          </div>
           <div className="relative">
             <ProductShot />
             <FloatingNote />

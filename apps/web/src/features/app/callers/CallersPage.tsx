@@ -6,6 +6,7 @@ import { Card, CallerAvatar, Empty, Signed, Skeleton } from '@/components/ui'
 import { ago, compact, mon } from '@/lib/format'
 import { source } from '@/lib/data'
 import { useLoad, useTitle } from '@/lib/hooks'
+import { useSession } from '@/auth/session'
 import { FollowButton } from '../components/Social'
 
 /** Every caller with a bond. Ordered by last activity, never by returns. */
@@ -13,6 +14,7 @@ export default function CallersPage() {
   useTitle('Callers · trustpool')
   const callers = useLoad(() => source.listCallers(), [])
   const [q, setQ] = useState('')
+  const me = useSession().address?.toLowerCase()
   const shown = (callers ?? [])
     .filter((c) => !q || (c.handle ?? '').toLowerCase().includes(q.toLowerCase()) || c.address.toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => b.record.lastActive - a.record.lastActive)
@@ -71,7 +73,11 @@ export default function CallersPage() {
                   <span className="num hidden text-right text-[14px] lg:block">{mon(c.bond, 0)}</span>
                   <span className={`num hidden text-right text-[14px] lg:block ${c.record.slashes ? 'text-loss' : 'text-ink-3'}`}>{c.record.slashes}</span>
                   <span className="flex justify-end" onClick={(e) => e.preventDefault()}>
-                    <FollowButton address={c.address} handle={c.handle} />
+                    {me === c.address.toLowerCase() ? (
+                      <span className="rounded-full bg-accent-fill px-2.5 py-1 text-[12px] font-medium text-accent-deep">You</span>
+                    ) : (
+                      <FollowButton address={c.address} handle={c.handle} />
+                    )}
                   </span>
                 </Link>
               </li>

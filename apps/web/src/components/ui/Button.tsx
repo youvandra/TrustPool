@@ -2,14 +2,15 @@ import { ArrowRight, type LucideIcon } from 'lucide-react'
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react'
 import { Link } from 'react-router'
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'accent' | 'danger'
+type Variant = 'primary' | 'secondary' | 'ghost' | 'accent' | 'soft' | 'danger'
 type Size = 'sm' | 'md' | 'lg'
 
 const variants: Record<Variant, string> = {
   primary: 'bg-ink text-white hover:bg-ink/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]',
   secondary: 'bg-surface text-ink ring-1 ring-inset ring-line-strong hover:bg-subtle',
   ghost: 'text-ink-2 hover:bg-ink/[0.05] hover:text-ink',
-  accent: 'bg-accent text-white hover:bg-accent-deep',
+  accent: 'bg-accent text-white hover:bg-accent-strong shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]',
+  soft: 'bg-accent-fill text-accent-deep ring-1 ring-inset ring-accent/20 hover:bg-accent-fill/70',
   danger: 'bg-surface text-loss ring-1 ring-inset ring-loss/30 hover:bg-loss-fill',
 }
 const sizes: Record<Size, string> = {

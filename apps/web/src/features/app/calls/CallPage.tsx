@@ -134,7 +134,7 @@ export default function CallPage() {
             <Card className="p-5 sm:p-6">
               <div className="flex items-center justify-between">
                 <p className="text-[15px] font-semibold">Rules</p>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-subtle px-2.5 py-1 text-[11.5px] font-medium text-ink-2 ring-1 ring-inset ring-line">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-ink px-2.5 py-1 text-[11.5px] font-medium text-white">
                   <Lock size={11} /> Fixed at open
                 </span>
               </div>
@@ -177,7 +177,7 @@ export default function CallPage() {
 
           <Card className="p-5 sm:p-6">
             <p className="text-[15px] font-semibold">Thesis</p>
-            <blockquote className="mt-3 border-l-2 border-accent pl-4 text-[16px] leading-[1.6] text-ink-2">{call.thesis}</blockquote>
+            <blockquote className="mt-3 border-l-[3px] border-accent pl-4 text-[17px] leading-[1.6] text-ink">{call.thesis}</blockquote>
             <p className="mt-3 text-[12px] text-ink-3">Written by the caller at open and fixed since. A record, never a recommendation.</p>
           </Card>
         </div>

@@ -2,7 +2,7 @@ import { ArrowUpRight, BellRing, Lock, Receipt, Shield } from 'lucide-react'
 import { Link } from 'react-router'
 import { averageBps, returnBps, type Call, type Caller } from '@trustpool/core'
 import { useSession } from '@/auth/session'
-import { Button, Card, CallerAvatar, Empty, SeeAll, SectionHead, Signed, Skeleton, Stat } from '@/components/ui'
+import { Button, Card, CallerAvatar, Empty, SeeAll, SectionHead, Signed, Skeleton } from '@/components/ui'
 import { mon } from '@/lib/format'
 import { useLoad, useTitle } from '@/lib/hooks'
 import { source } from '@/lib/data'
@@ -35,25 +35,30 @@ function Pulse({ calls, callers }: { calls: Call[]; callers: Caller[] }) {
       value: exiting.length,
       foot: exiting[0] ? (
         <>
-          next in <Countdown at={exiting[0].exitAt!} className="text-accent-deep" />
+          next in <Countdown at={exiting[0].exitAt!} className="font-medium text-white" />
         </>
       ) : (
         'none pending'
       ),
-      accent: true,
+      tone: 'hero' as const,
     },
-    { icon: Lock, label: 'Locked now', value: locked.length, foot: `${mon(locked.reduce((s, c) => s + c.monIn, 0), 0)} of callers' own money` },
-    { icon: Receipt, label: 'Settled', value: done.length, foot: `${losses} of them at a loss` },
-    { icon: Shield, label: 'Bonded', value: mon(bonded, 0), foot: `across ${callers.length} callers` },
+    { icon: Lock, label: 'Locked now', value: locked.length, foot: `${mon(locked.reduce((s, c) => s + c.monIn, 0), 0)} of callers' own money`, tone: 'ink' as const },
+    { icon: Receipt, label: 'Settled', value: done.length, foot: `${losses} of them at a loss`, tone: 'plain' as const },
+    { icon: Shield, label: 'Bonded', value: mon(bonded, 0), foot: `across ${callers.length} callers`, tone: 'plain' as const },
   ]
+  const chip = { hero: 'bg-white/15 text-white', ink: 'bg-ink text-white', plain: 'bg-accent-fill text-accent-strong' }
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {tiles.map((t) => (
-        <Card key={t.label} className={`p-4 sm:p-5 ${t.accent ? 'border-accent/30 bg-accent-soft' : ''}`}>
-          <div className={`grid h-8 w-8 place-items-center rounded-lg ${t.accent ? 'bg-accent text-white' : 'bg-subtle text-ink-2 ring-1 ring-inset ring-line'}`}>
-            <t.icon size={15} />
+        <Card key={t.label} tone={t.tone === 'hero' ? 'accent' : 'plain'} className="relative overflow-hidden p-4 sm:p-5">
+          <div className={`relative grid h-9 w-9 place-items-center rounded-xl ${chip[t.tone]}`}>
+            <t.icon size={16} />
           </div>
-          <Stat className="mt-4" label={t.label} value={t.value} foot={t.foot} />
+          <div className="relative mt-4">
+            <p className={`text-[13px] ${t.tone === 'hero' ? 'text-white/80' : 'text-ink-3'}`}>{t.label}</p>
+            <p className="num mt-1.5 text-[28px] font-medium tracking-[-0.03em]">{t.value}</p>
+            <div className={`mt-1 text-[12.5px] ${t.tone === 'hero' ? 'text-white/75' : 'text-ink-3'}`}>{t.foot}</div>
+          </div>
         </Card>
       ))}
     </div>
@@ -92,14 +97,15 @@ function HowCard() {
   const steps = ['Caller buys with their own MON and it locks', 'To sell, they announce it publicly first', 'You get the notice period as a head start', 'The result lands on their record, losses too']
   return (
     <Card className="overflow-hidden">
-      <div className="dots bg-subtle px-5 pb-5 pt-5">
-        <p className="eyebrow text-ink-3">New here</p>
-        <p className="mt-2 text-[16px] font-semibold tracking-[-0.01em]">How a call protects you</p>
+      <div className="relative overflow-hidden bg-ink px-5 pb-5 pt-5 text-white">
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-accent-bright" aria-hidden="true" />
+        <p className="eyebrow relative text-accent-lift">New here</p>
+        <p className="relative mt-2 text-[16px] font-semibold tracking-[-0.01em]">How a call protects you</p>
       </div>
       <ol className="space-y-3 p-5">
         {steps.map((s, i) => (
           <li key={s} className="flex gap-3 text-[13.5px] text-ink-2">
-            <span className="num grid h-5 w-5 shrink-0 place-items-center rounded-full bg-ink text-[10.5px] text-white">{i + 1}</span>
+            <span className="num grid h-5 w-5 shrink-0 place-items-center rounded-full bg-accent-fill text-[10.5px] font-medium text-accent-strong">{i + 1}</span>
             {s}
           </li>
         ))}
@@ -134,7 +140,7 @@ export default function HomePage() {
     )
 
   const exiting = calls.filter((c) => c.state === 'Exiting').sort((a, b) => a.exitAt! - b.exitAt!)
-  const fresh = calls.filter((c) => c.state === 'Locked').slice(0, 3)
+  const fresh = calls.filter((c) => c.state === 'Locked' || c.state === 'Exiting').slice(0, 4)
   const mineFirst = (c: Call) => (watching.includes(c.id) || isFollowing(followed, c.caller) ? 0 : 1)
 
   return (
@@ -171,7 +177,7 @@ export default function HomePage() {
 
           <div>
             <SectionHead title="New calls" sub="Opened recently. The entry you see is the caller's own fill." action={<SeeAll to="/app/calls" />} />
-            <div className="mt-4 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
               {fresh.map((c) => (
                 <CallCard key={c.id} call={c} caller={by(c.caller)} />
               ))}

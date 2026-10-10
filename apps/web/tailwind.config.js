@@ -5,23 +5,23 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: '#F3F6F7',
+        bg: '#F2F5F7',
         surface: '#FFFFFF',
-        subtle: '#F7F9FA',
-        line: { DEFAULT: '#E4EAED', strong: '#D3DDE2' },
-        ink: { DEFAULT: '#12212A', 2: '#3F525D', 3: '#7A8B95' },
-        accent: { DEFAULT: '#2E6E8E', fill: '#E3EFF5', soft: '#F0F6F9', deep: '#1C4B63', lift: '#8CC3DE' },
-        gain: { DEFAULT: '#0B7A57', fill: '#E3F4EC' },
-        loss: { DEFAULT: '#C0352E', fill: '#FBEAE8' },
+        subtle: '#F6F8FA',
+        line: { DEFAULT: '#E2E8EC', strong: '#CCD5DC' },
+        ink: { DEFAULT: '#0F1D24', 2: '#364852', 3: '#66777F' },
+        accent: { DEFAULT: '#1F6E9C', strong: '#165578', deep: '#123F5A', fill: '#DBEAF4', soft: '#EDF5FA', bright: '#3A97D4', lift: '#9CCBE8' },
+        gain: { DEFAULT: '#0A8A5F', fill: '#DCF3E8' },
+        loss: { DEFAULT: '#D23A2F', fill: '#FDE8E5' },
       },
       fontFamily: {
         sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
         mono: ['"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       boxShadow: {
-        card: '0 1px 2px rgba(18,33,42,0.04), 0 6px 20px -10px rgba(18,33,42,0.10)',
+        card: '0 1px 2px rgba(15,29,36,0.05), 0 8px 24px -12px rgba(15,29,36,0.12)',
         pop: '0 1px 2px rgba(18,33,42,0.06), 0 24px 48px -16px rgba(18,33,42,0.22)',
-        ring: '0 0 0 4px rgba(46,110,142,0.12)',
+        ring: '0 0 0 4px rgba(31,110,156,0.14)',
       },
       transitionTimingFunction: {
         calm: 'cubic-bezier(0.25,0.1,0.25,1)',
@@ -30,9 +30,9 @@ export default {
       },
       keyframes: {
         pulse2: {
-          '0%': { boxShadow: '0 0 0 0 rgba(46,110,142,0.45)' },
-          '70%': { boxShadow: '0 0 0 7px rgba(46,110,142,0)' },
-          '100%': { boxShadow: '0 0 0 0 rgba(46,110,142,0)' },
+          '0%': { boxShadow: '0 0 0 0 rgba(31,110,156,0.5)' },
+          '70%': { boxShadow: '0 0 0 7px rgba(31,110,156,0)' },
+          '100%': { boxShadow: '0 0 0 0 rgba(31,110,156,0)' },
         },
         marquee: { from: { transform: 'translateX(0)' }, to: { transform: 'translateX(-50%)' } },
         shimmer: { from: { backgroundPosition: '200% 0' }, to: { backgroundPosition: '-200% 0' } },
