@@ -14,6 +14,7 @@ export interface DataSource {
   listTokens(): Promise<Token[]>
   alerts(): Promise<Alert[]>
   following(): Promise<string[]>
+  watching(): Promise<number[]>
 }
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
@@ -33,13 +34,35 @@ const demo: DataSource = {
   listTokens: async () => wait(TOKENS),
   alerts: async () => wait(ALERTS),
   following: async () => wait(DEMO_FOLLOWING),
+  watching: async () => wait([7, 9]),
+}
+
+/** Supplies the Privy access token for /me routes; set by the session. */
+let authToken: (() => Promise<string | null>) | undefined
+export function setAuth(getter: typeof authToken) {
+  authToken = getter
+}
+
+async function headers(): Promise<HeadersInit> {
+  const token = await authToken?.()
+  return token ? { authorization: `Bearer ${token}` } : {}
 }
 
 async function get<T>(path: string): Promise<T | undefined> {
-  const r = await fetch(`/api${path}`)
+  const r = await fetch(`/api${path}`, { headers: path.startsWith('/me') ? await headers() : {} })
   if (r.status === 404) return undefined
   if (!r.ok) throw new Error(`${path}: ${r.status}`)
   return (await r.json()) as T
+}
+
+/** Writes per-user state. Only the API source has a server to write to. */
+export async function send(method: 'PUT' | 'DELETE' | 'POST', path: string, body?: unknown): Promise<void> {
+  const r = await fetch(`/api${path}`, {
+    method,
+    headers: { ...(await headers()), ...(body ? { 'content-type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  if (!r.ok) throw new Error(`${method} ${path}: ${r.status}`)
 }
 
 const api: DataSource = {
@@ -56,6 +79,7 @@ const api: DataSource = {
   listTokens: async () => (await get<Token[]>('/tokens')) ?? [],
   alerts: async () => (await get<Alert[]>('/me/alerts')) ?? [],
   following: async () => (await get<string[]>('/me/following')) ?? [],
+  watching: async () => (await get<number[]>('/me/watching')) ?? [],
 }
 
 export const source: DataSource = import.meta.env.VITE_DATA === 'api' ? api : demo
