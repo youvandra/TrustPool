@@ -172,7 +172,7 @@ function Inner({ address }: { address: string }) {
           </div>
           <p className="mt-4 text-[13px] text-white/80">Bond</p>
           <p className="num mt-1.5 text-[28px] font-medium tracking-[-0.03em]">{mon(caller.bond)}</p>
-          <p className="mt-1 text-[12.5px] text-white/75">Slashed {caller.record.slashes} times</p>
+          <p className="mt-1 text-[12.5px] text-white/75">{caller.record.slashes ? `Slashed ${caller.record.slashes === 1 ? 'once' : `${caller.record.slashes} times`}` : 'Never slashed'}</p>
           <div className="mt-4 flex gap-2">
             <button type="button" onClick={() => setBondOpen(true)} className="h-8 rounded-lg bg-white px-3 text-[13px] font-medium text-accent-deep hover:bg-white/90">
               Add
@@ -209,7 +209,7 @@ function Inner({ address }: { address: string }) {
           title="Open calls"
           sub="Announcing starts the notice clock."
           action={
-            <ButtonLink to="/app/new" size="sm" icon={Plus}>
+            <ButtonLink to="/app/new" size="sm" variant="secondary" icon={Plus}>
               New call
             </ButtonLink>
           }

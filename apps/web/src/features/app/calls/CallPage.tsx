@@ -304,7 +304,7 @@ export default function CallPage() {
                   <span className="num">{mon(caller.bond)}</span>
                 </Row>
                 <Row label="Bond slashed">
-                  <span className={`num ${caller.record.slashes ? 'text-loss' : ''}`}>{caller.record.slashes} times</span>
+                  <span className={`num ${caller.record.slashes ? 'text-loss' : ''}`}>{caller.record.slashes === 1 ? '1 time' : `${caller.record.slashes} times`}</span>
                 </Row>
               </div>
             </Card>
