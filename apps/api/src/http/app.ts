@@ -10,6 +10,7 @@ import { getAddress, isAddress, verifyMessage, type Hex } from 'viem'
 import type { EarlyBuyerReport } from '../indexer/earlyBuyers'
 import type { IndexerStatus } from '../indexer/indexer'
 import type { AlertHub } from '../live/hub'
+import { docsPage, openapi } from './openapi'
 import { log } from '../log'
 import type { Store } from '../store/types'
 import { auth, type AuthEnv } from './auth'
@@ -73,6 +74,10 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuy
     const status = indexer?.()
     return c.json({ ok: !status?.lastError, source: store.source, auth: privy ? 'privy' : 'demo', indexer: status })
   })
+
+  app.get('/openapi.json', (c) => c.json(openapi))
+  // The docs page loads its renderer from a CDN, so it gets its own, looser CSP.
+  app.get('/docs', (c) => c.html(docsPage, 200, { 'Content-Security-Policy': "default-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src * data:; font-src * data:" }))
 
   app.get('/calls', async (c) => {
     const state = c.req.query('state')?.split(',').filter(Boolean)
