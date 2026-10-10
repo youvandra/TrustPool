@@ -11,6 +11,7 @@ import { getAddress, isAddress, verifyMessage, type Hex } from 'viem'
 import type { EarlyBuyerReport } from '../indexer/earlyBuyers'
 import type { IndexerStatus } from '../indexer/indexer'
 import type { AlertHub } from '../live/hub'
+import { badgeSvg, badgeText } from '../share/badge'
 import { CardRenderer, callCardSvg, callerCardSvg, callerSummary, callSummary, sharePage } from '../share/cards'
 import { docsPage, openapi } from './openapi'
 import { log } from '../log'
@@ -178,6 +179,14 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuy
     return png(callCardSvg(call, caller))
   })
   app.get('/og/callers/:file{[^/]+\\.png}', async (c) => png(callerCardSvg(await loadCaller(addressParam(c.req.param('file').slice(0, -4))))))
+
+  app.get('/callers/:address/badge.svg', async (c) => {
+    const caller = await store.getCaller(addressParam(c.req.param('address')))
+    return c.body(badgeSvg(caller ? badgeText(caller) : 'no record'), caller ? 200 : 404, {
+      'content-type': 'image/svg+xml; charset=utf-8',
+      'cache-control': 'public, max-age=300',
+    })
+  })
 
   app.get('/share/calls/:id', async (c) => {
     const { call, caller } = await loadCall(intParam(c.req.param('id')))

@@ -9,7 +9,7 @@ import { source } from '@/lib/data'
 import { useLoad, useTitle } from '@/lib/hooks'
 import { useLocalCalls } from '@/lib/view'
 import { ClockCell } from '../components/CallCard'
-import { FollowButton, ShareButton } from '../components/Social'
+import { EmbedBadgeButton, FollowButton, ShareButton } from '../components/Social'
 
 async function load(address: string) {
   const caller = await source.getCaller(address)
@@ -53,9 +53,10 @@ export default function CallerPage() {
               {caller.bio && <p className="mt-2 max-w-[60ch] text-[14.5px] text-ink-2">{caller.bio}</p>}
             </div>
           </div>
-          <div className="flex gap-2">
-            <ShareButton path={`/callers/${caller.address}`} />
+          <div className="flex flex-wrap gap-2">
             <FollowButton address={caller.address} handle={caller.handle} size="md" />
+            <ShareButton path={`/callers/${caller.address}`} />
+            <EmbedBadgeButton address={caller.address} handle={caller.handle} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-px border-t border-line bg-line sm:grid-cols-5">

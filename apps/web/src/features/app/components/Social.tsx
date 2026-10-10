@@ -1,5 +1,6 @@
-import { Bell, BellRing, Link2, UserCheck, UserPlus } from 'lucide-react'
-import { Button, toast } from '@/components/ui'
+import { Bell, BellRing, Code2, Copy, Link2, UserCheck, UserPlus } from 'lucide-react'
+import { useState } from 'react'
+import { Button, Modal, toast } from '@/components/ui'
 import { useSession } from '@/auth/session'
 import { actions, isFollowing, useStore } from '@/lib/store'
 
@@ -59,15 +60,56 @@ export function ShareButton({ path, size = 'md' }: { path: string; size?: 'sm' |
       icon={Link2}
       onClick={async () => {
         const url = import.meta.env.VITE_DATA === 'api' ? `${location.origin}/api/share${path}` : `${location.origin}/app${path}`
-        try {
-          await navigator.clipboard.writeText(url)
-          toast('Link copied')
-        } catch {
-          toast(url)
-        }
+        await copy(url, 'Link copied')
       }}
     >
       Share
     </Button>
+  )
+}
+
+async function copy(text: string, done: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    toast(done)
+  } catch {
+    toast(text)
+  }
+}
+
+/** The caller's record as a small badge for a README, a bio or a group description. */
+export function EmbedBadgeButton({ address, handle, size = 'md' }: { address: string; handle?: string; size?: 'sm' | 'md' }) {
+  const [open, setOpen] = useState(false)
+  const site = import.meta.env.VITE_DATA === 'api' ? location.origin : 'https://trustpool.web.id'
+  const img = `${site}/api/callers/${address}/badge.svg`
+  const page = `${site}/app/callers/${address}`
+  const alt = `${handle ?? 'caller'} on trustpool`
+  const snippets = [
+    { label: 'Markdown', code: `[![${alt}](${img})](${page})` },
+    { label: 'HTML', code: `<a href="${page}"><img src="${img}" alt="${alt}" height="22"></a>` },
+  ]
+  return (
+    <>
+      <Button size={size} variant="secondary" icon={Code2} onClick={() => setOpen(true)}>
+        Embed badge
+      </Button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Embed badge">
+        <p className="text-[14px] text-ink-2">This record as a badge, losses included. It refreshes every few minutes.</p>
+        {import.meta.env.VITE_DATA === 'api' && <img src={img} alt={alt} height={22} className="mt-4 h-[22px] w-auto" />}
+        <div className="mt-5 space-y-4">
+          {snippets.map((s) => (
+            <div key={s.label}>
+              <div className="flex items-center justify-between">
+                <p className="text-[12.5px] font-medium text-ink-3">{s.label}</p>
+                <Button size="sm" variant="ghost" icon={Copy} onClick={() => copy(s.code, `${s.label} copied`)}>
+                  Copy
+                </Button>
+              </div>
+              <pre className="num mt-1.5 whitespace-pre-wrap break-all rounded-xl bg-subtle p-3 text-[12px] leading-[1.5] text-ink-2">{s.code}</pre>
+            </div>
+          ))}
+        </div>
+      </Modal>
+    </>
   )
 }

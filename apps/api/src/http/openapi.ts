@@ -202,6 +202,15 @@ export const openapi = {
         responses: { 200: png, 404: error('Never bonded') },
       },
     },
+    '/callers/{address}/badge.svg': {
+      get: {
+        summary: "A caller's record as a small SVG badge",
+        description: 'For READMEs and bios: `![trustpool](https://trustpool.web.id/api/callers/<address>/badge.svg)`. Cached for 5 minutes.',
+        tags: ['share'],
+        parameters: [pathAddress],
+        responses: { 200: { description: 'SVG', content: { 'image/svg+xml': { schema: { type: 'string' } } } }, 404: { description: 'Never bonded: a "no record" badge' } },
+      },
+    },
     '/share/calls/{id}': {
       get: { summary: 'Link preview page for a call: Open Graph tags, then a redirect to the app', tags: ['share'], parameters: [pathId], responses: { 200: html, 404: error('No such call') } },
     },

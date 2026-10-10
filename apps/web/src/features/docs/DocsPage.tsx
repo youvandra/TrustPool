@@ -238,6 +238,10 @@ export default function DocsPage() {
               <a href="/api/docs" className="inline-flex items-center gap-1.5 font-medium text-accent hover:text-accent-strong">
                 API reference <ExternalLink size={13} />
               </a>
+              <p>Any caller&apos;s record as a badge for a README or a bio (Embed badge on the caller page):</p>
+              <pre className="num overflow-x-auto rounded-xl bg-subtle p-3 text-[12.5px] text-ink-2">
+                ![trustpool](https://trustpool.web.id/api/callers/&lt;address&gt;/badge.svg)
+              </pre>
             </Section>
 
             <Section id="limits" title="Known limits">

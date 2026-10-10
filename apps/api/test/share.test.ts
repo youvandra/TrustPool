@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { CALLERS, CALLS } from '@trustpool/core'
 import { createApp } from '../src/http/app'
+import { badgeText } from '../src/share/badge'
 import { callCardSvg } from '../src/share/cards'
 import { demoStore } from '../src/store/demo'
 
@@ -59,5 +60,28 @@ describe('share cards', () => {
     const other = createApp({ store: { ...demoStore(), getCall: async (id: number) => ({ ...CALLS.find((c) => c.id === id)!, stale: true }) }, requestLog: false })
     const changed = (await (await other.request('/api/share/calls/1')).text()).match(/\?v=(\w+)/)![1]
     expect(changed).not.toBe(first)
+  })
+})
+
+describe('badge', () => {
+  test("reads the caller's record, losses and stale calls included", async () => {
+    const caller = CALLERS[0]!
+    const res = await get(`/callers/${caller.address}/badge.svg`)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('image/svg+xml')
+    expect(res.headers.get('cache-control')).toBe('public, max-age=300')
+    expect(res.headers.get('cross-origin-resource-policy')).toBe('cross-origin')
+    const r = caller.record
+    const svg = await res.text()
+    expect(svg).toContain(`${r.settled + r.released} settled · ${r.losses} loss`)
+    expect(badgeText({ ...caller, bond: 10, record: { ...r, settled: 6, released: 1, losses: 4, sumReturnBps: -2170, stale: 2 } })).toBe(
+      '7 settled · 4 losses · avg −3.1% · 10 MON bond · 2 stale',
+    )
+  })
+
+  test('an address with no record gets a 404 badge, not a broken image', async () => {
+    const res = await get('/callers/0x0000000000000000000000000000000000000001/badge.svg')
+    expect(res.status).toBe(404)
+    expect(await res.text()).toContain('no record')
   })
 })
