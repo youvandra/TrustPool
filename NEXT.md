@@ -42,10 +42,12 @@ From docs.monad.xyz and third-party nad.fun skill docs, 10 Oct. Re-check before 
   `0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701`, Uniswap V2 router
   `0xfB8e1C3b833f9E67a71C859a132cf783b645e436`, explorer `testnet.monadexplorer.com`.
 - Monad mainnet: chain id 143, WMON `0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A`.
-- nad.fun has its own router and a Lens contract for quotes, **not** the V2 interface
-  (reported: testnet router `0x5D4a4f430cA3B1b2dB86B9cFE48a5316800F5fb2`, mainnet
-  `0x0B79d71AE99528D1dB24A4148b5f4F865cc2b137`; unverified). A `NadFunAdapter` is a
-  separate adapter behind the same `ISwapAdapter`; the V2 adapter ships first.
+- nad.fun has its own routers (bonding curve before graduation, DEX after) and a Lens
+  that names the live router and quotes, **not** the V2 interface. Official ABIs and
+  mainnet addresses: github.com/Naddotfun/contract-v3-abi (in `NADFUN` in core).
+  `NadFunAdapter` is built on them. Testnet addresses are not published there
+  (third-party docs report testnet DEX router `0x5D4a4f430cA3B1b2dB86B9cFE48a5316800F5fb2`
+  and Lens `0xB056d79CA5257589692699a46623F901a3BB76f1`; unverified).
 
 ## What is left, in order
 
@@ -60,7 +62,10 @@ From docs.monad.xyz and third-party nad.fun skill docs, 10 Oct. Re-check before 
 4. [ ] Privy: create the app, add the chain, set `VITE_PRIVY_APP_ID` (web) and
        `PRIVY_APP_ID` + `PRIVY_VERIFICATION_KEY` (API).
 5. [ ] Host the API with `DATA=chain` and a persistent `DB_PATH`, web with `VITE_DATA=api`.
-6. [ ] Optional: `NadFunAdapter` once its router ABI is verified from nad.fun's own docs.
+6. [x] `NadFunAdapter` from the official ABIs. [ ] Run its fork test on mainnet
+       (`NADFUN_FORK_RPC_URL=$MONAD_RPC FORK_TOKEN=0x… forge test --match-path 'test/fork/NadFun*'`)
+       and on testnet once its addresses are confirmed. Unverified on a real chain: that
+       both routers pay native MON on sell (the contract reverts safely if not).
 7. [ ] Nice to have still open: caller handles (no ENS-style names found on Monad yet;
        the API shows short addresses).
 8. [ ] Submission (keep a full half day): `docs/writeup.md` is drafted; record the demo
