@@ -66,6 +66,12 @@ async function get<T>(path: string): Promise<T | undefined> {
   return (await r.json()) as T
 }
 
+/** Stores a signed profile claim. The signature is the auth: no session token needed. */
+export async function saveProfile(address: string, body: { handle: string; bio: string; signedAt: number; signature: string }): Promise<void> {
+  const r = await fetch(`/api/callers/${address}/profile`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `profile: ${r.status}`)
+}
+
 /** Writes per-user state. Only the API source has a server to write to. */
 export async function send(method: 'PUT' | 'DELETE' | 'POST', path: string, body?: unknown): Promise<void> {
   const r = await fetch(`/api${path}`, {
