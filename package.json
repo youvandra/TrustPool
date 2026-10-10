@@ -5,7 +5,8 @@
   "type": "module",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "e2e"
   ],
   "scripts": {
     "dev": "npm run dev -w @trustpool/web",
@@ -14,7 +15,8 @@
     "typecheck": "npm run typecheck -w @trustpool/core && npm run typecheck -w @trustpool/web && npm run typecheck -w @trustpool/api",
     "test": "npm run test:contracts && npm test -w @trustpool/api",
     "test:contracts": "cd contracts && forge test",
-    "sync:contracts": "cd contracts && forge build && cd .. && node scripts/sync-contracts.mjs"
+    "sync:contracts": "cd contracts && forge build && cd .. && node scripts/sync-contracts.mjs",
+    "test:e2e": "npm test -w @trustpool/e2e"
   },
   "devDependencies": {
     "typescript": "5.9.3"

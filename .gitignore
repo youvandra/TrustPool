@@ -16,3 +16,7 @@ apps/api/data/
 # local tooling
 CLAUDE.md
 .claude/
+
+# e2e
+e2e/test-results/
+e2e/playwright-report/
