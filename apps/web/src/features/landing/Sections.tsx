@@ -1,11 +1,9 @@
-import { AnimatePresence, motion } from 'motion/react'
-import { BellRing, Check, Lock, Minus, Plus, Receipt, Shield, X } from 'lucide-react'
-import { useState } from 'react'
+import { motion } from 'motion/react'
+import { BellRing, Check, Lock, Receipt, Shield, X } from 'lucide-react'
 import { CALLERS, CALLS, returnBps } from '@trustpool/core'
 import { ArrowLink, CallerAvatar, Signed, TokenIcon } from '@/components/ui'
 import Reveal from '@/components/marketing/Reveal'
 import Countdown from '@/features/app/components/Countdown'
-import { ProductShot } from './Hero'
 
 const by = (a: string) => CALLERS.find((c) => c.address === a)
 const DONE = CALLS.filter((c) => c.state === 'Settled' || c.state === 'Released')
@@ -54,7 +52,6 @@ function BondVisual() {
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-line">
         <motion.div className="h-full rounded-full bg-accent" initial={{ width: '30%' }} whileInView={{ width: '100%' }} viewport={{ once: true }} transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }} />
       </div>
-      <p className="mt-2 text-[12px] text-ink-3">Locked while any call is open · slashable with a public reason</p>
     </div>
   )
 }
@@ -87,7 +84,6 @@ function LockVisual() {
           <Lock size={12} /> {c.token.symbol} lock ends in
         </p>
         <Countdown at={c.unlockAt} className="mt-1 block text-[24px] font-medium tracking-[-0.02em]" />
-        <p className="mt-1 text-[12px] text-ink-3">Bought at the caller&apos;s own price, before the call was public.</p>
       </div>
     </div>
   )
@@ -140,15 +136,15 @@ function LedgerVisual() {
 
 export function HowItWorks() {
   const tiles = [
-    { n: '01', icon: Shield, title: 'A bond on the line', body: 'Before a first call, the caller posts a bond. It stays behind every call and can be cut, with the reason written on chain.', visual: <BondVisual />, span: 'lg:col-span-2' },
-    { n: '02', icon: Lock, title: 'They buy first, and it locks', body: 'Their MON buys the token through the contract. Token, lock and notice are fixed in that same transaction.', visual: <LockVisual />, span: 'lg:col-span-3' },
-    { n: '03', icon: BellRing, title: 'Every exit is announced', body: 'To sell, the caller says so publicly, then waits. The notice period is your head start.', visual: <ExitVisual />, span: 'lg:col-span-3' },
-    { n: '04', icon: Receipt, title: 'The result is permanent', body: 'The sale runs through the same contract, so the result is the real fill. A loss reads exactly like a gain.', visual: <LedgerVisual />, span: 'lg:col-span-2' },
+    { n: '01', icon: Shield, title: 'A bond on the line', body: 'Posted before the first call. Slashable, in public.', visual: <BondVisual />, span: 'lg:col-span-2' },
+    { n: '02', icon: Lock, title: 'They buy first, and it locks', body: 'Their own MON, locked. The rules are fixed.', visual: <LockVisual />, span: 'lg:col-span-3' },
+    { n: '03', icon: BellRing, title: 'Every exit is announced', body: 'The notice period is your head start.', visual: <ExitVisual />, span: 'lg:col-span-3' },
+    { n: '04', icon: Receipt, title: 'The result is permanent', body: 'From the real fill. Losses stay too.', visual: <LedgerVisual />, span: 'lg:col-span-2' },
   ]
   return (
     <section id="how" className="scroll-mt-20 py-24 sm:py-32">
       <div className="mx-auto max-w-[1240px] px-5 sm:px-8">
-        <Heading eyebrow="How it works" title="Four steps, all on chain." body="Nothing is pooled and nobody holds your money. trustpool holds the caller's position, and the rules around it." />
+        <Heading eyebrow="How it works" title="Four steps, all on chain." />
         <div className="mt-14 grid gap-4 lg:grid-cols-5">
           {tiles.map((t, i) => (
             <Reveal key={t.n} delay={0.06 * i} className={t.span}>
@@ -179,7 +175,7 @@ export function Audiences() {
       id: 'followers',
       eyebrow: 'For followers',
       title: 'Read the record, then decide.',
-      points: ['See the caller’s own entry before you buy', 'Get an alert the moment an exit is announced', 'Every past call, wins and losses, on one page', 'Bond size and slash history on every card'],
+      points: ['See the caller’s entry before you buy', 'Get alerted when an exit is announced', 'Every past call on one page, losses too'],
       cta: 'Browse calls',
       to: '/app/calls',
       dark: false,
@@ -188,7 +184,7 @@ export function Audiences() {
       id: 'callers',
       eyebrow: 'For callers',
       title: 'Let your record do the talking.',
-      points: ['Your fill is public and fixed from the first second', 'Followers know you cannot dump on them', 'One permanent track record, no cherry-picking', 'Sign in with email; a wallet is made for you'],
+      points: ['Your fill is public from the first second', 'Followers know you cannot dump on them', 'One permanent record, no cherry-picking'],
       cta: 'Open a call',
       to: '/app/new',
       dark: true,
@@ -244,7 +240,7 @@ export function Compare() {
   return (
     <section className="border-t border-line bg-surface py-24 sm:py-32">
       <div className="mx-auto max-w-[1000px] px-5 sm:px-8">
-        <Heading center eyebrow="Compared" title="A call group, with consequences." body="Telegram and Discord already spread signals well. What they never had is a reason for the caller to stay honest." />
+        <Heading center eyebrow="Compared" title="A call group, with consequences." />
         <Reveal className="mt-14">
           <div className="overflow-hidden rounded-3xl border border-line">
             <div className="grid grid-cols-[1fr_96px_96px] bg-subtle px-5 py-4 text-[13px] font-medium sm:grid-cols-[1fr_150px_150px] sm:px-7">
@@ -266,46 +262,6 @@ export function Compare() {
   )
 }
 
-const FAQ = [
-  ['What stops a caller from also buying with a second wallet?', 'Nothing stops it completely, and any platform that says otherwise is overselling. trustpool makes it cost them: their own money is locked in every call, a bond is at stake, and a wallet funded by the caller that buys just before a call is grounds for a public slash.'],
-  ['Do I deposit money into trustpool?', 'No. You buy on your own, wherever you like. trustpool only holds the caller’s position and enforces the rules around it.'],
-  ['Can a caller hide a losing call?', 'A settled call is permanent. A token that cannot be sold can be released to the caller unsold, and the record counts that as −100%. A caller can still leave a losing call open instead of closing it; open calls show their age, and a stale-call rule is on the roadmap.'],
-  ['Who keeps the token list and slashes bonds?', 'An admin, in this version, and we say so plainly. The admin can never touch a locked position. A multisig is the minimum before real money.'],
-  ['Is this investment advice?', 'No. trustpool shows what callers did with their own money. It never recommends, ranks by returns, or shows price targets.'],
-]
-
-export function Limits() {
-  const [open, setOpen] = useState(0)
-  return (
-    <section id="limits" className="scroll-mt-20 py-24 sm:py-32">
-      <div className="mx-auto grid max-w-[1240px] gap-12 px-5 sm:px-8 lg:grid-cols-[1fr_1.3fr]">
-        <Heading eyebrow="Known limits" title="What it does, and what it leaves open." body="A record is only worth trusting if it is honest about itself. These are the questions we would ask." />
-        <Reveal>
-          <div className="divide-y divide-line rounded-3xl border border-line bg-surface">
-            {FAQ.map(([q, a], i) => (
-              <div key={q}>
-                <button type="button" onClick={() => setOpen(open === i ? -1 : i)} className="flex w-full items-center justify-between gap-6 px-6 py-5 text-left" aria-expanded={open === i}>
-                  <span className="text-[16px] font-medium tracking-[-0.01em]">{q}</span>
-                  <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full transition-colors ${open === i ? 'bg-accent text-white' : 'bg-accent-fill text-accent-strong'}`}>
-                    {open === i ? <Minus size={14} /> : <Plus size={14} />}
-                  </span>
-                </button>
-                <AnimatePresence initial={false}>
-                  {open === i && (
-                    <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden">
-                      <p className="px-6 pb-6 text-[15px] leading-[1.65] text-ink-2">{a}</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            ))}
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  )
-}
-
 export function FinalCta() {
   return (
     <section className="px-3 pb-3 sm:px-5 sm:pb-5">
@@ -313,36 +269,10 @@ export function FinalCta() {
         <div className="pointer-events-none absolute inset-0 opacity-[0.15] [background-image:radial-gradient(rgba(255,255,255,0.6)_1px,transparent_1px)] [background-size:20px_20px]" aria-hidden="true" />
         <Reveal className="relative">
           <h2 className="mx-auto max-w-[16ch] text-[clamp(2.2rem,5vw,4rem)] font-semibold leading-[1] tracking-[-0.045em]">Read the record before you follow anyone.</h2>
-          <p className="mx-auto mt-6 max-w-[48ch] text-[17px] leading-[1.6] text-white/75">Browse every call without signing in. Sign in when you want alerts, or when you are ready to call.</p>
           <div className="mt-10 flex justify-center">
             <ArrowLink to="/app" tone="light">
               Launch app
             </ArrowLink>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  )
-}
-
-/** The dashboard itself, on the brand-blue field. */
-export function InsideApp() {
-  return (
-    <section className="py-24 sm:py-32">
-      <div className="mx-auto grid max-w-[1240px] items-center gap-14 px-5 sm:px-8 lg:grid-cols-[1fr_1.1fr]">
-        <Heading
-          eyebrow="Inside the app"
-          title="Exits first, everything else after."
-          body="The dashboard opens on the calls that are about to move: who announced an exit, and how long you have. New calls and settled results sit right below, wins and losses in the same type."
-        />
-        <Reveal>
-          <div className="relative">
-            <div className="absolute -inset-6 overflow-hidden rounded-[40px] bg-accent sm:-inset-10" aria-hidden="true">
-              <div className="absolute inset-0 opacity-[0.18] [background-image:radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:18px_18px]" />
-            </div>
-            <div className="relative">
-              <ProductShot />
-            </div>
           </div>
         </Reveal>
       </div>

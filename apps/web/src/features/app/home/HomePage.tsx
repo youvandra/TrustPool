@@ -72,7 +72,7 @@ function FollowingList({ callers }: { callers: Caller[] }) {
   const suggest = callers.filter((c) => !mine.includes(c)).slice(0, 3)
   return (
     <Card className="p-5">
-      <SectionHead title={mine.length ? 'Following' : 'Callers to look at'} sub={mine.length ? 'Their next call reaches your alerts' : 'Newest activity first'} action={<SeeAll to="/app/callers" />} />
+      <SectionHead title={mine.length ? 'Following' : 'Callers to look at'} action={<SeeAll to="/app/callers" />} />
       <ul className="mt-4 space-y-1">
         {(mine.length ? mine : suggest).map((c) => (
           <li key={c.address}>
@@ -94,26 +94,16 @@ function FollowingList({ callers }: { callers: Caller[] }) {
 }
 
 function HowCard() {
-  const steps = ['Caller buys with their own MON and it locks', 'To sell, they announce it publicly first', 'You get the notice period as a head start', 'The result lands on their record, losses too']
   return (
-    <Card className="overflow-hidden">
-      <div className="relative overflow-hidden bg-ink px-5 pb-5 pt-5 text-white">
-        <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-accent-bright" aria-hidden="true" />
-        <p className="eyebrow relative text-accent-lift">New here</p>
-        <p className="relative mt-2 text-[16px] font-semibold tracking-[-0.01em]">How a call protects you</p>
-      </div>
-      <ol className="space-y-3 p-5">
-        {steps.map((s, i) => (
-          <li key={s} className="flex gap-3 text-[13.5px] text-ink-2">
-            <span className="num grid h-5 w-5 shrink-0 place-items-center rounded-full bg-accent-fill text-[10.5px] font-medium text-accent-strong">{i + 1}</span>
-            {s}
-          </li>
-        ))}
-      </ol>
-      <Link to="/#how" className="flex items-center justify-between border-t border-line px-5 py-3 text-[13px] font-medium text-ink-2 hover:text-ink">
-        Read the full mechanism <ArrowUpRight size={14} />
-      </Link>
-    </Card>
+    <Link to="/docs" className="group flex items-center justify-between gap-4 rounded-2xl bg-ink p-5 text-white shadow-card transition-transform hover:-translate-y-0.5">
+      <span>
+        <span className="eyebrow block text-accent-lift">New here</span>
+        <span className="mt-1.5 block text-[15px] font-semibold">How a call protects you</span>
+      </span>
+      <span className="grid h-9 w-9 place-items-center rounded-full bg-white/10 transition-colors group-hover:bg-white/20">
+        <ArrowUpRight size={16} />
+      </span>
+    </Link>
   )
 }
 
@@ -148,7 +138,6 @@ export default function HomePage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[26px] font-semibold tracking-[-0.03em] sm:text-[30px]">{s.authenticated ? `${greeting()}, ${s.label?.split(' ')[0] ?? 'there'}` : 'Today on trustpool'}</h1>
-          <p className="mt-1 text-[14px] text-ink-3">Every caller here bought first. This is where they stand.</p>
         </div>
         {source.kind === 'demo' && <span className="rounded-full border border-dashed border-line-strong px-3 py-1 text-[12px] text-ink-3">Demo data</span>}
       </div>
@@ -161,11 +150,11 @@ export default function HomePage() {
             <SectionHead
               className="px-3 pb-2 pt-3"
               title="Exiting soon"
-              sub="Callers who announced they are selling. The clock is your head start."
+              sub="The clock is your head start."
               action={<SeeAll to="/app/calls?tab=exiting" />}
             />
             {exiting.length === 0 ? (
-              <Empty icon={<BellRing size={18} />} title="No exits announced" body="When a caller announces one, it shows here hours before it can execute." />
+              <Empty icon={<BellRing size={18} />} title="No exits announced" body="They show here hours before a sale." />
             ) : (
               <div className="divide-y divide-line">
                 {[...exiting].sort((a, b) => mineFirst(a) - mineFirst(b)).map((c) => (
@@ -176,7 +165,7 @@ export default function HomePage() {
           </Card>
 
           <div>
-            <SectionHead title="New calls" sub="Opened recently. The entry you see is the caller's own fill." action={<SeeAll to="/app/calls" />} />
+            <SectionHead title="New calls" action={<SeeAll to="/app/calls" />} />
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               {fresh.map((c) => (
                 <CallCard key={c.id} call={c} caller={by(c.caller)} />
@@ -191,7 +180,7 @@ export default function HomePage() {
           {!s.authenticated && (
             <Card className="p-5">
               <p className="text-[15px] font-semibold">Get exit alerts</p>
-              <p className="mt-1 text-[13.5px] leading-[1.5] text-ink-3">Sign in to follow callers and hear about exits the moment they are announced.</p>
+              <p className="mt-1 text-[13.5px] text-ink-3">Follow callers, hear exits first.</p>
               <Button className="mt-4" onClick={s.login}>
                 Sign in
               </Button>

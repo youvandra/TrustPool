@@ -54,7 +54,6 @@ export default function CallsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-[26px] font-semibold tracking-[-0.03em] sm:text-[30px]">Calls</h1>
-        <p className="mt-1 text-[14px] text-ink-3">Every call ever opened, in the order it happened. Losing calls stay right here with the rest.</p>
       </div>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -129,7 +128,7 @@ export default function CallsPage() {
         </div>
       ) : shown.length === 0 ? (
         <Card>
-          <Empty icon={<SearchX size={18} />} title="No calls match" body="Try another token, or clear the search." />
+          <Empty icon={<SearchX size={18} />} title="No calls match" body="Try another token." />
         </Card>
       ) : view === 'grid' ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

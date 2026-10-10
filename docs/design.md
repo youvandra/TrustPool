@@ -18,7 +18,8 @@ rules and the rolling arrow button.
 
 | Route | Who | What |
 | --- | --- | --- |
-| `/` | Everyone | Landing: Kinsign-style full-height hero (WebGL water shader + a call ticket cycling Locked / Exit announced / Settled), "Inside the app" product shot, results ticker, 4-step bento, followers vs callers, comparison with call groups, honest FAQ, CTA |
+| `/` | Everyone | Landing: Kinsign-style full-height hero (WebGL water shader + a trading-style call card: price chart with the caller's buy pinned, cycling Locked / Exit announced / Settled), results ticker, 4-step bento, followers vs callers, comparison with call groups, honest FAQ, CTA |
+| `/docs` | Everyone | One page: overview, followers, callers, rules (read live from the contract), contract addresses, API link, known limits |
 | `/app` | Everyone | Home: pulse tiles, "Exiting soon" (the key list), new calls, following/suggested callers, explainer |
 | `/app/calls` | Everyone | Explore: state tabs, token chips, search, sort, grid/list toggle. Newest first, no ranking |
 | `/app/calls/:id` | Everyone | Call: status block (exit countdown / lock / result), price since entry, rules (fixed), position, thesis, timeline, caller card, watch + buy-on-your-own |
@@ -37,8 +38,16 @@ Same structure as Kinsign's hero, different material: `features/landing/HeroShad
 stacks FlowingGradient, ChromaFlow (follows the cursor), CursorRipples and grain,
 all in one blue hue. Keep every colour on that hue: the gradient blends in oklch,
 where pure white has no hue and the blend sweeps a rainbow. The device is
-`CallTicket.tsx`, a boarding-pass ticket whose notches are cut with a CSS mask so
-the shader shows through. The cycle pauses while the tab is hidden.
+`HeroCard.tsx`, one call as a trading app shows a position: price since entry with
+the caller's buy pinned, and a notification that changes with the state. In the
+settled state the chart ends at the sale price, so chart and result agree. The
+cycle pauses while the tab is hidden.
+
+### Copy
+
+One line where a paragraph would do. Page titles carry no subtitle; section
+subtitles only when they change what the reader does. Explanations live in
+`/docs`, linked from the landing nav, the footer and the app sidebar.
 
 ### Shell
 

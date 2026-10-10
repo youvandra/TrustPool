@@ -131,7 +131,7 @@ function Flow({ address }: { address: string }) {
               {step === 0 && (
                 <>
                   <h2 className="text-[20px] font-semibold tracking-[-0.02em]">Which token?</h2>
-                  <p className="mt-1 text-[14px] text-ink-3">Only tokens on the allow list. The list is public and kept by the admin.</p>
+                  <p className="mt-1 text-[14px] text-ink-3">Allowed tokens only.</p>
                   <div className="mt-6 grid gap-3 sm:grid-cols-2">
                     {data.tokens.map((t) => {
                       const on = token?.address === t.address
@@ -157,7 +157,7 @@ function Flow({ address }: { address: string }) {
               {step === 1 && (
                 <>
                   <h2 className="text-[20px] font-semibold tracking-[-0.02em]">How much of your own MON?</h2>
-                  <p className="mt-1 text-[14px] text-ink-3">All of it buys {token?.symbol} in one swap. Your fill becomes the entry everyone sees.</p>
+                  <p className="mt-1 text-[14px] text-ink-3">Your fill becomes the public entry.</p>
                   <label className="mt-6 block">
                     <span className="flex h-16 items-center rounded-2xl border border-line bg-surface px-5 focus-within:border-accent/50 focus-within:shadow-ring">
                       <input
@@ -189,7 +189,7 @@ function Flow({ address }: { address: string }) {
                 <div className="space-y-7">
                   <div>
                     <h2 className="text-[20px] font-semibold tracking-[-0.02em]">Set the rules</h2>
-                    <p className="mt-1 text-[14px] text-ink-3">These lock with the call. You will not be able to change them.</p>
+                    <p className="mt-1 text-[14px] text-ink-3">Fixed once the call opens.</p>
                   </div>
                   <Slider label="Lock" value={lockD} unit={lockD === 1 ? 'day' : 'days'} min={MIN_LOCK_D} max={MAX_LOCK_D} onChange={setLockD} hint="No exit can execute before this ends." />
                   <Slider label="Exit notice" value={noticeH} unit="hours" min={MIN_NOTICE_H} max={72} step={6} onChange={setNoticeH} hint="Between announcing an exit and being able to sell. Followers get this head start." />
@@ -262,7 +262,6 @@ function Flow({ address }: { address: string }) {
         ) : (
           <div className="grid h-[300px] place-items-center rounded-2xl border border-dashed border-line-strong text-[13.5px] text-ink-3">Pick a token to see your call</div>
         )}
-        <p className="text-[12.5px] leading-[1.5] text-ink-3">This is how followers will see it, with your real fill in place of the estimate.</p>
       </div>
 
       <Modal
@@ -324,9 +323,8 @@ export default function NewCallPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-[26px] font-semibold tracking-[-0.03em] sm:text-[30px]">Open a call</h1>
-        <p className="mt-1 text-[14px] text-ink-3">Buy first, then it goes public. Four short steps.</p>
       </div>
-      <RequireAuth title="Sign in to open a call" body="Opening a call buys the token with your own MON and locks it. You need a wallet; Privy creates one if you have none.">
+      <RequireAuth title="Sign in to open a call" body="Your MON buys the token and locks it.">
         {s.address ? <Flow address={s.address} /> : <Skeleton className="h-[480px] rounded-2xl" />}
       </RequireAuth>
     </div>

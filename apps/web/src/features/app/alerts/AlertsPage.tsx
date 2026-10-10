@@ -27,7 +27,7 @@ function List() {
   const data = useLoad(load, [useLiveVersion()])
   const read = useStore((s) => s.read)
   if (!data) return <Skeleton className="h-[360px] rounded-2xl" />
-  if (!data.alerts.length) return <Card><Empty icon={<Bell size={18} />} title="Nothing yet" body="Follow callers or watch calls. Exits show up here first." /></Card>
+  if (!data.alerts.length) return <Card><Empty icon={<Bell size={18} />} title="Nothing yet" body="Watch a call to hear about its exit first." /></Card>
   const unread = data.alerts.filter((a) => !a.read && !read.includes(a.id))
   return (
     <div className="space-y-4">
@@ -79,9 +79,8 @@ export default function AlertsPage() {
     <div className="mx-auto max-w-[760px] space-y-6">
       <div>
         <h1 className="text-[26px] font-semibold tracking-[-0.03em] sm:text-[30px]">Alerts</h1>
-        <p className="mt-1 text-[14px] text-ink-3">Exits from calls you watch and callers you follow, the moment they are announced.</p>
       </div>
-      <RequireAuth title="Sign in for exit alerts" body="Follow callers and watch calls. When an exit is announced, it lands here before it can execute.">
+      <RequireAuth title="Sign in for exit alerts" body="Hear about exits before they happen.">
         <List />
       </RequireAuth>
     </div>

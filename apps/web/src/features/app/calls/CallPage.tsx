@@ -163,10 +163,7 @@ export default function CallPage() {
               </p>
             )}
             <p className="mt-3 text-[12px] text-ink-3">
-              {source.kind === 'api'
-                ? 'Prices are quotes for selling the whole position, sampled every few minutes. A quote is not a fill.'
-                : 'Illustrative demo series.'}{' '}
-              {open ? 'An open call has no result yet: this move is unrealised.' : ''}
+              {source.kind === 'api' ? 'Sell quotes, sampled every few minutes.' : 'Illustrative demo series.'}{open ? ' Unrealised until the exit.' : ''}
             </p>
           </Card>
 
@@ -218,7 +215,6 @@ export default function CallPage() {
           <Card className="p-5 sm:p-6">
             <p className="text-[15px] font-semibold">Thesis</p>
             <blockquote className="mt-3 border-l-[3px] border-accent pl-4 text-[17px] leading-[1.6] text-ink">{call.thesis}</blockquote>
-            <p className="mt-3 text-[12px] text-ink-3">Written by the caller at open and fixed since. A record, never a recommendation.</p>
           </Card>
         </div>
 
@@ -240,7 +236,7 @@ export default function CallPage() {
                 </ButtonLink>
               )}
               <p className="text-[12px] leading-[1.5] text-ink-3">
-                You buy at today&apos;s market price, after the caller. Their entry was {price(entryPrice(call))}; the gap is {signedPct(move)}.
+                Their entry: {price(entryPrice(call))} ({signedPct(move)} since).
               </p>
             </Card>
           )}

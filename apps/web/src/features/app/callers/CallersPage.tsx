@@ -24,7 +24,6 @@ export default function CallersPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[26px] font-semibold tracking-[-0.03em] sm:text-[30px]">Callers</h1>
-          <p className="mt-1 max-w-[60ch] text-[14px] text-ink-3">Most recently active first. There is no leaderboard: read the whole record, losses included, before you follow anyone.</p>
         </div>
         <label className="flex h-10 w-full items-center gap-2 rounded-xl border border-line bg-surface px-3 text-ink-3 focus-within:border-accent/50 focus-within:shadow-ring sm:w-[260px]">
           <Search size={15} />

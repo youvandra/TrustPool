@@ -197,7 +197,7 @@ function Inner({ address }: { address: string }) {
         <Empty
           icon={<Wallet size={18} />}
           title="You have not opened a call yet"
-          body="Post a bond, buy with your own MON, and the call goes public with your entry already on the record."
+          body="Post a bond, buy, and it goes public."
           action={
             <ButtonLink to="/app/new" icon={Plus}>
               Open your first call
@@ -257,7 +257,7 @@ function Inner({ address }: { address: string }) {
         <SectionHead
           className="px-5 pt-5"
           title="Open calls"
-          sub="Announcing starts the public notice clock. It cannot be taken back."
+          sub="Announcing starts the notice clock."
           action={
             <ButtonLink to="/app/new" size="sm" icon={Plus}>
               New call
@@ -265,7 +265,7 @@ function Inner({ address }: { address: string }) {
           }
         />
         {open.length === 0 ? (
-          <Empty title="No open calls" body="Your next call will show here with its lock and exit controls." />
+          <Empty title="No open calls" />
         ) : (
           <div className="mt-2 divide-y divide-line">
             {open.map((c) => (
@@ -276,7 +276,7 @@ function Inner({ address }: { address: string }) {
       </Card>
 
       <Card>
-        <SectionHead className="px-5 pt-5" title="History" sub="Everything here is public and permanent." />
+        <SectionHead className="px-5 pt-5" title="History" />
         <ul className="mt-2 divide-y divide-line">
           {done.map((c) => (
             <li key={c.id}>
@@ -348,9 +348,8 @@ export default function PortfolioPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-[26px] font-semibold tracking-[-0.03em] sm:text-[30px]">Portfolio</h1>
-        <p className="mt-1 text-[14px] text-ink-3">Your bond, your open calls and the record they leave.</p>
       </div>
-      <RequireAuth title="Sign in to see your calls" body="Your bond, open positions and the controls to announce an exit live here.">
+      <RequireAuth title="Sign in to see your calls" body="Your bond and open calls live here.">
         {s.address ? <Inner address={s.address} /> : <Skeleton className="h-[320px] rounded-2xl" />}
       </RequireAuth>
     </div>
