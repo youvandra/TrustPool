@@ -214,8 +214,8 @@ export const trustPoolAbi = [
           },
           {
             "name": "openedAt",
-            "type": "uint64",
-            "internalType": "uint64"
+            "type": "uint40",
+            "internalType": "uint40"
           },
           {
             "name": "notice",
@@ -229,8 +229,8 @@ export const trustPoolAbi = [
           },
           {
             "name": "unlockAt",
-            "type": "uint64",
-            "internalType": "uint64"
+            "type": "uint40",
+            "internalType": "uint40"
           },
           {
             "name": "state",
@@ -243,24 +243,29 @@ export const trustPoolAbi = [
             "internalType": "bool"
           },
           {
+            "name": "releaseGrace",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
             "name": "adapter",
             "type": "address",
             "internalType": "contract ISwapAdapter"
           },
           {
             "name": "announcedAt",
-            "type": "uint64",
-            "internalType": "uint64"
+            "type": "uint40",
+            "internalType": "uint40"
           },
           {
             "name": "exitAt",
-            "type": "uint64",
-            "internalType": "uint64"
+            "type": "uint40",
+            "internalType": "uint40"
           },
           {
-            "name": "releaseGrace",
-            "type": "uint32",
-            "internalType": "uint32"
+            "name": "monIn",
+            "type": "uint96",
+            "internalType": "uint96"
           },
           {
             "name": "maxHold",
@@ -268,7 +273,7 @@ export const trustPoolAbi = [
             "internalType": "uint32"
           },
           {
-            "name": "monIn",
+            "name": "tokens",
             "type": "uint128",
             "internalType": "uint128"
           },
@@ -276,11 +281,6 @@ export const trustPoolAbi = [
             "name": "monOut",
             "type": "uint128",
             "internalType": "uint128"
-          },
-          {
-            "name": "tokens",
-            "type": "uint256",
-            "internalType": "uint256"
           },
           {
             "name": "thesis",
