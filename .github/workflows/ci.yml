@@ -27,6 +27,7 @@ jobs:
       - run: forge test -vv
         env:
           FOUNDRY_FUZZ_RUNS: 1000
+          FOUNDRY_INVARIANT_RUNS: 256
 
   apps:
     runs-on: ubuntu-latest

@@ -12,3 +12,8 @@ fs_permissions = [{ access = "read-write", path = "./deployments" }]
 [rpc_endpoints]
 monad_testnet = "${MONAD_TESTNET_RPC}"
 monad = "${MONAD_RPC}"
+
+# Local runs stay quick; CI sets FOUNDRY_INVARIANT_RUNS higher.
+[invariant]
+runs = 64
+depth = 250
