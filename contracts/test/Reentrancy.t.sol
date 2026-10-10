@@ -44,24 +44,35 @@ contract ReentrancyTest is Test {
         dex.setPrice(address(hook), 1 ether);
         vm.prank(admin);
         pool.setAllowed(address(hook), true);
-        vm.deal(caller, 100 ether);
+        vm.deal(caller, 1_000 ether);
         vm.prank(caller);
-        pool.postBond{value: 10 ether}();
+        pool.postBond{value: 100 ether}();
     }
 
+    /// The token calls back while the buy is sending it to the pool.
     function _expectBlocked(bytes memory reentry) internal {
+        TrustPool.Params memory p = pool.params();
+        hook.arm(address(0), "");
+        vm.prank(caller);
+        uint256 id = pool.openCall{value: 60 ether}(address(hook), p.minWindow, 0, 2000, p.minHold, 0, "");
+        vm.warp(block.timestamp + p.minWindow);
         hook.arm(address(pool), reentry);
         vm.prank(caller);
-        pool.openCall{value: 1 ether}(address(hook), 1 days, 6 hours, 0, "");
+        pool.buy(id, 0);
         assertEq(bytes4(hook.lastRevert()), TrustPool.Reentrant.selector);
     }
 
     function test_everyEntryIsShutDuringASwap() public {
         _expectBlocked(abi.encodeCall(TrustPool.postBond, ()));
         _expectBlocked(abi.encodeCall(TrustPool.requestBondWithdraw, ()));
-        _expectBlocked(abi.encodeCall(TrustPool.announceExit, (0)));
-        _expectBlocked(abi.encodeCall(TrustPool.markStale, (0)));
-        _expectBlocked(abi.encodeCall(TrustPool.moveToCurrentAdapter, (0)));
         _expectBlocked(abi.encodeCall(TrustPool.withdrawBond, ()));
+        _expectBlocked(abi.encodeCall(TrustPool.deposit, (0)));
+        _expectBlocked(abi.encodeCall(TrustPool.withdraw, (0, 1)));
+        _expectBlocked(abi.encodeCall(TrustPool.buy, (0, 0)));
+        _expectBlocked(abi.encodeCall(TrustPool.checkpoint, (0)));
+        _expectBlocked(abi.encodeCall(TrustPool.sell, (0)));
+        _expectBlocked(abi.encodeCall(TrustPool.refund, (0)));
+        _expectBlocked(abi.encodeCall(TrustPool.split, (0)));
+        _expectBlocked(abi.encodeCall(TrustPool.claim, (0)));
     }
 }

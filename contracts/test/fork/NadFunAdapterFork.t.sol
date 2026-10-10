@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Test} from "forge-std/Test.sol";
+import {SoloCall} from "../utils/SoloCall.sol";
 import {TrustPool} from "../../src/TrustPool.sol";
 import {NadFunAdapter} from "../../src/adapters/NadFunAdapter.sol";
 import {INadFunLens} from "../../src/interfaces/INadFun.sol";
@@ -11,7 +11,7 @@ import {INadFunLens} from "../../src/interfaces/INadFun.sol";
 /// github.com/Naddotfun/contract-v3-abi; override all three for testnet.
 ///
 ///   NADFUN_FORK_RPC_URL=$MONAD_RPC FORK_TOKEN=0x... forge test --match-path 'test/fork/NadFun*'
-contract NadFunAdapterForkTest is Test {
+contract NadFunAdapterForkTest is SoloCall {
     TrustPool pool;
     NadFunAdapter adapter;
     address token;
@@ -32,22 +32,16 @@ contract NadFunAdapterForkTest is Test {
         vm.deal(caller, 100 ether);
         vm.prank(caller);
         pool.postBond{value: 10 ether}();
+        _smallPools(pool, address(this));
     }
 
     function test_fork_openAndSettle() public {
         vm.skip(address(pool) == address(0));
         uint256 monIn = 1 ether;
         uint256 minOut = (adapter.quoteBuy(token, monIn) * 95) / 100;
-        vm.prank(caller);
-        uint256 id = pool.openCall{value: monIn}(token, 1 days, 6 hours, minOut, "fork");
+        uint256 id = _soloBuy(pool, caller, token, monIn, minOut);
         assertGe(pool.getCall(id).tokens, minOut);
-
-        vm.prank(caller);
-        pool.announceExit(id);
-        vm.warp(block.timestamp + 1 days);
-        uint256 quote = adapter.quoteSell(token, pool.getCall(id).tokens);
-        vm.prank(caller);
-        pool.executeExit(id, (quote * 95) / 100);
-        assertGt(pool.getCall(id).monOut, 0);
+        assertGt(_soloSell(pool, caller, id), 0);
+        assertEq(uint8(pool.getCall(id).state), uint8(TrustPool.State.Settled));
     }
 }
