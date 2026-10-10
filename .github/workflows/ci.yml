@@ -1,0 +1,68 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - run: forge fmt --check
+      - run: forge build --sizes
+      - run: forge test -vv
+        env:
+          FOUNDRY_FUZZ_RUNS: 1000
+
+  apps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.22
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - run: npm ci
+      - name: generated contract bindings are up to date
+        run: |
+          npm run sync:contracts
+          git diff --exit-code -- packages/core/src/contracts/abi.ts
+      - run: npm run typecheck
+      - run: npm test -w @trustpool/api
+        env:
+          LOG_LEVEL: silent
+      - name: indexer against anvil
+        env:
+          LOG_LEVEL: silent
+        run: |
+          anvil --silent &
+          sleep 2
+          cd contracts
+          KEY=$(cast wallet private-key "test test test test test test test test test test test junk" 0)
+          forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --private-key "$KEY"
+          forge script script/SeedLocal.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
+          cd .. && node scripts/sync-contracts.mjs
+          cd apps/api && E2E_RPC_URL=http://127.0.0.1:8545 bun test indexer.e2e
+      - run: npm run build
