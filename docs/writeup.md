@@ -1,9 +1,9 @@
-# trustpool: write-up (draft)
+# trustpool: write-up
 
 > The caller buys first, and cannot leave without telling you.
 
-Draft for the Metropolis submission. Fill in the links marked TODO and check every
-citation before sending. Track: Trust, Identity & AI Infrastructure (reputation).
+Submission for Monad Metropolis 2026. Track: Trust, Identity & AI Infrastructure
+(reputation).
 
 ## Honest limits first
 
@@ -11,15 +11,15 @@ citation before sending. Track: Trust, Identity & AI Infrastructure (reputation)
 | --- | --- |
 | Can a caller buy from a second wallet first? | Yes. Nothing stops it completely. The bond, the caller's own locked money and the early-buyer list make it costly and visible; the admin can slash with a public reason. |
 | Can a caller sit on a losing call forever? | They can keep it open, but it shows a marked-to-market value, and after its max hold anyone can mark it stale on the record for good. The loss is not realised without a sale. |
-| Who controls the contract? | An admin keeps the token list, sets parameters for later calls and slashes bonds. It has no path to a locked position: each call's DEX adapter, release grace and max hold are fixed when the call opens. |
+| Who controls the contract? | One admin key, also the treasury: the deployer's. It keeps the token list, sets parameters for later calls and slashes bonds. It has no path to a locked position: each call's DEX adapter, release grace and max hold are fixed when the call opens. |
 | Do followers get the caller's price? | No. They buy after the caller, at market. The caller's entry is public, so the gap is shown. |
-| TODO testnet or mainnet, real DEX or mock DEX | Say exactly which, and why. |
+| Testnet or mainnet? Real DEX? | Monad testnet. Swaps are real Uniswap v4 swaps against the live PoolManager, but on two demo tokens (tCHOG, tMOE) and pools we created and seeded with 1 MON each, because no (MON, token) v4 pool on testnet had liquidity. |
 
 ## Problem
 
 Call groups distribute signals well and carry no consequence: the caller puts in no
 money, can sell into followers, and can drop losing calls from their history.
-(Examples: see docs/product.md "The problem"; verify links.)
+Examples: [`docs/product.md`](product.md#the-problem).
 
 ## Mechanism
 
@@ -35,21 +35,39 @@ money, can sell into followers, and can drop losing calls from their history.
 
 ## What is built
 
-- `TrustPool.sol` with a swappable DEX adapter (Uniswap V2 adapter plus mocks), 47
-  Foundry tests including fuzzing.
-- An indexer and API (Bun, viem, PostgreSQL) that follows every event, mirrors the on-chain
-  record exactly (checked against the contract in CI), samples quotes for open calls,
-  writes alerts, and lists wallets that bought just before a call.
-- A web app (React, Privy) where callers open, announce, settle and manage their bond
-  with real transactions, and followers read records, follow and watch.
+- `TrustPool.sol` with a per-call DEX adapter: `UniswapV4Adapter` (deployed), plus
+  Uniswap V2 and nad.fun adapters. 54 Foundry unit and fuzz tests, 4 invariants, and
+  opt-in fork tests against the live testnet PoolManager.
+- A Bun API that indexes every event into Postgres, mirrors the on-chain record
+  (checked against `recordOf` on anvil in CI), samples quotes for open calls, lists
+  wallets that bought just before a call, pushes alerts live over SSE, and serves an
+  OpenAPI 3.1 document. 42 API tests, run on PGlite and on Postgres 16.
+- A React app (Privy sign-in) where callers open, announce, settle and manage their
+  bond with real transactions, and followers read records, follow and watch.
+- A Playwright test that drives a whole call through the browser on a local chain.
+
+## Why Monad
+
+- Cheap, fast blocks make it practical to settle every call on chain, sample each open
+  call's price every few minutes, and run notice periods of minutes rather than days.
+- Foundry needs `--network monad` to fork or broadcast with Monad's EVM rules.
+- The testnet regenesis on 16 Dec 2025 removed the old WMON, Uniswap V2 and nad.fun
+  deployments; we checked on chain and built on Uniswap v4, which is live.
+
+## Built during the event
+
+The repository was created on 10 October 2026; `git log --reverse` is the whole entry.
 
 ## Roadmap
 
-- Forced sale after max hold against a TWAP floor (needs an oracle).
-- A nad.fun adapter; caller handles; a multisig admin, then slashing by a review panel.
+- Price oracle, so a stale losing call can be closed at market.
+- Slashing by a council or on-chain evidence instead of one admin.
+- nad.fun adapter on mainnet (written, fork test pending).
 
 ## Links
 
-- Code: TODO
+- App: <https://trustpool.web.id>
+- Docs: <https://trustpool.web.id/docs>
+- Code: <https://github.com/youvandra/TrustPool>
+- TrustPool contract: [`0x98eee74eBcCe4d109B8eA7D653A594435503f0Ab`](https://testnet.monadscan.com/address/0x98eee74eBcCe4d109B8eA7D653A594435503f0Ab) on Monad testnet
 - Demo video: TODO
-- Deployed contract: TODO (explorer link)
