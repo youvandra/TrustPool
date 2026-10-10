@@ -3,6 +3,19 @@
 import type { Deployment } from './types'
 
 export const DEPLOYMENTS: Record<number, Deployment> = {
+  10143: {
+    "adapter": "0xA50d9454E71aCf152399C872815ae6895cB53229",
+    "adapterKind": "uniswap-v4",
+    "admin": "0x9F846D2054689a439DA8D0619f37F6c70Db03597",
+    "chainId": 10143,
+    "startBlock": 69906401,
+    "tokens": [
+      "0x12d15135b5bBa8EEF0d1098Aa65A15AF503d09c9",
+      "0x2A8361Ac23F5FfcFDe9f0D7BC7618178770332d0"
+    ],
+    "treasury": "0x9F846D2054689a439DA8D0619f37F6c70Db03597",
+    "trustPool": "0x98eee74eBcCe4d109B8eA7D653A594435503f0Ab"
+  },
   31337: {
     "adapter": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
     "adapterKind": "mock",
