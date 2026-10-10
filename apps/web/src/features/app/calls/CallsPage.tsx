@@ -76,7 +76,7 @@ export default function CallsPage() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as Sort)}
-            className="h-10 rounded-xl border border-line bg-surface px-3 text-[13.5px] text-ink-2 outline-none focus:border-accent/50"
+            className="h-10 cursor-pointer rounded-xl border border-line bg-surface px-3 text-[13.5px] text-ink-2 outline-none focus:border-accent/50 focus:shadow-ring"
             aria-label="Sort"
           >
             <option value="new">Newest</option>
