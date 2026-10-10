@@ -22,11 +22,11 @@ function Heading({ eyebrow, title, body, center = false }: { eyebrow: string; ti
 export function Ticker() {
   const items = [...DONE, ...DONE]
   return (
-    <section className="border-y border-line bg-surface py-5" aria-label="Recent results">
+    <section className="py-5" aria-label="Recent results">
       <div className="relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
         <div className="flex w-max animate-marquee gap-3">
           {[...items, ...items].map((c, i) => (
-            <span key={i} className="flex shrink-0 items-center gap-2.5 rounded-full border border-line bg-bg py-1.5 pl-1.5 pr-3.5 text-[13px]">
+            <span key={i} className="flex shrink-0 items-center gap-2.5 rounded-full border border-line bg-surface py-1.5 pl-1.5 pr-3.5 text-[13px]">
               <TokenIcon token={c.token} size={24} />
               <span className="font-semibold">{c.token.symbol}</span>
               <span className="text-ink-3">by {by(c.caller)?.handle}</span>
