@@ -5,66 +5,74 @@ unconvincing in a loud wrapper. The test for every screen: if it shows a call
 that lost 30%, does it still feel honest and quiet? A design that only works
 when the numbers are green is wrong.
 
-## Where the patterns come from
+## Direction (rebuilt 10 Oct 2026)
 
-The interaction patterns are ported from the Kinsign web app (same author, same
-stack). The colours, type and density come from the trustpool brand. Where the
-two disagree, the brand wins on colour and surface, Kinsign wins on motion and
-interaction.
+Light theme only. A product, not a page: a marketing site at `/` and the app at
+`/app`. References studied: Privy and Family (light marketing with a live product
+shot, bento tiles), Bloom and Linear-style dashboards (white sidebar with grouped
+nav, breadcrumb plus search top bar, sections with "See all", dense rows),
+Polymarket (card grid with category chips). Kinsign contributes the motion
+rules and the rolling arrow button.
 
-| Kept from Kinsign | Changed for trustpool |
-| --- | --- |
-| Floating pill header, full-screen sheet menu on phones | Pill gains a line on scroll instead of a shadow |
-| Arrow buttons with rolling label and rotating knob | Primary is ink; the accent never fills a button |
-| Numbered section badge (circle + outlined label) | Label uses the eyebrow style (11px, caps, 0.14em) |
-| Auto-advancing step list beside a live preview | Preview is a call card in each state, no phone frame |
-| `Reveal`: transform-only entrance, content visible from frame one | Same, unchanged |
-| `usePageVisible`: no animation while the tab is hidden | Same, unchanged |
-| Dark footer with link columns | Uses the `deep` token so it stays dark in both modes |
-| Rounded-2xl white cards with shadow | Flat panels: 6px radius, 1px `line` border, no shadow |
-| Orange accent, pulsing dots | One pulse only, on "Exit announced" |
+### Information architecture
+
+| Route | Who | What |
+| --- | --- | --- |
+| `/` | Everyone | Landing: hero with a real slice of the app, results ticker, 4-step bento, followers vs callers, comparison with call groups, honest FAQ, CTA |
+| `/app` | Everyone | Home: pulse tiles, "Exiting soon" (the key list), new calls, following/suggested callers, explainer |
+| `/app/calls` | Everyone | Explore: state tabs, token chips, search, sort, grid/list toggle. Newest first, no ranking |
+| `/app/calls/:id` | Everyone | Call: status block (exit countdown / lock / result), price since entry, rules (fixed), position, thesis, timeline, caller card, watch + buy-on-your-own |
+| `/app/callers` | Everyone | Directory, ordered by last activity |
+| `/app/callers/:address` | Everyone | Profile: record stats, every call, slash history |
+| `/app/portfolio` | Signed in | Caller console: bond, open calls with Announce exit / Sell and settle, history |
+| `/app/alerts` | Signed in | Exit announcements and new calls from followed callers and watched calls |
+| `/app/new` | Signed in | 4-step wizard: token, size (bond check), rules, review; live preview card |
+
+Browsing never needs an account. Signing in is asked for at the moment it is
+needed (follow, watch, portfolio, opening a call), through `useSession().login()`.
+
+### Shell
+
+Desktop: fixed 248px white sidebar (Discover / You groups, "Have a call?" card,
+account chip), sticky translucent top bar (breadcrumb, search, alerts bell).
+Phones: top bar plus a bottom tab bar with a central "Open a call" button.
 
 ## Tokens
 
-Defined as RGB triplets in `apps/web/src/index.css`, mapped in
-`apps/web/tailwind.config.js`. Every class works in light and dark.
+Defined in `apps/web/tailwind.config.js`.
 
-| Token | Light | Dark | Use |
-| --- | --- | --- | --- |
-| `mist` | #E9F0F3 | #101819 | Page ground |
-| `surface` | #F7FAFB | #18242A | Panels, cards |
-| `line` | #D3DFE5 | #2A383F | Borders, dividers |
-| `accent-fill` | #CBE0EB | #1C3A4A | Pastel field (never text) |
-| `accent` | #2E6E8E | #8CC3DE | Identity, the one active state |
-| `accent-deep` | #1C4B63 | #CBE0EB | Text on `accent-fill` |
-| `ink` | #16252C | #E9F0F3 | Text, primary buttons |
-| `ink-quiet` | #4C6270 | #9CB0BA | Secondary text |
-| `gain` | #0B6E4F | #3DBF93 | Positive results only |
-| `loss` | #B8302A | #FF8A80 | Negative results only |
-| `deep` | #16252C | #090E0F | Footer and dark sections |
-
-Rules:
-
-1. Pastels are fields, never ink.
-2. The accent is identity plus the single most important state on a screen.
-3. Red always means loss and green always means gain; the brand uses neither otherwise.
-4. Colour is never the only signal: every result carries `+` or `−` (see `signedPct`).
-5. No gradients, glow, glass or celebration.
-
-## Type
-
-IBM Plex Sans for everything, IBM Plex Mono for numbers, addresses and hashes.
-Utility classes: `.num` (mono + tabular figures) and `.eyebrow`.
-
-| Role | Size | Weight |
+| Token | Hex | Use |
 | --- | --- | --- |
-| Page title | 30px | 600 |
-| Section title (in app) | 19px | 600 |
-| Body | 15px | 400 |
-| Eyebrow | 11px caps, 0.14em | 500 |
-| Table numbers | 13.5px mono | 400 |
+| `bg` | #F3F6F7 | App and page ground |
+| `surface` | #FFFFFF | Cards, sidebar |
+| `subtle` | #F7F9FA | Insets, table heads |
+| `line` / `line-strong` | #E4EAED / #D3DDE2 | Borders |
+| `ink` / `ink-2` / `ink-3` | #12212A / #3F525D / #7A8B95 | Text levels, primary buttons |
+| `accent` | #2E6E8E | Identity and the one live state: an announced exit |
+| `accent-fill` / `accent-soft` | #E3EFF5 / #F0F6F9 | Pastel fields |
+| `gain` / `gain-fill` | #0B7A57 / #E3F4EC | Positive results only |
+| `loss` / `loss-fill` | #C0352E / #FBEAE8 | Negative results only |
 
-Landing headlines use larger clamp sizes at weight 500; app pages stay on the scale.
+Type: Geist for everything, Geist Mono for numbers (`.num`). Cards are 16px
+radius with `shadow-card`; popovers and modals use `shadow-pop`. Buttons: ink
+primary, white secondary with a ring, ghost.
+
+### Components (`apps/web/src/components/ui`)
+
+`Button`, `ButtonLink`, `ArrowLink` (marketing CTA), `Card`, `SectionHead`,
+`SeeAll`, `StateTag`, `Signed`, `Tabs` (sliding indicator), `Row`, `Stat`,
+`Skeleton`, `Empty`, `Modal`, `toast`/`Toaster`, `Sparkline`, `CallerAvatar`
+(deterministic from the address), `TokenIcon`, `Mark`/`Wordmark`. App-level:
+`CallCard`, `CallRow`, `Countdown`, `Timeline`, `FollowButton`, `WatchButton`
+in `features/app/components`.
+
+### Motion
+
+Springs for entrances, layout animation for tab indicators, ticking countdowns,
+a marquee for results. **Only transform animates on entrance.** Never make
+content start at opacity 0 or wait on an exit animation (`AnimatePresence
+mode="wait"`): browsers pause animation frames in background tabs, and the
+content would never appear. This bit the wizard once already.
 
 ## Numbers
 
