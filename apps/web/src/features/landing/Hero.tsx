@@ -1,5 +1,4 @@
 import { motion } from 'motion/react'
-import { ArrowDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { CALLERS, CALLS, type Call } from '@trustpool/core'
 import { ArrowLink } from '@/components/ui'
@@ -101,11 +100,6 @@ export default function Hero() {
         <div className="hidden lg:block">
           <HeroVisual />
         </div>
-      </div>
-      <div className="relative z-10 mx-auto hidden w-full max-w-[1240px] px-8 pb-8 lg:block">
-        <a href="#how" className="inline-flex items-center gap-2 text-[13px] text-ink-2">
-          Scroll <ArrowDown size={14} className="animate-bob motion-reduce:animate-none" />
-        </a>
       </div>
     </section>
   )
