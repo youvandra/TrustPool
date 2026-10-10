@@ -1,5 +1,5 @@
 import { swapAdapterAbi, trustPoolAbi } from '@trustpool/core'
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import {
   BaseError,
   ContractFunctionRevertedError,
@@ -128,11 +128,15 @@ export type TrustPoolTx = ReturnType<typeof trustPool>
 export function useTrustPool() {
   const session = useSession()
   const [pending, setPending] = useState<string | null>(null)
+  // State lags a render behind, so a fast second click would slip past `pending`; this does not.
+  const inFlight = useRef(false)
   const enabled = session.mode !== 'demo' && !!deployment && !!session.walletClient
 
   const run = useCallback(
     async <T,>(label: string, fn: (tx: TrustPoolTx) => Promise<T>): Promise<{ ok: true; value: T } | { ok: false; error: string }> => {
       if (!enabled) return { ok: false, error: 'Transactions need a wallet and a deployment on this chain.' }
+      if (inFlight.current) return { ok: false, error: 'Another transaction is still waiting for your wallet.' }
+      inFlight.current = true
       setPending(label)
       try {
         const wallet = await session.walletClient!()
@@ -140,6 +144,7 @@ export function useTrustPool() {
       } catch (err) {
         return { ok: false, error: explain(err) }
       } finally {
+        inFlight.current = false
         setPending(null)
       }
     },

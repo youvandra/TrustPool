@@ -24,7 +24,8 @@ const RELEASE_GRACE = 6 * 3_600_000
 type Act = (label: string, fn: (t: TrustPoolTx) => Promise<unknown>, done: string) => Promise<boolean>
 
 /** One open position with the only actions a caller has: announce, execute, or release. */
-function OpenPosition({ call, onAnnounce, act, busy }: { call: Call; onAnnounce: (c: Call) => void; act: Act; busy: boolean }) {
+function OpenPosition({ call, onAnnounce, act, pending }: { call: Call; onAnnounce: (c: Call) => void; act: Act; pending: string | null }) {
+  const busy = !!pending
   const now = Date.now()
   const unlocked = now >= call.unlockAt
   const canRelease = call.state === 'Exiting' && now >= call.exitAt! + RELEASE_GRACE
@@ -67,7 +68,7 @@ function OpenPosition({ call, onAnnounce, act, busy }: { call: Call; onAnnounce:
               title="Take the tokens unsold. Your record counts this call as -100%."
               onClick={() => void act('Releasing', (t) => t.releaseTokens(call.id), 'Tokens released to you. The record counts this call as -100%.')}
             >
-              Release unsold
+              {pending === 'Releasing' ? 'Releasing…' : 'Release unsold'}
             </Button>
           )}
           <Button
@@ -75,7 +76,7 @@ function OpenPosition({ call, onAnnounce, act, busy }: { call: Call; onAnnounce:
             title="Available once the notice period ends"
             onClick={() => void act('Selling', (t) => t.executeExit(call.id), 'Sold and settled. The result is on your record.')}
           >
-            Sell and settle
+            {pending === 'Selling' ? 'Selling…' : 'Sell and settle'}
           </Button>
         </div>
       )}
@@ -84,7 +85,8 @@ function OpenPosition({ call, onAnnounce, act, busy }: { call: Call; onAnnounce:
 }
 
 /** Add to the bond, or start and finish a withdrawal. The contract enforces every rule. */
-function BondModal({ open, onClose, act, busy, hasOpen }: { open: boolean; onClose: () => void; act: Act; busy: boolean; hasOpen: boolean }) {
+function BondModal({ open, onClose, act, pending, hasOpen }: { open: boolean; onClose: () => void; act: Act; pending: string | null; hasOpen: boolean }) {
+  const busy = !!pending
   const [amount, setAmount] = useState('10')
   const value = Number(amount)
   return (
@@ -99,7 +101,7 @@ function BondModal({ open, onClose, act, busy, hasOpen }: { open: boolean; onClo
         />
       </label>
       <Button className="mt-3" block disabled={busy || !(value > 0)} onClick={() => void act('Posting bond', (t) => t.postBond(value), `Added ${value} MON to your bond.`).then((ok) => ok && onClose())}>
-        Add to bond
+        {pending === 'Posting bond' ? 'Posting bond…' : 'Add to bond'}
       </Button>
       <div className="mt-6 border-t border-line pt-5">
         <p className="text-[13.5px] leading-[1.55] text-ink-2">
@@ -107,10 +109,10 @@ function BondModal({ open, onClose, act, busy, hasOpen }: { open: boolean; onClo
         </p>
         <div className="mt-4 flex gap-2">
           <Button variant="secondary" block disabled={busy || hasOpen} onClick={() => void act('Requesting withdrawal', (t) => t.requestBondWithdraw(), 'Withdrawal requested. You can withdraw in 7 days.')}>
-            Request withdrawal
+            {pending === 'Requesting withdrawal' ? 'Requesting…' : 'Request withdrawal'}
           </Button>
           <Button variant="secondary" block disabled={busy || hasOpen} onClick={() => void act('Withdrawing', (t) => t.withdrawBond(), 'Bond withdrawn to your wallet.').then((ok) => ok && onClose())}>
-            Withdraw now
+            {pending === 'Withdrawing' ? 'Withdrawing…' : 'Withdraw now'}
           </Button>
         </div>
       </div>
@@ -236,7 +238,7 @@ function Inner({ address }: { address: string }) {
         ) : (
           <div className="mt-2 divide-y divide-line">
             {open.map((c) => (
-              <OpenPosition key={c.id} call={c} onAnnounce={setConfirm} act={act} busy={!!tx.pending} />
+              <OpenPosition key={c.id} call={c} onAnnounce={setConfirm} act={act} pending={tx.pending} />
             ))}
           </div>
         )}
@@ -263,7 +265,7 @@ function Inner({ address }: { address: string }) {
       </Card>
 
 
-      <BondModal open={bondOpen} onClose={() => setBondOpen(false)} act={act} busy={!!tx.pending} hasOpen={open.length > 0} />
+      <BondModal open={bondOpen} onClose={() => setBondOpen(false)} act={act} pending={tx.pending} hasOpen={open.length > 0} />
 
       <Modal open={!!confirm} onClose={() => setConfirm(null)} title="Announce your exit?">
         {confirm && (
