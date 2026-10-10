@@ -38,7 +38,9 @@ contract Deploy is Script {
     function run() external virtual returns (Deployed memory d) {
         uint256 startBlock = block.number;
         vm.startBroadcast();
-        address me = msg.sender;
+        // The broadcaster, from --account, --private-key or --sender. msg.sender here is
+        // Foundry's default sender whenever the key comes from a keystore.
+        (, address me,) = vm.readCallers();
         address admin = vm.envOr("ADMIN", me);
         address treasury = vm.envOr("TREASURY", admin);
 

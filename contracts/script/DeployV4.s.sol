@@ -32,7 +32,9 @@ contract DeployV4 is Deploy {
         uint256 seedMon = vm.envOr("SEED_MON", uint256(1 ether));
 
         vm.startBroadcast();
-        address me = msg.sender;
+        // The broadcaster, from --account, --private-key or --sender. msg.sender here is
+        // Foundry's default sender whenever the key comes from a keystore.
+        (, address me,) = vm.readCallers();
         UniswapV4Adapter adapter = new UniswapV4Adapter(manager, stateView, 3000, 60);
         V4PoolSeeder seeder = new V4PoolSeeder(manager);
 
