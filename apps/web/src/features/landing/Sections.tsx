@@ -121,7 +121,7 @@ function ExitVisual() {
 function LedgerVisual() {
   return (
     <div className="divide-y divide-line rounded-2xl border border-line bg-subtle">
-      {DONE.slice(0, 5).map((c) => (
+      {DONE.slice(0, 3).map((c) => (
         <div key={c.id} className="flex items-center gap-3 px-4 py-2.5">
           <TokenIcon token={c.token} size={26} />
           <span className="flex-1 text-[13px]">
@@ -159,7 +159,8 @@ export function HowItWorks() {
                   <h3 className="mt-5 text-[22px] font-semibold tracking-[-0.03em]">{t.title}</h3>
                   <p className="mt-2 max-w-[44ch] text-[15px] leading-[1.6] text-ink-2">{t.body}</p>
                 </div>
-                <div className="flex flex-1 flex-col justify-center">{t.visual}</div>
+                {/* Visuals sit on the tile's bottom edge, so tiles in a row line up whatever their content. */}
+                <div className="flex flex-1 flex-col justify-end">{t.visual}</div>
               </div>
             </Reveal>
           ))}
@@ -239,8 +240,8 @@ export function Compare() {
     )
   return (
     <section className="border-t border-line bg-surface py-24 sm:py-32">
-      <div className="mx-auto max-w-[1000px] px-5 sm:px-8">
-        <Heading center eyebrow="Compared" title="A call group, with consequences." />
+      <div className="mx-auto max-w-[1240px] px-5 sm:px-8">
+        <Heading eyebrow="Compared" title="A call group, with consequences." />
         <Reveal className="mt-14">
           <div className="overflow-hidden rounded-3xl border border-line">
             <div className="grid grid-cols-[1fr_96px_96px] bg-subtle px-5 py-4 text-[13px] font-medium sm:grid-cols-[1fr_150px_150px] sm:px-7">
