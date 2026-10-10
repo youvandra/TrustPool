@@ -66,8 +66,9 @@ From docs.monad.xyz and third-party nad.fun skill docs, 10 Oct. Re-check before 
        (`NADFUN_FORK_RPC_URL=$MONAD_RPC FORK_TOKEN=0x… forge test --match-path 'test/fork/NadFun*'`)
        and on testnet once its addresses are confirmed. Unverified on a real chain: that
        both routers pay native MON on sell (the contract reverts safely if not).
-7. [ ] Nice to have still open: caller handles (no ENS-style names found on Monad yet;
-       the API shows short addresses).
+7. [x] Caller handles: no ENS-style names on Monad yet, so a caller signs a handle and
+       bio with their wallet (`PUT /callers/:address/profile`, Portfolio "Edit name and
+       bio"). Without one, a short address stands in.
 8. [ ] Submission (keep a full half day): `docs/writeup.md` is drafted; record the demo
        video (open a call, show it locked, announce, the notice countdown, execute, the
        record with a loss on it), public project profile, verify the cited links.
