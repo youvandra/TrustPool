@@ -6,4 +6,6 @@ interface ImportMetaEnv {
   readonly VITE_CHAIN_ID?: string
   /** Overrides the RPC from @trustpool/core for this chain. */
   readonly VITE_RPC_URL?: string
+  /** Anvil only: sign with this private key instead of Privy. Ignored on any other chain. */
+  readonly VITE_DEV_WALLET_KEY?: string
 }

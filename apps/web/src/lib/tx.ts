@@ -128,11 +128,11 @@ export type TrustPoolTx = ReturnType<typeof trustPool>
 export function useTrustPool() {
   const session = useSession()
   const [pending, setPending] = useState<string | null>(null)
-  const enabled = session.mode === 'privy' && !!deployment && !!session.walletClient
+  const enabled = session.mode !== 'demo' && !!deployment && !!session.walletClient
 
   const run = useCallback(
     async <T,>(label: string, fn: (tx: TrustPoolTx) => Promise<T>): Promise<{ ok: true; value: T } | { ok: false; error: string }> => {
-      if (!enabled) return { ok: false, error: 'Transactions need a Privy wallet and a deployment on this chain.' }
+      if (!enabled) return { ok: false, error: 'Transactions need a wallet and a deployment on this chain.' }
       setPending(label)
       try {
         const wallet = await session.walletClient!()

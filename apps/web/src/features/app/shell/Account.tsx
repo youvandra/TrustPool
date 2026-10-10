@@ -43,7 +43,7 @@ export default function Account({ compact = false }: { compact?: boolean }) {
       </button>
       {open && (
         <div className={`absolute z-50 w-56 rounded-xl border border-line bg-surface p-1.5 shadow-pop ${compact ? 'right-0 top-full mt-2' : 'bottom-full left-0 mb-2'}`}>
-          <p className="px-2.5 py-2 text-[12px] text-ink-3">{s.mode === 'demo' ? 'Demo session' : 'Signed in with Privy'}</p>
+          <p className="px-2.5 py-2 text-[12px] text-ink-3">{s.mode === 'demo' ? 'Demo session' : s.mode === 'local' ? 'Local anvil wallet' : 'Signed in with Privy'}</p>
           <button type="button" onClick={s.logout} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13.5px] text-ink-2 hover:bg-subtle hover:text-ink">
             <LogOut size={14} /> Sign out
           </button>
