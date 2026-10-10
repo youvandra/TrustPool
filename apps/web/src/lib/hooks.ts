@@ -44,17 +44,24 @@ export function useTitle(title: string): void {
   }, [title])
 }
 
-/** Loads once per key change. `undefined` while loading, `null` when the loader found nothing. */
+/**
+ * Loads once per key change. `undefined` while loading, `null` when the loader found nothing.
+ * A failed load is thrown during render, so the page's `LoadBoundary` shows it with a retry.
+ */
 export function useLoad<T>(load: () => Promise<T | undefined>, deps: unknown[]): T | null | undefined {
-  const [state, setState] = useState<{ key: string; value: T | null } | undefined>()
+  const [state, setState] = useState<{ key: string; value: T | null; error?: unknown } | undefined>()
   const key = JSON.stringify(deps)
   useEffect(() => {
     let live = true
-    void load().then((v) => live && setState({ key, value: v ?? null }))
+    load().then(
+      (v) => live && setState({ key, value: v ?? null }),
+      (error) => live && setState({ key, value: null, error: error ?? new Error('load failed') }),
+    )
     return () => {
       live = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
+  if (state?.key === key && state.error) throw state.error
   return state?.key === key ? state.value : undefined
 }

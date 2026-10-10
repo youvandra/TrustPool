@@ -82,7 +82,7 @@ function AddressRow({ label, address }: { label: string; address: string }) {
 function LiveParams() {
   const p = useLoad(async () => {
     if (!deployment) return undefined
-    return publicClient.readContract({ address: deployment.trustPool as `0x${string}`, abi: trustPoolAbi, functionName: 'params' })
+    return publicClient.readContract({ address: deployment.trustPool as `0x${string}`, abi: trustPoolAbi, functionName: 'params' }).catch(() => undefined)
   }, [])
   if (!deployment) return <p>No deployment on this chain yet.</p>
   if (p === undefined) return <div className="skeleton h-[180px] rounded-2xl" />

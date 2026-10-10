@@ -2,7 +2,7 @@ import { Bell, Plus, Search } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useSession } from '@/auth/session'
-import { ButtonLink, Toaster, Wordmark } from '@/components/ui'
+import { ButtonLink, LoadBoundary, Toaster, Wordmark } from '@/components/ui'
 import { source } from '@/lib/data'
 import { useLoad } from '@/lib/hooks'
 import { useLiveAlerts, useLiveVersion } from '@/lib/live'
@@ -175,6 +175,7 @@ function Tab({ to, label, icon: Icon, end }: (typeof MOBILE_NAV)[number]) {
 /** The product: sidebar on desktop, top bar plus bottom tabs on phones. */
 export default function AppShell() {
   const { authenticated } = useSession()
+  const { pathname } = useLocation()
   useServerState(authenticated)
   useLiveAlerts(authenticated)
   return (
@@ -183,7 +184,9 @@ export default function AppShell() {
       <div className="lg:pl-[248px]">
         <Topbar />
         <main className="mx-auto w-full max-w-[1400px] px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-16 lg:pt-8">
-          <Outlet />
+          <LoadBoundary key={pathname}>
+            <Outlet />
+          </LoadBoundary>
         </main>
       </div>
       <MobileTabs />
