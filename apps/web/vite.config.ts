@@ -5,6 +5,7 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
-  build: { target: 'es2022' },
-  server: { port: 5280, strictPort: true },
+  build: { target: 'es2022', chunkSizeWarningLimit: 2500 },
+  // The Bun API (apps/api) runs on 8787; used when VITE_DATA=api.
+  server: { port: 5280, strictPort: true, proxy: { '/api': 'http://localhost:8787' } },
 })

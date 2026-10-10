@@ -43,3 +43,21 @@ export function date(ms: number): string {
 
 export type Tone = 'gain' | 'loss' | 'flat'
 export const toneOf = (bps: number): Tone => (bps > 0 ? 'gain' : bps < 0 ? 'loss' : 'flat')
+
+/** "2d 4h 12m" beyond a day, "04:12:09" inside one: a clock that ticks, for exits and locks. */
+export function clock(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000))
+  const d = Math.floor(s / 86400)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const hms = `${pad(Math.floor((s % 86400) / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`
+  return d > 0 ? `${d}d ${Math.floor((s % 86400) / 3600)}h ${Math.floor((s % 3600) / 60)}m` : hms
+}
+
+/** "3h ago", "2d ago", "just now". */
+export function ago(ms: number, now = Date.now()): string {
+  const d = now - ms
+  if (d < 60_000) return 'just now'
+  return `${duration(d)} ago`.replace(/ 0m/, '')
+}
+
+export const compact = (n: number) => n.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 })

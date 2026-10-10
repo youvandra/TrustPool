@@ -2,70 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Brand tokens from docs/brand.md, as RGB triplets so Tailwind can apply opacity. */
-:root {
-  --mist: 233 240 243;
-  --surface: 247 250 251;
-  --line: 211 223 229;
-  --accent-fill: 203 224 235;
-  --accent: 46 110 142;
-  --accent-deep: 28 75 99;
-  --ink: 22 37 44;
-  --ink-quiet: 76 98 112;
-  --gain: 11 110 79;
-  --loss: 184 48 42;
-  --deep: 22 37 44;
-  --deep-text: 233 240 243;
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --mist: 16 24 25;
-    --surface: 24 36 42;
-    --line: 42 56 63;
-    --accent-fill: 28 58 74;
-    --accent: 140 195 222;
-    --accent-deep: 203 224 235;
-    --ink: 233 240 243;
-    --ink-quiet: 156 176 186;
-    --gain: 61 191 147;
-    --loss: 255 138 128;
-    --deep: 9 14 15;
-    --deep-text: 233 240 243;
-    color-scheme: dark;
-  }
-}
-
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
-    scroll-behavior: smooth;
+    color-scheme: light;
   }
   body {
     text-rendering: optimizeLegibility;
+    font-feature-settings: 'ss01', 'cv11';
   }
   :focus-visible {
-    outline: 2px solid rgb(var(--accent));
-    outline-offset: 3px;
+    outline: 2px solid #2e6e8e;
+    outline-offset: 2px;
   }
-}
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
+  ::selection {
+    background: #e3eff5;
   }
 }
 
 @layer utilities {
-  /** Every price and percentage: columns stay still when digits change. */
+  /** Every price, amount and percentage: tabular so columns never shift. */
   .num {
     font-family: theme('fontFamily.mono');
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
   }
   .eyebrow {
     font-size: 11px;
     font-weight: 500;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
+  }
+  .scroll-quiet {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  .scroll-quiet:hover {
+    scrollbar-color: #d3dde2 transparent;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /** Soft dotted field used behind product shots. */
+  .dots {
+    background-image: radial-gradient(rgba(18, 33, 42, 0.09) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+  .skeleton {
+    background: linear-gradient(90deg, #eef2f4 0%, #f7f9fa 50%, #eef2f4 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .animate-marquee,
+  .animate-pulse2 {
+    animation: none !important;
   }
 }
