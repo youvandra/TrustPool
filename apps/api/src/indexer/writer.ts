@@ -1,5 +1,7 @@
-import type { Database } from 'bun:sqlite'
 import type { AlertKind } from '@trustpool/core'
+import { and, eq, lte, sql } from 'drizzle-orm'
+import type { Executor } from '../db/client'
+import { callers, calls, slashes, tokens } from '../db/schema'
 import { amount, mon, ms } from './units'
 
 export interface TokenInfo {
@@ -20,118 +22,149 @@ export interface At {
 /**
  * Turns TrustPool events into rows. Each method mirrors the contract function that emitted
  * the event, including the record arithmetic, so the database tracks `recordOf` exactly.
- * Callers run these inside one transaction per block range (see Indexer), so a batch lands
- * whole or not at all.
+ * The indexer runs these inside one transaction per block range, so a batch lands whole or
+ * not at all. Addresses arrive checksummed.
  */
 export class EventWriter {
-  constructor(private readonly db: Database) {}
+  constructor(private readonly db: Executor) {}
 
-  upsertToken(t: TokenInfo) {
-    this.db
-      .query(
-        `INSERT INTO tokens (address, symbol, name, decimals, hue) VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT (address) DO UPDATE SET symbol = excluded.symbol, name = excluded.name, decimals = excluded.decimals`,
-      )
-      .run(t.address, t.symbol, t.name, t.decimals, t.hue)
+  /** The same writer bound to a transaction. */
+  in(tx: Executor): EventWriter {
+    return new EventWriter(tx)
   }
 
-  hasToken(address: string): boolean {
-    return this.db.query('SELECT 1 FROM tokens WHERE address = ?').get(address) !== null
+  async upsertToken(t: TokenInfo) {
+    await this.db
+      .insert(tokens)
+      .values(t)
+      .onConflictDoUpdate({ target: tokens.address, set: { symbol: t.symbol, name: t.name, decimals: t.decimals } })
+  }
+
+  async hasToken(address: string): Promise<boolean> {
+    const [row] = await this.db.select({ a: tokens.address }).from(tokens).where(eq(tokens.address, address))
+    return !!row
   }
 
   // ------------------------------------------------------------ bond
 
-  bondPosted(caller: string, total: bigint, e: At) {
-    this.ensureCaller(caller, e.at)
-    this.db.query('UPDATE callers SET bond_wei = ?, bond = ?, withdraw_ready_at = NULL WHERE address = ?').run(total.toString(), mon(total), caller)
+  async bondPosted(caller: string, total: bigint, e: At) {
+    await this.ensureCaller(caller, e.at)
+    await this.db.update(callers).set({ bondWei: total.toString(), bond: mon(total), withdrawReadyAt: null }).where(eq(callers.address, caller))
   }
 
-  bondWithdrawRequested(caller: string, readyAt: bigint) {
-    this.db.query('UPDATE callers SET withdraw_ready_at = ? WHERE address = ?').run(ms(readyAt), caller)
+  async bondWithdrawRequested(caller: string, readyAt: bigint) {
+    await this.db.update(callers).set({ withdrawReadyAt: ms(readyAt) }).where(eq(callers.address, caller))
   }
 
-  bondWithdrawn(caller: string) {
-    this.db.query(`UPDATE callers SET bond_wei = '0', bond = 0, withdraw_ready_at = NULL WHERE address = ?`).run(caller)
+  async bondWithdrawn(caller: string) {
+    await this.db.update(callers).set({ bondWei: '0', bond: 0, withdrawReadyAt: null }).where(eq(callers.address, caller))
   }
 
-  slashed(caller: string, slashedWei: bigint, reason: string, e: At) {
-    this.ensureCaller(caller, e.at)
-    const left = this.bondWei(caller) - slashedWei
-    this.db
-      .query('UPDATE callers SET bond_wei = ?, bond = ?, slashes = slashes + 1 WHERE address = ?')
-      .run(left.toString(), mon(left), caller)
-    this.db.query('INSERT INTO slashes (caller, amount, reason, at, tx) VALUES (?, ?, ?, ?, ?)').run(caller, mon(slashedWei), reason, e.at, e.tx)
+  async slashed(caller: string, slashedWei: bigint, reason: string, e: At) {
+    await this.ensureCaller(caller, e.at)
+    const [row] = await this.db.select({ bondWei: callers.bondWei }).from(callers).where(eq(callers.address, caller))
+    const left = BigInt(row?.bondWei ?? '0') - slashedWei
+    await this.db
+      .update(callers)
+      .set({ bondWei: left.toString(), bond: mon(left), slashes: sql`${callers.slashes} + 1` })
+      .where(eq(callers.address, caller))
+    await this.db.insert(slashes).values({ caller, amount: mon(slashedWei), reason, at: e.at, tx: e.tx })
   }
 
   // ------------------------------------------------------------ calls
 
-  callOpened(
+  async callOpened(
     c: { id: bigint; caller: string; token: string; adapter: string; monIn: bigint; tokens: bigint; unlockAt: bigint; notice: number; thesis: string },
     e: At,
   ) {
-    const decimals = this.db.query<{ decimals: number }, [string]>('SELECT decimals FROM tokens WHERE address = ?').get(c.token)?.decimals ?? 18
-    this.ensureCaller(c.caller, e.at)
-    this.db
-      .query(
-        `INSERT OR IGNORE INTO calls (id, caller, token, adapter, mon_in_wei, tokens_wei, mon_in, tokens, opened_at, unlock_at, notice, state, thesis, open_tx, open_block)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Locked', ?, ?, ?)`,
-      )
-      .run(
-        Number(c.id), c.caller, c.token, c.adapter, c.monIn.toString(), c.tokens.toString(), mon(c.monIn),
-        amount(c.tokens, decimals), e.at, ms(c.unlockAt), ms(c.notice), c.thesis, e.tx, e.block === undefined ? null : Number(e.block),
-      )
-    this.db.query('UPDATE callers SET open = open + 1, last_active = ?, withdraw_ready_at = NULL WHERE address = ?').run(e.at, c.caller)
-    this.alert('call_opened', Number(c.id), e.at)
+    const [token] = await this.db.select({ decimals: tokens.decimals }).from(tokens).where(eq(tokens.address, c.token))
+    await this.ensureCaller(c.caller, e.at)
+    const id = Number(c.id)
+    await this.db
+      .insert(calls)
+      .values({
+        id,
+        caller: c.caller,
+        token: c.token,
+        adapter: c.adapter,
+        monInWei: c.monIn.toString(),
+        tokensWei: c.tokens.toString(),
+        monIn: mon(c.monIn),
+        tokens: amount(c.tokens, token?.decimals ?? 18),
+        openedAt: e.at,
+        unlockAt: ms(c.unlockAt),
+        notice: ms(c.notice),
+        state: 'Locked',
+        thesis: c.thesis,
+        openTx: e.tx,
+        openBlock: e.block === undefined ? null : Number(e.block),
+      })
+      .onConflictDoNothing()
+    await this.db
+      .update(callers)
+      .set({ open: sql`${callers.open} + 1`, lastActive: e.at, withdrawReadyAt: null })
+      .where(eq(callers.address, c.caller))
+    await this.alert('call_opened', id, e.at)
   }
 
-  exitAnnounced(id: bigint, exitAt: bigint, e: At) {
-    this.db.query(`UPDATE calls SET state = 'Exiting', announced_at = ?, exit_at = ? WHERE id = ?`).run(e.at, ms(exitAt), Number(id))
-    this.alert('exit_announced', Number(id), e.at)
+  async exitAnnounced(id: bigint, exitAt: bigint, e: At) {
+    await this.db.update(calls).set({ state: 'Exiting', announcedAt: e.at, exitAt: ms(exitAt) }).where(eq(calls.id, Number(id)))
+    await this.alert('exit_announced', Number(id), e.at)
   }
 
-  callSettled(id: bigint, caller: string, monOut: bigint, returnBps: bigint, e: At) {
+  async callSettled(id: bigint, caller: string, monOut: bigint, returnBps: bigint, e: At) {
     const bps = Number(returnBps)
-    this.db
-      .query(`UPDATE calls SET state = 'Settled', mon_out_wei = ?, mon_out = ?, return_bps = ?, closed_at = ? WHERE id = ?`)
-      .run(monOut.toString(), mon(monOut), bps, e.at, Number(id))
-    this.db
-      .query(
-        `UPDATE callers SET open = open - 1, settled = settled + 1, losses = losses + ?, sum_return_bps = sum_return_bps + ?, last_active = ?
-         WHERE address = ?`,
-      )
-      .run(bps < 0 ? 1 : 0, bps, e.at, caller)
-    this.alert('call_settled', Number(id), e.at)
+    await this.db
+      .update(calls)
+      .set({ state: 'Settled', monOutWei: monOut.toString(), monOut: mon(monOut), returnBps: bps, closedAt: e.at })
+      .where(eq(calls.id, Number(id)))
+    await this.db
+      .update(callers)
+      .set({
+        open: sql`${callers.open} - 1`,
+        settled: sql`${callers.settled} + 1`,
+        losses: sql`${callers.losses} + ${bps < 0 ? 1 : 0}`,
+        sumReturnBps: sql`${callers.sumReturnBps} + ${bps}`,
+        lastActive: e.at,
+      })
+      .where(eq(callers.address, caller))
+    await this.alert('call_settled', Number(id), e.at)
   }
 
-  callReleased(id: bigint, caller: string, e: At) {
-    this.db.query(`UPDATE calls SET state = 'Released', return_bps = -10000, closed_at = ? WHERE id = ?`).run(e.at, Number(id))
-    this.db
-      .query(
-        `UPDATE callers SET open = open - 1, released = released + 1, losses = losses + 1, sum_return_bps = sum_return_bps - 10000, last_active = ?
-         WHERE address = ?`,
-      )
-      .run(e.at, caller)
-    this.alert('call_released', Number(id), e.at)
+  async callReleased(id: bigint, caller: string, e: At) {
+    await this.db.update(calls).set({ state: 'Released', returnBps: -10_000, closedAt: e.at }).where(eq(calls.id, Number(id)))
+    await this.db
+      .update(callers)
+      .set({
+        open: sql`${callers.open} - 1`,
+        released: sql`${callers.released} + 1`,
+        losses: sql`${callers.losses} + 1`,
+        sumReturnBps: sql`${callers.sumReturnBps} - 10000`,
+        lastActive: e.at,
+      })
+      .where(eq(callers.address, caller))
+    await this.alert('call_released', Number(id), e.at)
   }
 
-  callMarkedStale(id: bigint, caller: string, e: At) {
-    this.db.query('UPDATE calls SET stale = 1 WHERE id = ?').run(Number(id))
-    this.db.query('UPDATE callers SET stale = stale + 1 WHERE address = ?').run(caller)
-    this.alert('call_stale', Number(id), e.at)
+  async callMarkedStale(id: bigint, caller: string, e: At) {
+    await this.db.update(calls).set({ stale: true }).where(eq(calls.id, Number(id)))
+    await this.db.update(callers).set({ stale: sql`${callers.stale} + 1` }).where(eq(callers.address, caller))
+    await this.alert('call_stale', Number(id), e.at)
   }
 
-  callAdapterMoved(id: bigint, adapter: string) {
-    this.db.query('UPDATE calls SET adapter = ? WHERE id = ?').run(adapter, Number(id))
+  async callAdapterMoved(id: bigint, adapter: string) {
+    await this.db.update(calls).set({ adapter }).where(eq(calls.id, Number(id)))
   }
 
   // ------------------------------------------------------------ time-based alerts
 
   /** Alerts for exits whose notice has run out. Idempotent: one per user and call. */
-  exitsNowExecutable(now: number): number {
-    const due = this.db
-      .query<{ id: number; exit_at: number }, [number]>(`SELECT id, exit_at FROM calls WHERE state = 'Exiting' AND exit_at <= ?`)
-      .all(now)
-    for (const c of due) this.alert('exit_executable', c.id, c.exit_at)
+  async exitsNowExecutable(now: number): Promise<number> {
+    const due = await this.db
+      .select({ id: calls.id, exitAt: calls.exitAt })
+      .from(calls)
+      .where(and(eq(calls.state, 'Exiting'), lte(calls.exitAt, now)))
+    for (const c of due) await this.alert('exit_executable', c.id, c.exitAt!)
     return due.length
   }
 
@@ -141,24 +174,18 @@ export class EventWriter {
    * One alert per follower of the caller and per watcher of the call. A user who both
    * follows and watches gets one. The unique key makes a replayed event harmless.
    */
-  private alert(kind: AlertKind, callId: number, at: number) {
-    this.db
-      .query(
-        `INSERT OR IGNORE INTO alerts (user_id, kind, call_id, at)
-         SELECT user_id, ?1, ?2, ?3 FROM (
-           SELECT f.user_id FROM follows f JOIN calls c ON c.caller = f.caller WHERE c.id = ?2
-           UNION
-           SELECT w.user_id FROM watches w WHERE w.call_id = ?2
-         )`,
-      )
-      .run(kind, callId, at)
+  private async alert(kind: AlertKind, callId: number, at: number) {
+    await this.db.execute(sql`
+      INSERT INTO alerts (user_id, kind, call_id, at)
+      SELECT user_id, ${kind}, ${callId}, ${at} FROM (
+        SELECT f.user_id FROM follows f JOIN calls c ON c.caller = f.caller WHERE c.id = ${callId}
+        UNION
+        SELECT w.user_id FROM watches w WHERE w.call_id = ${callId}
+      ) AS recipients
+      ON CONFLICT ON CONSTRAINT alerts_once DO NOTHING`)
   }
 
-  private ensureCaller(address: string, at: number) {
-    this.db.query('INSERT OR IGNORE INTO callers (address, first_seen) VALUES (?, ?)').run(address, at)
-  }
-
-  private bondWei(caller: string): bigint {
-    return BigInt(this.db.query<{ bond_wei: string }, [string]>('SELECT bond_wei FROM callers WHERE address = ?').get(caller)?.bond_wei ?? '0')
+  private async ensureCaller(address: string, at: number) {
+    await this.db.insert(callers).values({ address, firstSeen: at }).onConflictDoNothing()
   }
 }

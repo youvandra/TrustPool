@@ -37,7 +37,7 @@ money, can sell into followers, and can drop losing calls from their history.
 
 - `TrustPool.sol` with a swappable DEX adapter (Uniswap V2 adapter plus mocks), 47
   Foundry tests including fuzzing.
-- An indexer and API (Bun, viem, SQLite) that follows every event, mirrors the on-chain
+- An indexer and API (Bun, viem, PostgreSQL) that follows every event, mirrors the on-chain
   record exactly (checked against the contract in CI), samples quotes for open calls,
   writes alerts, and lists wallets that bought just before a call.
 - A web app (React, Privy) where callers open, announce, settle and manage their bond

@@ -2,13 +2,15 @@ import { CHAINS, DEFAULT_CHAIN_ID, deploymentFor, type Deployment } from '@trust
 
 /**
  * Every setting the API reads, parsed once at start. `DATA=demo` serves the fixed demo
- * set; `DATA=chain` follows a TrustPool deployment into SQLite and serves from there.
+ * set; `DATA=chain` follows a TrustPool deployment into Postgres and serves from there.
  */
 export interface Config {
   port: number
   data: 'demo' | 'chain'
   /** Origins allowed by CORS; `*` in development. */
   corsOrigins: string[]
+  /** postgres://… in production; pglite://<dir> or empty (in memory) for local work. */
+  databaseUrl: string
   chain?: ChainConfig
   privy?: { appId: string; verificationKey: string }
 }
@@ -17,7 +19,6 @@ export interface ChainConfig {
   chainId: number
   rpcUrl: string
   deployment: Deployment
-  dbPath: string
   /** Blocks to stay behind the head, so a short reorg never reaches the database. */
   confirmations: number
   /** Largest eth_getLogs range; public Monad RPCs cap this, so keep it small. */
@@ -26,6 +27,8 @@ export interface ChainConfig {
   priceSampleMs: number
   /** Blocks before an open that the early-buyer check scans (~30 min of Monad blocks). */
   earlyBuyerWindow: number
+  /** How long price samples are kept. */
+  priceRetainMs: number
 }
 
 type Env = Record<string, string | undefined>
@@ -36,6 +39,7 @@ export function loadConfig(env: Env = process.env): Config {
     port: int(env.PORT, 8787),
     data,
     corsOrigins: (env.CORS_ORIGINS ?? '*').split(',').map((s) => s.trim()).filter(Boolean),
+    databaseUrl: env.DATABASE_URL ?? '',
   }
 
   if (env.PRIVY_APP_ID || env.PRIVY_VERIFICATION_KEY) {
@@ -61,12 +65,12 @@ export function loadConfig(env: Env = process.env): Config {
         trustPool: trustPool ?? deployment!.trustPool,
         startBlock: int(env.START_BLOCK, deployment?.startBlock ?? 0),
       },
-      dbPath: env.DB_PATH ?? `data/trustpool-${chainId}.sqlite`,
       confirmations: int(env.CONFIRMATIONS, chainId === 31337 ? 0 : 2),
       maxBlockRange: int(env.MAX_BLOCK_RANGE, 100),
       pollMs: int(env.POLL_MS, chainId === 31337 ? 1_000 : 2_000),
       priceSampleMs: int(env.PRICE_SAMPLE_MS, 5 * 60_000),
       earlyBuyerWindow: int(env.EARLY_BUYER_WINDOW_BLOCKS, 4_500),
+      priceRetainMs: int(env.PRICE_RETAIN_DAYS, 90) * 86_400_000,
     }
   }
   return cfg

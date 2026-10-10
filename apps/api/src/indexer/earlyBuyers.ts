@@ -1,5 +1,7 @@
-import type { Database } from 'bun:sqlite'
+import { desc, eq } from 'drizzle-orm'
 import { getAddress, parseAbiItem, type PublicClient } from 'viem'
+import type { Db } from '../db/client'
+import { calls, earlyBuyerScans, earlyBuyers, tokens } from '../db/schema'
 import { log } from '../log'
 import { amount } from './units'
 
@@ -36,14 +38,14 @@ export class EarlyBuyers {
   private readonly inFlight = new Map<number, Promise<EarlyBuyerReport | undefined>>()
 
   constructor(
-    private readonly db: Database,
+    private readonly db: Db,
     private readonly client: PublicClient,
     private readonly opts: { pool: string; windowBlocks: number; maxBlockRange: number },
   ) {}
 
-  report(callId: number): Promise<EarlyBuyerReport | undefined> {
-    const cached = this.cached(callId)
-    if (cached) return Promise.resolve(cached)
+  async report(callId: number): Promise<EarlyBuyerReport | undefined> {
+    const cached = await this.cached(callId)
+    if (cached) return cached
     let p = this.inFlight.get(callId)
     if (!p) {
       p = this.scan(callId).finally(() => this.inFlight.delete(callId))
@@ -52,37 +54,33 @@ export class EarlyBuyers {
     return p
   }
 
-  private cached(callId: number): EarlyBuyerReport | undefined {
-    const scan = this.db
-      .query<{ from_block: number; to_block: number }, [number]>('SELECT from_block, to_block FROM early_buyer_scans WHERE call_id = ?')
-      .get(callId)
+  private async cached(callId: number): Promise<EarlyBuyerReport | undefined> {
+    const [scan] = await this.db.select().from(earlyBuyerScans).where(eq(earlyBuyerScans.callId, callId))
     if (!scan) return undefined
-    const caller = this.db.query<{ caller: string }, [number]>('SELECT caller FROM calls WHERE id = ?').get(callId)!.caller
-    const buyers = this.db
-      .query<{ wallet: string; amount: number; first_block: number; transfers: number }, [number]>(
-        'SELECT wallet, amount, first_block, transfers FROM early_buyers WHERE call_id = ? ORDER BY amount DESC',
-      )
-      .all(callId)
-      .map((b) => ({ wallet: b.wallet, amount: b.amount, firstBlock: b.first_block, transfers: b.transfers, isCaller: b.wallet.toLowerCase() === caller.toLowerCase() }))
-    return { callId, fromBlock: scan.from_block, toBlock: scan.to_block, buyers, note: NOTE }
+    const [call] = await this.db.select({ caller: calls.caller }).from(calls).where(eq(calls.id, callId))
+    const rows = await this.db.select().from(earlyBuyers).where(eq(earlyBuyers.callId, callId)).orderBy(desc(earlyBuyers.amount))
+    const buyers = rows.map((b) => ({ wallet: b.wallet, amount: b.amount, firstBlock: b.firstBlock, transfers: b.transfers, isCaller: b.wallet === call?.caller }))
+    return { callId, fromBlock: scan.fromBlock, toBlock: scan.toBlock, buyers, note: NOTE }
   }
 
   private async scan(callId: number): Promise<EarlyBuyerReport | undefined> {
-    const call = this.db
-      .query<{ token: `0x${string}`; open_block: number | null; adapter: string }, [number]>('SELECT token, open_block, adapter FROM calls WHERE id = ?')
-      .get(callId)
-    if (!call || call.open_block === null) return undefined
-    const decimals = this.db.query<{ decimals: number }, [string]>('SELECT decimals FROM tokens WHERE address = ?').get(call.token)?.decimals ?? 18
+    const [call] = await this.db
+      .select({ token: calls.token, openBlock: calls.openBlock, adapter: calls.adapter })
+      .from(calls)
+      .where(eq(calls.id, callId))
+    if (!call || call.openBlock === null) return undefined
+    const [token] = await this.db.select({ decimals: tokens.decimals }).from(tokens).where(eq(tokens.address, call.token))
+    const decimals = token?.decimals ?? 18
 
     // The window ends one block before the open, so the call's own buy is never listed.
-    const toBlock = BigInt(call.open_block) - 1n
+    const toBlock = BigInt(call.openBlock) - 1n
     const fromBlock = toBlock - BigInt(this.opts.windowBlocks) + 1n > 0n ? toBlock - BigInt(this.opts.windowBlocks) + 1n : 0n
     const skip = new Set([ZERO, this.opts.pool.toLowerCase(), call.adapter.toLowerCase()])
     const totals = new Map<string, { raw: bigint; first: bigint; n: number }>()
 
     for (let from = fromBlock; from <= toBlock; from += BigInt(this.opts.maxBlockRange)) {
       const to = from + BigInt(this.opts.maxBlockRange) - 1n < toBlock ? from + BigInt(this.opts.maxBlockRange) - 1n : toBlock
-      const logs = await this.client.getLogs({ address: call.token, event: TRANSFER, fromBlock: from, toBlock: to, strict: true })
+      const logs = await this.client.getLogs({ address: call.token as `0x${string}`, event: TRANSFER, fromBlock: from, toBlock: to, strict: true })
       for (const l of logs) {
         const wallet = getAddress(l.args.to)
         if (skip.has(wallet.toLowerCase())) continue
@@ -93,16 +91,14 @@ export class EarlyBuyers {
       }
     }
 
-    this.db.transaction(() => {
-      for (const [wallet, t] of totals) {
-        this.db
-          .query('INSERT OR REPLACE INTO early_buyers (call_id, wallet, amount, first_block, transfers) VALUES (?, ?, ?, ?, ?)')
-          .run(callId, wallet, amount(t.raw, decimals), Number(t.first), t.n)
-      }
-      this.db
-        .query('INSERT OR REPLACE INTO early_buyer_scans (call_id, from_block, to_block, at) VALUES (?, ?, ?, ?)')
-        .run(callId, Number(fromBlock), Number(toBlock), Date.now())
-    })()
+    await this.db.transaction(async (tx) => {
+      const rows = [...totals].map(([wallet, t]) => ({ callId, wallet, amount: amount(t.raw, decimals), firstBlock: Number(t.first), transfers: t.n }))
+      if (rows.length) await tx.insert(earlyBuyers).values(rows).onConflictDoNothing()
+      await tx
+        .insert(earlyBuyerScans)
+        .values({ callId, fromBlock: Number(fromBlock), toBlock: Number(toBlock), at: Date.now() })
+        .onConflictDoNothing()
+    })
     log.info('early buyers scanned', { callId, fromBlock, toBlock, wallets: totals.size })
     return this.cached(callId)
   }

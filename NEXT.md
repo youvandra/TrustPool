@@ -16,7 +16,7 @@ needs a person: a funded deploy key, a Privy app, a Discord answer, the video.
 | `contracts/` | Hardened: every rule of a call (lock, notice, adapter, release grace, max hold) is fixed at open; settlement measures the MON that arrived; `markStale`; caller-only `moveToCurrentAdapter`; two-step admin; validated params; pause for new calls only. `UniswapV2Adapter` with quotes. 47 tests incl. fuzz, a V2 mock-router suite and an opt-in fork test. |
 | Deploy | `script/Deploy.s.sol` (V2 router, existing adapter or mock DEX; writes `deployments/<chainId>.json`), `script/SeedLocal.s.sol` for anvil. `npm run sync:contracts` puts typed ABIs and addresses into `@trustpool/core`. **Not yet deployed to testnet** (no key in this environment). |
 | `packages/core` | Types (now with `stale`, marked value, closing alerts), demo set, generated ABIs and deployments, chain list (Monad testnet 10143, Monad 143, anvil). |
-| `apps/api` | `DATA=demo` or `DATA=chain`. Chain mode: viem indexer into `bun:sqlite` (atomic ranges with the cursor, adaptive range, confirmations, one deployment per file), price sampler (quotes through each call's adapter), alerts to followers and watchers, Privy access tokens verified locally, early-buyer scan. Route shapes unchanged; new `/me/*` writes and `/calls/:id/early-buyers`. 21 tests incl. an e2e check of every record against `recordOf` on anvil. |
+| `apps/api` | `DATA=demo` or `DATA=chain`. Chain mode: viem indexer into PostgreSQL via Drizzle (PGlite locally; atomic ranges with the cursor, adaptive range, confirmations, one deployment per database, advisory lock so one of many instances indexes), price sampler (quotes through each call's adapter), alerts to followers and watchers, Privy access tokens verified locally, early-buyer scan. Route shapes unchanged; new `/me/*` writes and `/calls/:id/early-buyers`. 27 tests (run on PGlite and, in CI, a Postgres server) incl. an e2e check of every record against `recordOf` on anvil. |
 | `apps/web` | `lib/chain.ts` + `lib/tx.ts`: real transactions for Buy and lock (bond first if short, `minOut` from a quote at 1% slippage), announce, sell and settle, release, bond add/request/withdraw. Falls back to demo actions without Privy or a deployment. Follows, watches and read alerts write through to the API. Call page: DEX link, marked value, early buyers. |
 | CI | `.github/workflows/ci.yml`: forge fmt/build/test, ABI drift check, typecheck, API tests, anvil deploy + seed + indexer e2e, web build. |
 
@@ -61,7 +61,8 @@ From docs.monad.xyz and third-party nad.fun skill docs, 10 Oct. Re-check before 
        `acceptAdmin()`.
 4. [ ] Privy: create the app, add the chain, set `VITE_PRIVY_APP_ID` (web) and
        `PRIVY_APP_ID` + `PRIVY_VERIFICATION_KEY` (API).
-5. [ ] Host the API with `DATA=chain` and a persistent `DB_PATH`, web with `VITE_DATA=api`.
+5. [ ] Create a Postgres database (Neon, Supabase or Railway), host the API from
+       `apps/api/Dockerfile` with `DATA=chain` and `DATABASE_URL`, web with `VITE_DATA=api`.
 6. [x] `NadFunAdapter` from the official ABIs. [ ] Run its fork test on mainnet
        (`NADFUN_FORK_RPC_URL=$MONAD_RPC FORK_TOKEN=0x… forge test --match-path 'test/fork/NadFun*'`)
        and on testnet once its addresses are confirmed. Unverified on a real chain: that

@@ -7,15 +7,21 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "typecheck": "tsc -p .",
-    "test": "bun test"
+    "test": "bun test",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@trustpool/core": "*",
+    "drizzle-orm": "0.45.4",
     "hono": "4.9.8",
     "jose": "6.1.0",
+    "postgres": "3.4.9",
     "viem": "2.37.6"
   },
   "devDependencies": {
-    "@types/bun": "1.2.22"
+    "@types/bun": "1.2.22",
+    "drizzle-kit": "0.31.11"
   }
 }

@@ -31,6 +31,18 @@ jobs:
 
   apps:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: trustpool_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,9 +63,21 @@ jobs:
           npm run sync:contracts
           git diff --exit-code -- packages/core/src/contracts/abi.ts
       - run: npm run typecheck
-      - run: npm test -w @trustpool/api
+      - name: API tests on embedded Postgres (PGlite)
+        run: npm test -w @trustpool/api
         env:
           LOG_LEVEL: silent
+      - name: API tests on a Postgres server
+        run: npm test -w @trustpool/api
+        env:
+          LOG_LEVEL: silent
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/trustpool_test
+      - name: migrations match the schema
+        working-directory: apps/api
+        run: |
+          npx drizzle-kit generate --name ci-check
+          git diff --exit-code -- drizzle
+          test -z "$(git status --porcelain -- drizzle)"
       - name: indexer against anvil
         env:
           LOG_LEVEL: silent
@@ -67,3 +91,4 @@ jobs:
           cd .. && node scripts/sync-contracts.mjs
           cd apps/api && E2E_RPC_URL=http://127.0.0.1:8545 bun test indexer.e2e
       - run: npm run build
+

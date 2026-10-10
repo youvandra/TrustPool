@@ -3,12 +3,19 @@
 Bun + Hono. Serves the web app's data in two modes with the same route shapes:
 
 - `DATA=demo` (default): the fixed demo set from `@trustpool/core`.
-- `DATA=chain`: follows a TrustPool deployment into SQLite (`bun:sqlite`) and serves from there.
+- `DATA=chain`: follows a TrustPool deployment into **PostgreSQL** (Drizzle ORM) and serves from there.
+
+Database by `DATABASE_URL`: `postgres://…` in production; `pglite://<dir>` (embedded
+Postgres in a folder) or empty (in memory) for local work and tests. Same SQL, same
+migrations, no server to install.
 
 ```bash
 cp .env.example .env
 bun run dev                      # watch mode on :8787
-bun test                         # unit and HTTP tests
+bun test                         # unit and HTTP tests (embedded Postgres)
+TEST_DATABASE_URL=postgres://… bun test   # the same tests on a Postgres server
+npm run db:generate              # after changing src/db/schema.ts: writes a migration to drizzle/
+npm run db:studio                # browse the database
 E2E_RPC_URL=http://127.0.0.1:8545 bun test indexer.e2e   # against anvil, see below
 ```
 
@@ -18,13 +25,15 @@ E2E_RPC_URL=http://127.0.0.1:8545 bun test indexer.e2e   # against anvil, see be
 src/
   index.ts            wiring: config -> database -> indexer + price sampler -> HTTP
   config.ts           every env var, parsed and checked once
-  db/                 SQLite open, pragmas, append-only migrations (PRAGMA user_version)
+  db/schema.ts        Drizzle schema: every table, with what is rebuildable and what is not
+  db/client.ts        Postgres or PGlite, migrations on start, the indexer advisory lock
+drizzle/              generated SQL migrations; never edit one that has shipped
   indexer/
     indexer.ts        block-range loop: getLogs -> one transaction per range with the cursor
     writer.ts         event -> rows; mirrors the contract's record arithmetic exactly
     prices.ts         quotes each open call through its adapter: sparkline + marked value
     units.ts          wei/seconds -> MON/ms. The only place units change.
-  store/              ReadStore + UserStore, implemented by demo.ts and sqlite.ts
+  store/              ReadStore + UserStore, implemented by demo.ts and postgres.ts
   http/               routes, input checks, Privy token verification
 ```
 
@@ -34,7 +43,11 @@ src/
   replays at most one range; alert inserts are idempotent, so a replay changes nothing.
 - **Reorgs.** It stays `CONFIRMATIONS` blocks behind the head (0 on anvil).
 - **RPC limits.** Ranges start at `MAX_BLOCK_RANGE` and halve when the node rejects one.
-- **One deployment per file.** The database remembers its chain and contract and refuses another.
+- **One deployment per database.** It remembers its chain and contract and refuses another.
+- **Many instances, one indexer.** A Postgres advisory lock picks the instance that indexes
+  and samples prices; the others serve reads and take over if it dies.
+- **What a backup must keep.** Chain tables can be rebuilt by indexing again. `follows`,
+  `watches`, `alerts` and `profiles` cannot.
 - **Record = contract.** The e2e test compares every caller's record with `recordOf` on chain.
 
 ## Routes
@@ -58,5 +71,15 @@ cd contracts
 forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --private-key <anvil key 0>
 forge script script/SeedLocal.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
 cd .. && npm run sync:contracts
-DATA=chain CHAIN_ID=31337 npm run dev:api
+DATA=chain CHAIN_ID=31337 DATABASE_URL=pglite://data/dev npm run dev:api
 ```
+
+## Deploy
+
+```bash
+docker build -f apps/api/Dockerfile -t trustpool-api .
+docker run -p 8787:8787 -e DATA=chain -e CHAIN_ID=10143 -e DATABASE_URL=postgres://… \
+  -e PRIVY_APP_ID=… -e PRIVY_VERIFICATION_KEY=… -e CORS_ORIGINS=https://your.site trustpool-api
+```
+
+Migrations run on start. Point several instances at one database if needed.
