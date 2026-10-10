@@ -11,7 +11,7 @@ describe('OpenAPI', () => {
     const served = new Set(
       app.routes
         .filter((r) => ['GET', 'POST', 'PUT', 'DELETE'].includes(r.method) && !r.path.includes('*'))
-        .map((r) => `${r.method.toLowerCase()} ${r.path.replace(/^\/api/, '').replace(/:(\w+)/g, '{$1}')}`),
+        .map((r) => `${r.method.toLowerCase()} ${r.path.replace(/^\/api/, '').replace(/:(\w+)(\{[^}]*\})?/g, '{$1}')}`),
     )
     const documented = new Set(Object.entries(paths).flatMap(([path, ops]) => Object.keys(ops).map((m) => `${m} ${path}`)))
     expect([...served].filter((r) => !documented.has(r))).toEqual([])

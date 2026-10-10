@@ -36,7 +36,7 @@ if (cfg.chain) {
   const hub = new AlertHub()
   await hub.start(database)
   const store = postgresStore(database.db)
-  const telegram = cfg.telegram && new TelegramFeed(store, { ...cfg.telegram, isLeader: () => indexer.status().leader })
+  const telegram = cfg.telegram && new TelegramFeed(store, { ...cfg.telegram, appUrl: cfg.publicUrl, isLeader: () => indexer.status().leader })
   await telegram?.start(database)
   indexer.start()
   prices.start()
@@ -49,6 +49,7 @@ if (cfg.chain) {
     verifySignature: (p) => client.verifyMessage(p),
     limits: cfg.limits,
     hub,
+    publicUrl: cfg.publicUrl,
   })
   shutdown = async () => {
     await hub.close()
@@ -58,7 +59,7 @@ if (cfg.chain) {
     await database.close()
   }
 } else {
-  app = createApp({ store: demoStore(), privy: cfg.privy, corsOrigins: cfg.corsOrigins, limits: cfg.limits })
+  app = createApp({ store: demoStore(), privy: cfg.privy, corsOrigins: cfg.corsOrigins, limits: cfg.limits, publicUrl: cfg.publicUrl })
 }
 
 if (!cfg.privy) log.warn('no Privy keys: /me routes trust X-Demo-User. Local use only.')

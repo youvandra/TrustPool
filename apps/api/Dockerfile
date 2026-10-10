@@ -17,6 +17,7 @@ COPY packages/core packages/core
 COPY apps/api/package.json apps/api/
 COPY apps/api/src apps/api/src
 COPY apps/api/drizzle apps/api/drizzle
+COPY apps/api/assets apps/api/assets
 WORKDIR /app/apps/api
 USER bun
 EXPOSE 8787

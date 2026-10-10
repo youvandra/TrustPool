@@ -8,6 +8,8 @@ const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` })
 const json = (schema: object, description = 'OK') => ({ description, content: { 'application/json': { schema } } })
 const error = (description: string) => json(ref('Error'), description)
 const noContent = { description: 'Done' }
+const png = { description: 'PNG', content: { 'image/png': { schema: { type: 'string', format: 'binary' } } } }
+const html = { description: 'HTML', content: { 'text/html': { schema: { type: 'string' } } } }
 const bearer = [{ privy: [] }]
 const pathId = { name: 'id', in: 'path', required: true, schema: { type: 'integer', minimum: 0 } }
 const pathAddress = { name: 'address', in: 'path', required: true, schema: address }
@@ -183,6 +185,28 @@ export const openapi = {
         },
         responses: { 204: noContent, 400: error('Bad fields or old signature'), 401: error('Wrong signer'), 403: error('Never bonded'), 409: error('Handle taken or newer claim stored') },
       },
+    },
+    '/og/calls/{file}': {
+      get: {
+        summary: 'Share card for a call, 1200x630 PNG',
+        tags: ['share'],
+        parameters: [{ name: 'file', in: 'path', required: true, description: '`<id>.png`', schema: { type: 'string', example: '7.png' } }],
+        responses: { 200: png, 404: error('No such call') },
+      },
+    },
+    '/og/callers/{file}': {
+      get: {
+        summary: 'Share card for a caller, 1200x630 PNG',
+        tags: ['share'],
+        parameters: [{ name: 'file', in: 'path', required: true, description: '`<address>.png`', schema: { type: 'string' } }],
+        responses: { 200: png, 404: error('Never bonded') },
+      },
+    },
+    '/share/calls/{id}': {
+      get: { summary: 'Link preview page for a call: Open Graph tags, then a redirect to the app', tags: ['share'], parameters: [pathId], responses: { 200: html, 404: error('No such call') } },
+    },
+    '/share/callers/{address}': {
+      get: { summary: 'Link preview page for a caller', tags: ['share'], parameters: [pathAddress], responses: { 200: html, 404: error('Never bonded') } },
     },
     '/tokens': { get: { summary: 'Tokens on the allow list (the ones a call can open on)', tags: ['public'], responses: { 200: json({ type: 'array', items: ref('Token') }) } } },
     '/me/alerts': {

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.8",
+    "@resvg/resvg-js": "2.6.2",
     "@trustpool/core": "*",
     "drizzle-orm": "0.45.4",
     "hono": "4.9.8",

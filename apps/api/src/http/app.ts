@@ -6,10 +6,12 @@ import { HTTPException } from 'hono/http-exception'
 import { logger } from 'hono/logger'
 import { streamSSE } from 'hono/streaming'
 import { secureHeaders } from 'hono/secure-headers'
+import { createHash } from 'node:crypto'
 import { getAddress, isAddress, verifyMessage, type Hex } from 'viem'
 import type { EarlyBuyerReport } from '../indexer/earlyBuyers'
 import type { IndexerStatus } from '../indexer/indexer'
 import type { AlertHub } from '../live/hub'
+import { CardRenderer, callCardSvg, callerCardSvg, callerSummary, callSummary, sharePage } from '../share/cards'
 import { docsPage, openapi } from './openapi'
 import { log } from '../log'
 import type { Store } from '../store/types'
@@ -34,6 +36,8 @@ export interface AppDeps {
   limits?: { read: RateLimitOptions; write: RateLimitOptions }
   /** Request log lines; off in tests. */
   requestLog?: boolean
+  /** Where the web app lives, for absolute links in share pages. */
+  publicUrl?: string
 }
 
 const STATES: CallState[] = ['Locked', 'Exiting', 'Settled', 'Released']
@@ -46,10 +50,13 @@ const MAX_WATCHES = 500
  * The HTTP surface. Route shapes are fixed: apps/web consumes them (VITE_DATA=api).
  * Public reads need no account; everything under /me needs a verified user.
  */
-export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuyers, verifySignature = verifyMessage, limits, hub, heartbeatSec = 25, requestLog = true }: AppDeps) {
+export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuyers, verifySignature = verifyMessage, limits, hub, heartbeatSec = 25, requestLog = true, publicUrl = 'https://trustpool.web.id' }: AppDeps) {
   const app = new Hono<AuthEnv>().basePath('/api')
   if (requestLog) app.use('*', logger())
-  app.use('*', secureHeaders())
+  // Share cards and badges are meant to be embedded on other sites.
+  const strict = secureHeaders()
+  const embeddable = secureHeaders({ crossOriginResourcePolicy: 'cross-origin' })
+  app.use('*', (c, next) => (/^\/api\/og\/|\/badge\.svg$/.test(c.req.path) ? embeddable(c, next) : strict(c, next)))
   app.use('*', cors({ origin: corsOrigins.includes('*') ? '*' : corsOrigins, allowHeaders: ['Authorization', 'Content-Type', 'X-Demo-User'] }))
 
   if (limits) {
@@ -139,6 +146,66 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuy
   })
 
   app.get('/tokens', async (c) => c.json(await store.listTokens()))
+
+  // ---------------------------------------------------------------- share cards
+
+  // The web is a static SPA, so crawlers never see per-page tags. The Share buttons copy
+  // /api/share/... links: crawlers read the tags there and people are forwarded to the app.
+  // nginx already proxies /api/*. Optional, so plain /app links preview too (owner's step):
+  //   location ~ ^/app/(calls|callers)/([^/]+)$ {
+  //     if ($http_user_agent ~* "(bot|crawler|spider|facebookexternalhit|Slackbot|Discordbot|TelegramBot|WhatsApp)") {
+  //       rewrite ^/app/(calls|callers)/(.+)$ /api/share/$1/$2 last;
+  //     }
+  //     try_files $uri /index.html;
+  //   }
+  const cards = new CardRenderer()
+  const version = (svg: string) => createHash('sha256').update(svg).digest('hex').slice(0, 10)
+  const png = (svg: string) =>
+    new Response(cards.png(svg) as Uint8Array<ArrayBuffer>, { headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=300' } })
+  const loadCall = async (id: number) => {
+    const call = await store.getCall(id)
+    if (!call) throw new HTTPException(404, { message: 'no such call' })
+    return { call, caller: await store.getCaller(call.caller) }
+  }
+  const loadCaller = async (address: string) => {
+    const caller = await store.getCaller(address)
+    if (!caller) throw new HTTPException(404, { message: 'no such caller' })
+    return caller
+  }
+
+  app.get('/og/calls/:file{[^/]+\\.png}', async (c) => {
+    const { call, caller } = await loadCall(intParam(c.req.param('file').slice(0, -4)))
+    return png(callCardSvg(call, caller))
+  })
+  app.get('/og/callers/:file{[^/]+\\.png}', async (c) => png(callerCardSvg(await loadCaller(addressParam(c.req.param('file').slice(0, -4))))))
+
+  app.get('/share/calls/:id', async (c) => {
+    const { call, caller } = await loadCall(intParam(c.req.param('id')))
+    const who = caller?.handle ?? call.caller
+    return c.html(
+      sharePage({
+        title: `${call.token.symbol} #${call.id}, called by ${who} · trustpool`,
+        description: callSummary(call),
+        image: `${publicUrl}/api/og/calls/${call.id}.png?v=${version(callCardSvg(call, caller))}`,
+        url: `${publicUrl}/app/calls/${call.id}`,
+      }),
+      200,
+      { 'cache-control': 'public, max-age=300' },
+    )
+  })
+  app.get('/share/callers/:address', async (c) => {
+    const caller = await loadCaller(addressParam(c.req.param('address')))
+    return c.html(
+      sharePage({
+        title: `${caller.handle ?? caller.address} · trustpool`,
+        description: callerSummary(caller),
+        image: `${publicUrl}/api/og/callers/${caller.address}.png?v=${version(callerCardSvg(caller))}`,
+        url: `${publicUrl}/app/callers/${caller.address}`,
+      }),
+      200,
+      { 'cache-control': 'public, max-age=300' },
+    )
+  })
 
   // ---------------------------------------------------------------- per user
 

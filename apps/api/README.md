@@ -78,6 +78,10 @@ Alerts are written by the indexer to every follower of the caller and every watc
 call: `call_opened`, `exit_announced`, `exit_executable` (by chain time), `call_settled`,
 `call_released`, `call_stale`.
 
+Share: `GET /og/calls/<id>.png` and `/og/callers/<address>.png` are 1200x630 cards drawn
+with resvg (`src/share/cards.ts`). `GET /share/calls/:id` and `/share/callers/:address` are
+small pages with Open Graph tags that forward people to the app; the Share buttons copy them.
+
 Telegram: with `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` set, the indexing instance also
 posts every call event except `exit_executable` to that chat, one line and a link each, at
 most 20 a minute (`src/live/telegram.ts`).

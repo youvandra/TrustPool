@@ -8,7 +8,7 @@ import { source } from '@/lib/data'
 import { useLoad, useNow, useTitle } from '@/lib/hooks'
 import { useLocalCalls } from '@/lib/view'
 import Countdown from '../components/Countdown'
-import { FollowButton, WatchButton } from '../components/Social'
+import { FollowButton, ShareButton, WatchButton } from '../components/Social'
 import Timeline from '../components/Timeline'
 
 async function load(id: number) {
@@ -142,9 +142,12 @@ export default function CallPage() {
             </p>
           </div>
         </div>
-        <span className="flex items-center gap-1.5 text-[13px] text-ink-3">
-          <Eye size={14} /> <span className="num">{call.watchers}</span> watching for the exit
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5 text-[13px] text-ink-3">
+            <Eye size={14} /> <span className="num">{call.watchers}</span> watching for the exit
+          </span>
+          <ShareButton path={`/calls/${call.id}`} size="sm" />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">

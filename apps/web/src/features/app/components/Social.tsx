@@ -1,4 +1,4 @@
-import { Bell, BellRing, UserCheck, UserPlus } from 'lucide-react'
+import { Bell, BellRing, Link2, UserCheck, UserPlus } from 'lucide-react'
 import { Button, toast } from '@/components/ui'
 import { useSession } from '@/auth/session'
 import { actions, isFollowing, useStore } from '@/lib/store'
@@ -43,6 +43,31 @@ export function WatchButton({ id, size = 'md', block }: { id: number; size?: 'sm
       }}
     >
       {on ? 'Watching for exit' : 'Alert me on exit'}
+    </Button>
+  )
+}
+
+/**
+ * Copies a link that previews well in chats: the API's share page carries the card and
+ * forwards people to the app. Demo data has no API, so there it copies the page itself.
+ */
+export function ShareButton({ path, size = 'md' }: { path: string; size?: 'sm' | 'md' }) {
+  return (
+    <Button
+      size={size}
+      variant="secondary"
+      icon={Link2}
+      onClick={async () => {
+        const url = import.meta.env.VITE_DATA === 'api' ? `${location.origin}/api/share${path}` : `${location.origin}/app${path}`
+        try {
+          await navigator.clipboard.writeText(url)
+          toast('Link copied')
+        } catch {
+          toast(url)
+        }
+      }}
+    >
+      Share
     </Button>
   )
 }

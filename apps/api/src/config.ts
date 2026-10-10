@@ -7,6 +7,8 @@ import { CHAINS, DEFAULT_CHAIN_ID, deploymentFor, type Deployment } from '@trust
 export interface Config {
   port: number
   data: 'demo' | 'chain'
+  /** Where the web app is served, for links in share pages and Telegram posts. */
+  publicUrl: string
   /** Origins allowed by CORS; `*` in development. */
   corsOrigins: string[]
   /** postgres://… in production; pglite://<dir> or empty (in memory) for local work. */
@@ -41,6 +43,7 @@ export function loadConfig(env: Env = process.env): Config {
   const cfg: Config = {
     port: int(env.PORT, 8787),
     data,
+    publicUrl: (env.PUBLIC_URL || 'https://trustpool.web.id').replace(/\/+$/, ''),
     corsOrigins: (env.CORS_ORIGINS ?? '*').split(',').map((s) => s.trim()).filter(Boolean),
     databaseUrl: env.DATABASE_URL ?? '',
     limits: {
