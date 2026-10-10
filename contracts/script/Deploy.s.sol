@@ -22,7 +22,7 @@ import {MockSwapAdapter} from "../src/mocks/MockSwapAdapter.sol";
 ///   (neither)        deploy the fixed-price mock DEX and two mock tokens, CHOG and MOE.
 ///                    For anvil, or a testnet without a usable pool; say so in the write-up.
 ///
-/// Optional: ADMIN and TREASURY (default: the broadcaster), TOKENS=0xa,0xb (allowed on the
+/// Optional: DEMO_PARAMS=1 for the short demo timings, ADMIN and TREASURY (default: the broadcaster), TOKENS=0xa,0xb (allowed on the
 /// pool), MOCK_DEX_FUNDING (MON sent to the mock DEX to pay sales, default 100 ether).
 ///
 ///   anvil:   forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --private-key <anvil key 0>
@@ -71,11 +71,35 @@ contract Deploy is Script {
         for (uint256 i; i < tokens.length; ++i) {
             d.pool.setAllowed(tokens[i], true);
         }
+        if (vm.envOr("DEMO_PARAMS", false)) d.pool.setParams(_demoParams());
         if (admin != me) d.pool.transferAdmin(admin); // the new admin calls acceptAdmin()
         vm.stopBroadcast();
 
         d.tokens = tokens;
         _write(d, admin, treasury, startBlock);
+    }
+
+    /// @notice Small enough to demo with faucet MON, short enough to film a whole call.
+    /// See docs/pool-spec.md "Params".
+    function _demoParams() internal pure returns (TrustPool.Params memory) {
+        return TrustPool.Params({
+            minBond: 0.5 ether,
+            minPool: 0.05 ether,
+            minWindow: 2 minutes,
+            maxWindow: 10 minutes,
+            buyGrace: 10 minutes,
+            minHold: 5 minutes,
+            maxHold: 30 minutes,
+            checkpointGap: 3 minutes,
+            splitGrace: 10 minutes,
+            bondCooldown: 10 minutes,
+            minStopLossBps: 100,
+            maxStopLossBps: 9000,
+            minCallerBps: 500,
+            maxImpactBps: 200,
+            sellToleranceBps: 200,
+            keeperBps: 10
+        });
     }
 
     function _mockDex(address[] memory extra) internal returns (ISwapAdapter, address[] memory tokens) {

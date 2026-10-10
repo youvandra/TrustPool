@@ -46,21 +46,7 @@ contract DeployV4 is Deploy {
         for (uint256 i; i < d.tokens.length; ++i) {
             d.pool.setAllowed(d.tokens[i], true);
         }
-        if (vm.envOr("DEMO_PARAMS", true)) {
-            // Small enough to demo with faucet MON, short enough to film a whole call.
-            d.pool
-                .setParams(
-                    TrustPool.Params({
-                        minBond: 0.5 ether,
-                        minLock: 10 minutes,
-                        maxLock: 30 days,
-                        minNotice: 5 minutes,
-                        bondCooldown: 1 hours,
-                        releaseGrace: 10 minutes,
-                        maxHold: 1 days
-                    })
-                );
-        }
+        if (vm.envOr("DEMO_PARAMS", true)) d.pool.setParams(_demoParams());
         vm.stopBroadcast();
 
         d.adapter = adapter;

@@ -8,8 +8,8 @@ interface IERC20Seed {
     function transfer(address, uint256) external returns (bool);
 }
 
-/// @notice Testnet setup only: creates a (MON, token) pool on Uniswap v4 and adds one
-/// full-range position, so TrustPool has a real pool to trade against. The position is
+/// @notice Testnet setup only: creates a (MON, token) pool on Uniswap v4 and adds a
+/// full-range position (`add` deepens an existing pool), so TrustPool has a real pool to trade against. The position is
 /// owned by this contract and is never withdrawn; the MON put in is spent for good.
 /// @dev Liquidity is chosen from the MON sent: L = mon * sqrtP / 2^96 for a full range,
 /// and the token side is pulled from the sender (approve first). Unused MON is returned.
@@ -31,6 +31,24 @@ contract V4PoolSeeder is IUnlockCallback {
         returns (uint128 liquidity)
     {
         manager.initialize(key, sqrtPriceX96);
+        liquidity = _add(key, sqrtPriceX96, tokenBudget);
+    }
+
+    /// @notice Adds another full-range position to a pool that already exists, to deepen it.
+    /// @param sqrtPriceX96 the pool's current price; if it has moved down since it was read,
+    /// the pool asks for more MON than was sent and the whole call reverts.
+    function add(PoolKey calldata key, uint160 sqrtPriceX96, uint256 tokenBudget)
+        external
+        payable
+        returns (uint128 liquidity)
+    {
+        liquidity = _add(key, sqrtPriceX96, tokenBudget);
+    }
+
+    function _add(PoolKey calldata key, uint160 sqrtPriceX96, uint256 tokenBudget)
+        internal
+        returns (uint128 liquidity)
+    {
         liquidity = uint128((msg.value * uint256(sqrtPriceX96)) >> 96);
         // Shave 0.1% so rounding in the pool never asks for more MON than was sent.
         liquidity -= liquidity / 1000;
