@@ -39,7 +39,7 @@ function OpenPosition({ call, onAnnounce, act, pending }: { call: Call; onAnnoun
             <StateTag state={call.state} size="sm" />
           </p>
           <p className="mt-0.5 text-[12.5px] text-ink-3">
-            {mon(call.monIn, 0)} locked ·{' '}
+            {mon(call.monIn)} locked ·{' '}
             {call.state === 'Exiting' ? (
               <>
                 executable in <Countdown at={call.exitAt!} done="now" className="text-accent-deep" />

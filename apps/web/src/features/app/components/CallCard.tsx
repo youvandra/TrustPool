@@ -56,7 +56,7 @@ export default function CallCard({ call, caller, interactive = true }: { call: C
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-3">
-        <Cell label="Caller in">{mon(call.monIn, 0)}</Cell>
+        <Cell label="Caller in">{mon(call.monIn)}</Cell>
         <Cell label="Entry">{price(entryPrice(call))}</Cell>
         <ClockCell call={call} />
       </div>
@@ -103,7 +103,7 @@ export function CallRow({ call, caller, action }: { call: Call; caller?: Caller;
         </p>
         <p className="mt-0.5 flex items-center gap-1.5 truncate text-[12.5px] text-ink-3">
           <CallerAvatar address={call.caller} size={14} />
-          {caller?.handle ?? 'caller'} · {mon(call.monIn, 0)}
+          {caller?.handle ?? 'caller'} · {mon(call.monIn)}
         </p>
       </div>
       <div className="hidden sm:block">

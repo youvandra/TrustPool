@@ -85,7 +85,7 @@ export default function CallersPage() {
                   <span className="hidden text-right text-[14px] lg:block">
                     <Signed bps={averageBps(c.record)} />
                   </span>
-                  <span className="num hidden text-right text-[14px] lg:block">{mon(c.bond, 0)}</span>
+                  <span className="num hidden text-right text-[14px] lg:block">{mon(c.bond)}</span>
                   <span className={`num hidden text-right text-[14px] lg:block ${c.record.slashes ? 'text-loss' : 'text-ink-3'}`}>{c.record.slashes}</span>
                   <span className="flex justify-end" onClick={(e) => e.preventDefault()}>
                     {me === c.address.toLowerCase() ? (

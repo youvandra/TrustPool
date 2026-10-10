@@ -3,7 +3,7 @@ import { BellRing, Lock, Receipt } from 'lucide-react'
 import type { Call, Caller } from '@trustpool/core'
 import { entryPrice, returnBps } from '@trustpool/core'
 import { CallerAvatar, Signed, StateTag, TokenIcon } from '@/components/ui'
-import { duration, mon, price } from '@/lib/format'
+import { duration, mon, price, signedPct } from '@/lib/format'
 import Countdown from '@/features/app/components/Countdown'
 
 const W = 400
@@ -84,7 +84,7 @@ function Footer({ call }: { call: Call }) {
     <div className="grid grid-cols-3 gap-3 border-t border-line px-5 py-4">
       <div>
         <p className="text-[11.5px] text-ink-3">Caller put in</p>
-        <p className="num mt-0.5 text-[15px] font-medium">{mon(call.monIn, 0)}</p>
+        <p className="num mt-0.5 text-[15px] font-medium">{mon(call.monIn)}</p>
       </div>
       <div>
         <p className="text-[11.5px] text-ink-3">Locked for</p>
@@ -112,7 +112,7 @@ const NOTE = {
     icon: Receipt,
     tone: 'bg-loss-fill text-loss',
     title: () => 'Result on the record',
-    body: (c: Call) => `${((returnBps(c) ?? 0) / 100).toFixed(2)}%, kept like a gain.`,
+    body: (c: Call) => `${signedPct(returnBps(c) ?? 0)}, kept like a gain.`,
   },
 } as const
 

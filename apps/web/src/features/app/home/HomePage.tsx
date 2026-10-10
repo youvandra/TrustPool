@@ -42,9 +42,9 @@ function Pulse({ calls, callers }: { calls: Call[]; callers: Caller[] }) {
       ),
       tone: 'hero' as const,
     },
-    { icon: Lock, label: 'Locked now', value: locked.length, foot: `${mon(locked.reduce((s, c) => s + c.monIn, 0), 0)} of callers' own money`, tone: 'ink' as const },
+    { icon: Lock, label: 'Locked now', value: locked.length, foot: `${mon(locked.reduce((s, c) => s + c.monIn, 0))} of callers' own money`, tone: 'ink' as const },
     { icon: Receipt, label: 'Settled', value: done.length, foot: `${losses} of them at a loss`, tone: 'plain' as const },
-    { icon: Shield, label: 'Bonded', value: mon(bonded, 0), foot: `across ${callers.length} callers`, tone: 'plain' as const },
+    { icon: Shield, label: 'Bonded', value: mon(bonded), foot: `across ${callers.length} callers`, tone: 'plain' as const },
   ]
   const chip = { hero: 'bg-white/15 text-white', ink: 'bg-ink text-white', plain: 'bg-accent-fill text-accent-strong' }
   return (

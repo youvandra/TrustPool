@@ -77,7 +77,7 @@ export default function CallerPage() {
             ['At a loss', r.losses],
             ['Open now', r.open],
             ['Average result', <Signed key="a" bps={averageBps(r)} />],
-            ['Bond', mon(caller.bond, 0)],
+            ['Bond', mon(caller.bond)],
           ].map(([l, v], i, all) => (
             <Stat key={String(l)} label={String(l)} value={v} className={`bg-surface px-5 py-4 ${i === all.length - 1 ? 'col-span-2 sm:col-span-1' : ''}`} />
           ))}
@@ -122,7 +122,7 @@ export default function CallerPage() {
                     <span className="hidden md:block">
                       <StateTag state={c.state} size="sm" />
                     </span>
-                    <span className="num hidden text-right text-[13.5px] md:block">{mon(c.monIn, 0)}</span>
+                    <span className="num hidden text-right text-[13.5px] md:block">{mon(c.monIn)}</span>
                     <span className="num hidden text-right text-[13.5px] md:block">{price(entryPrice(c))}</span>
                     <span className="text-right text-[13.5px]">{res === undefined ? <ClockCell call={c} /> : <Signed bps={res} pill />}</span>
                   </Link>
