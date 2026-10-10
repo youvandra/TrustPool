@@ -7,5 +7,5 @@ export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   build: { target: 'es2022', chunkSizeWarningLimit: 2500 },
   // The Bun API (apps/api) runs on 8787; used when VITE_DATA=api.
-  server: { port: 5280, strictPort: true, proxy: { '/api': 'http://localhost:8787' } },
+  server: { port: 5280, strictPort: true, proxy: { '/api': process.env.API_URL ?? 'http://localhost:8787' } },
 })
