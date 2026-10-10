@@ -1,11 +1,11 @@
 import { BellRing, Lock, Plus, Shield, Unlock, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { averageBps, checkProfile, MAX_BIO, profileMessage, returnBps, type Call, type Caller } from '@trustpool/core'
+import { averageBps, returnBps, type Call } from '@trustpool/core'
 import { useSession } from '@/auth/session'
 import { Button, ButtonLink, Card, Empty, Modal, Row, SectionHead, Signed, Skeleton, Stat, StateTag, TokenIcon, toast } from '@/components/ui'
 import { date, duration, mon } from '@/lib/format'
-import { saveProfile, source } from '@/lib/data'
+import { source } from '@/lib/data'
 import { useLoad, useTitle } from '@/lib/hooks'
 import { actions } from '@/lib/store'
 import { useTrustPool, type TrustPoolTx } from '@/lib/tx'
@@ -83,52 +83,6 @@ function OpenPosition({ call, onAnnounce, act, busy }: { call: Call; onAnnounce:
   )
 }
 
-/** Handle and bio, signed by the caller's wallet: no transaction, no gas. */
-function ProfileModal({ caller, open, onClose, onSaved }: { caller: Caller; open: boolean; onClose: () => void; onSaved: () => void }) {
-  const session = useSession()
-  const [handle, setHandle] = useState(caller.handle?.startsWith('0x') ? '' : (caller.handle ?? ''))
-  const [bio, setBio] = useState(caller.bio ?? '')
-  const [busy, setBusy] = useState(false)
-  const problem = checkProfile({ handle, bio })
-  const canSign = source.kind === 'api' && !!session.walletClient
-
-  async function save() {
-    if (!canSign) return toast('Demo: profiles are signed with a Privy wallet against the API')
-    setBusy(true)
-    try {
-      const wallet = await session.walletClient!()
-      const signedAt = Date.now()
-      const signature = await wallet.signMessage({ account: wallet.account!, message: profileMessage({ address: caller.address, handle, bio, signedAt }) })
-      await saveProfile(caller.address, { handle, bio, signedAt, signature })
-      toast('Profile saved')
-      onSaved()
-      onClose()
-    } catch (err) {
-      toast(err instanceof Error ? err.message : 'Could not save the profile')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const field = 'mt-1.5 w-full rounded-xl border border-line bg-surface px-4 text-ink outline-none focus:border-accent/50 focus:shadow-ring'
-  return (
-    <Modal open={open} onClose={onClose} title="Your public name">
-      <label className="block">
-        <span className="text-[13px] text-ink-3">Handle</span>
-        <input value={handle} onChange={(e) => setHandle(e.target.value.toLowerCase())} placeholder="olu" className={`${field} h-11`} />
-      </label>
-      <label className="mt-4 block">
-        <span className="text-[13px] text-ink-3">Bio ({bio.length}/{MAX_BIO})</span>
-        <input value={bio} onChange={(e) => setBio(e.target.value)} maxLength={MAX_BIO} className={`${field} h-11`} />
-      </label>
-      <p className="mt-3 text-[12.5px] leading-[1.5] text-ink-3">{handle && problem ? problem : 'Your wallet signs a message with these words. No transaction, no gas.'}</p>
-      <Button className="mt-5" block disabled={busy || !!problem} onClick={() => void save()}>
-        Sign and save
-      </Button>
-    </Modal>
-  )
-}
-
 /** Add to the bond, or start and finish a withdrawal. The contract enforces every rule. */
 function BondModal({ open, onClose, act, busy, hasOpen }: { open: boolean; onClose: () => void; act: Act; busy: boolean; hasOpen: boolean }) {
   const [amount, setAmount] = useState('10')
@@ -170,7 +124,6 @@ function Inner({ address }: { address: string }) {
   const calls = useLocalCalls(data?.calls)
   const [confirm, setConfirm] = useState<Call | null>(null)
   const [bondOpen, setBondOpen] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
   const tx = useTrustPool()
 
   /** Sends one transaction, reports the outcome, and reloads once the indexer has seen it. */
@@ -244,11 +197,8 @@ function Inner({ address }: { address: string }) {
           </div>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
             <Link to={`/app/callers/${caller.address}`} className="text-[13px] font-medium text-ink-3 hover:text-ink">
-              See it as followers do →
+              Your profile →
             </Link>
-            <button type="button" onClick={() => setProfileOpen(true)} className="text-[13px] font-medium text-ink-3 hover:text-ink">
-              Edit name and bio
-            </button>
           </div>
         </Card>
       </div>
@@ -295,7 +245,6 @@ function Inner({ address }: { address: string }) {
         </ul>
       </Card>
 
-      <ProfileModal caller={caller} open={profileOpen} onClose={() => setProfileOpen(false)} onSaved={() => setVersion((v) => v + 1)} />
 
       <BondModal open={bondOpen} onClose={() => setBondOpen(false)} act={act} busy={!!tx.pending} hasOpen={open.length > 0} />
 

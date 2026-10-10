@@ -10,6 +10,7 @@ import { useLoad, useTitle } from '@/lib/hooks'
 import { useLocalCalls } from '@/lib/view'
 import { ClockCell } from '../components/CallCard'
 import { EmbedBadgeButton, FollowButton, ShareButton } from '../components/Social'
+import { EditProfileButton } from './ProfileEditor'
 
 async function load(address: string) {
   const caller = await source.getCaller(address)
@@ -20,7 +21,8 @@ async function load(address: string) {
 /** A caller's whole record. Every call sits in one table, whatever its result. */
 export default function CallerPage() {
   const address = useParams().address ?? ''
-  const data = useLoad(() => load(address), [address])
+  const [version, setVersion] = useState(0)
+  const data = useLoad(() => load(address), [address, version])
   const calls = useLocalCalls(data?.calls)
   const [tab, setTab] = useState<'calls' | 'slashes'>('calls')
   useTitle(data?.caller.handle ? `${data.caller.handle} · trustpool` : 'Caller · trustpool')
@@ -46,7 +48,10 @@ export default function CallerPage() {
           <div className="flex min-w-0 items-center gap-4">
             <CallerAvatar address={caller.address} size={64} />
             <div className="min-w-0">
-              <h1 className="text-[24px] font-semibold tracking-[-0.03em]">{caller.handle}</h1>
+              <div className="flex items-center gap-1">
+                <h1 className="min-w-0 truncate text-[24px] font-semibold tracking-[-0.03em]">{caller.handle}</h1>
+                <EditProfileButton caller={caller} onSaved={() => setVersion((v) => v + 1)} />
+              </div>
               <p className="mt-0.5 text-[13px] text-ink-3">
                 <span className="num">{shortAddress(caller.address)}</span> · {compact(caller.followers)} followers
               </p>
