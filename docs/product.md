@@ -133,6 +133,7 @@ All defaults are placeholders, chosen without research. Change them freely.
 | Caller never announces an exit on a losing call | Open calls show their age and a marked-to-market value; after `maxHold` anyone can mark the call stale, permanently, on the record | The loss itself is not realised: there is no forced sale without a price oracle (v2). |
 | Caller abandons the account | Every call stays on that address | Starting over costs a fresh bond and an empty record. |
 | Admin-kept token list | Admin cannot reach positions (adapter, grace and max hold are fixed per call); slashes carry reasons | Centralised in this version. |
+| A token that rebases down or blocks transfers | The admin allow list should hold plain ERC-20s and fee-on-transfer tokens only | A negative rebase or a blocklist can leave a call that neither sells nor releases, and its bond stays locked. |
 | A swap gets sandwiched | `minOut` from a fresh quote with 1% slippage, checked against measured amounts | A public mempool still sees the trade. |
 | Followers enter after the caller | Entry is public, so the gap is visible | Followers pay market. trustpool shows records, never recommendations. |
 
@@ -177,3 +178,14 @@ Chosen 10 Oct: **(b) `maxHold` + `markStale`, plus (a) a marked value in the UI.
   because `maxHold` is copied into the call at open.
 - (a) puts a number on the open loss in the meantime, clearly labelled unrealised.
 - (c), a forced sale with a TWAP floor, needs a price oracle and stays on the v2 list.
+
+## Security review, 10 Oct
+
+Slither (102 detectors) plus a manual pass over the contract, both adapters, the API and the
+web transaction layer. Fixed: every state-changing entry point is `nonReentrant` (an allowed
+token or adapter can call back mid-swap; a test proves each door is shut), indexed admin
+events, explicit ES256 on access tokens, demo auth refused in production, request body
+limits, caps on follows and watches, profiles limited to bonded callers, and a build that
+refuses a dev wallet key outside anvil. Accepted as designed: timestamps drive the lock and
+notice, adapter return values are ignored because the pool measures balances, and MON only
+goes to the caller, the bonder or the treasury. This is not an audit; get one before real money.

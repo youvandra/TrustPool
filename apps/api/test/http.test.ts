@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { afterAll, describe, expect, test } from 'bun:test'
 import { CALLS, DEMO_FOLLOWING } from '@trustpool/core'
 import { exportSPKI, generateKeyPair, SignJWT } from 'jose'
 import { createApp } from '../src/http/app'
@@ -107,12 +107,19 @@ describe('per-user routes, Privy auth', async () => {
 
 describe('profiles', async () => {
   const { generatePrivateKey, privateKeyToAccount } = await import('viem/accounts')
-  const { profileMessage, CALLERS } = await import('@trustpool/core')
-  const store = demoStore()
-  const app = createApp({ store, requestLog: false })
-  const owner = CALLERS[0]!
-  const key = generatePrivateKey()
-  const account = privateKeyToAccount(key)
+  const { profileMessage } = await import('@trustpool/core')
+  const { openDatabase } = await import('../src/db/client')
+  const { EventWriter } = await import('../src/indexer/writer')
+  const { postgresStore } = await import('../src/store/postgres')
+
+  const database = await openDatabase('')
+  afterAll(() => database.close())
+  const account = privateKeyToAccount(generatePrivateKey())
+  const rival = privateKeyToAccount(generatePrivateKey())
+  const stranger = privateKeyToAccount(generatePrivateKey())
+  const w = new EventWriter(database.db)
+  for (const a of [account, rival]) await w.bondPosted(a.address, 10n ** 19n, { at: 1, tx: '0x' })
+  const app = createApp({ store: postgresStore(database.db), requestLog: false })
 
   const put = async (address: string, handle: string, signer = account, signedAt = Date.now(), bio = 'Small caps.') => {
     const signature = await signer.signMessage({ message: profileMessage({ address, handle, bio, signedAt }) })
@@ -125,14 +132,19 @@ describe('profiles', async () => {
 
   test('the wallet that signs names itself', async () => {
     expect((await put(account.address, 'new_caller')).status).toBe(204)
+    expect((await (await app.request(`/api/callers/${account.address}`)).json()) as object).toMatchObject({ handle: 'new_caller' })
   })
 
   test('someone else cannot name an address', async () => {
-    expect((await put(owner.address, 'hijack')).status).toBe(401)
+    expect((await put(rival.address, 'hijack', account)).status).toBe(401)
+  })
+
+  test('an address that never bonded cannot take a name', async () => {
+    expect((await put(stranger.address, 'squatter', stranger)).status).toBe(403)
   })
 
   test('a handle in use is refused, a bad one is a 400, an old signature is refused', async () => {
-    expect((await put(account.address, owner.handle!)).status).toBe(409)
+    expect((await put(rival.address, 'new_caller', rival)).status).toBe(409)
     expect((await put(account.address, 'No Spaces')).status).toBe(400)
     expect((await put(account.address, 'later', account, Date.now() - 11 * 60_000)).status).toBe(400)
   })
@@ -141,5 +153,27 @@ describe('profiles', async () => {
     const t = Date.now()
     expect((await put(account.address, 'second', account, t)).status).toBe(204)
     expect((await put(account.address, 'first', account, t - 1000)).status).toBe(409)
+  })
+})
+
+describe('abuse limits', () => {
+  const app = createApp({ store: demoStore(), requestLog: false })
+  const as = { 'x-demo-user': 'heavy', 'content-type': 'application/json' }
+
+  test('a huge body is refused before parsing', async () => {
+    const body = JSON.stringify({ ids: ['x'.repeat(20_000)] })
+    const res = await app.request('/api/me/alerts/read', { method: 'POST', headers: { ...as, 'content-length': String(body.length) }, body })
+    expect(res.status).toBe(413)
+    // Without a length (chunked), the limit trips while reading and the request still fails.
+    expect((await app.request('/api/me/alerts/read', { method: 'POST', headers: as, body })).status).toBeGreaterThanOrEqual(400)
+  })
+
+  test('follows are capped per user', async () => {
+    for (let i = 0; i < 500; i++) {
+      const a = `0x${(i + 1).toString(16).padStart(40, '0')}`
+      if ((await app.request(`/api/me/following/${a}`, { method: 'PUT', headers: as })).status === 409) break
+    }
+    const res = await app.request('/api/me/following/0x000000000000000000000000000000000000ffff', { method: 'PUT', headers: as })
+    expect(res.status).toBe(409)
   })
 })

@@ -127,6 +127,8 @@ describe('EventWriter on Postgres', () => {
     expect(await store.setProfile({ address: CALLER, handle: 'olu', bio: 'Small caps.', signedAt: 2 })).toBe('ok')
     expect(await store.getCaller(CALLER)).toMatchObject({ handle: 'olu', bio: 'Small caps.' })
     expect(await store.setProfile({ address: CALLER, handle: 'older', bio: '', signedAt: 1 })).toBe('stale')
+    expect(await store.setProfile({ address: OTHER, handle: 'olu', bio: '', signedAt: 3 })).toBe('unknown') // never bonded
+    await w.bondPosted(OTHER, parseEther('10'), at())
     expect(await store.setProfile({ address: OTHER, handle: 'olu', bio: '', signedAt: 3 })).toBe('taken')
   })
 
