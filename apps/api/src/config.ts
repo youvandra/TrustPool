@@ -11,6 +11,7 @@ export interface Config {
   corsOrigins: string[]
   /** postgres://… in production; pglite://<dir> or empty (in memory) for local work. */
   databaseUrl: string
+  limits: { read: { burst: number; perSecond: number; trustProxy: boolean }; write: { burst: number; perSecond: number; trustProxy: boolean } }
   chain?: ChainConfig
   privy?: { appId: string; verificationKey: string }
 }
@@ -40,6 +41,10 @@ export function loadConfig(env: Env = process.env): Config {
     data,
     corsOrigins: (env.CORS_ORIGINS ?? '*').split(',').map((s) => s.trim()).filter(Boolean),
     databaseUrl: env.DATABASE_URL ?? '',
+    limits: {
+      read: { burst: int(env.RATE_READ_BURST, 120), perSecond: int(env.RATE_READ_PER_SEC, 20), trustProxy: env.TRUST_PROXY === '1' },
+      write: { burst: int(env.RATE_WRITE_BURST, 20), perSecond: int(env.RATE_WRITE_PER_SEC, 2), trustProxy: env.TRUST_PROXY === '1' },
+    },
   }
 
   if (env.PRIVY_APP_ID || env.PRIVY_VERIFICATION_KEY) {
