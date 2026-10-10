@@ -1,8 +1,9 @@
 import { ArrowLeft, ExternalLink, Eye, Lock } from 'lucide-react'
 import { Link, useParams } from 'react-router'
-import { averageBps, entryPrice, returnBps, type Call } from '@trustpool/core'
+import { averageBps, entryPrice, markedBps, returnBps, type Call } from '@trustpool/core'
 import { ButtonLink, Card, CallerAvatar, Empty, Row, Signed, Skeleton, Sparkline, StateTag, TokenIcon } from '@/components/ui'
 import { date, duration, mon, price, shortAddress, signedPct, tokens } from '@/lib/format'
+import { dexUrl } from '@/lib/chain'
 import { source } from '@/lib/data'
 import { useLoad, useNow, useTitle } from '@/lib/hooks'
 import { useLocalCalls } from '@/lib/view'
@@ -127,7 +128,19 @@ export default function CallPage() {
             <div className="mt-6">
               <Sparkline data={call.series} width={720} height={200} strokeWidth={2} />
             </div>
-            <p className="mt-3 text-[12px] text-ink-3">Illustrative series until the price indexer lands. {open ? 'An open call has no result yet: this move is unrealised.' : ''}</p>
+            {open && call.markedValue !== undefined && (
+              <p className="mt-4 flex flex-wrap items-baseline gap-2 text-[13.5px] text-ink-2">
+                Marked to market: <span className="num font-medium text-ink">{mon(call.markedValue)}</span> for the whole position
+                <Signed bps={markedBps(call)!} pill />
+                <span className="text-[12px] text-ink-3">unrealised, quoted {date(call.markedAt!)}</span>
+              </p>
+            )}
+            <p className="mt-3 text-[12px] text-ink-3">
+              {source.kind === 'api'
+                ? 'Prices are quotes for selling the whole position, sampled every few minutes. A quote is not a fill.'
+                : 'Illustrative demo series.'}{' '}
+              {open ? 'An open call has no result yet: this move is unrealised.' : ''}
+            </p>
           </Card>
 
           <div className="grid gap-6 md:grid-cols-2">
@@ -190,9 +203,15 @@ export default function CallPage() {
           {open && (
             <Card className="space-y-3 p-5">
               <WatchButton id={call.id} block />
-              <ButtonLink href="#" variant="secondary" block iconRight={ExternalLink} onClick={(e) => e.preventDefault()} aria-disabled>
-                Buy {call.token.symbol} on your own
-              </ButtonLink>
+              {dexUrl(call.token.address) ? (
+                <ButtonLink href={dexUrl(call.token.address)} target="_blank" rel="noopener noreferrer" variant="secondary" block iconRight={ExternalLink}>
+                  Buy {call.token.symbol} on your own
+                </ButtonLink>
+              ) : (
+                <ButtonLink href="#" variant="secondary" block iconRight={ExternalLink} onClick={(e) => e.preventDefault()} aria-disabled title="No public DEX on this chain">
+                  Buy {call.token.symbol} on your own
+                </ButtonLink>
+              )}
               <p className="text-[12px] leading-[1.5] text-ink-3">
                 You buy at today&apos;s market price, after the caller. Their entry was {price(entryPrice(call))}; the gap is {signedPct(move)}.
               </p>

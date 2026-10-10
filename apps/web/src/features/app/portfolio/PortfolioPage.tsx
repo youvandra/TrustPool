@@ -1,4 +1,4 @@
-import { BellRing, Lock, Plus, Shield, Wallet } from 'lucide-react'
+import { BellRing, Lock, Plus, Shield, Unlock, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { averageBps, returnBps, type Call } from '@trustpool/core'
@@ -8,6 +8,7 @@ import { date, duration, mon } from '@/lib/format'
 import { source } from '@/lib/data'
 import { useLoad, useTitle } from '@/lib/hooks'
 import { actions } from '@/lib/store'
+import { useTrustPool, type TrustPoolTx } from '@/lib/tx'
 import { useLocalCalls } from '@/lib/view'
 import Countdown from '../components/Countdown'
 import RequireAuth from '../shell/RequireAuth'
@@ -17,9 +18,16 @@ async function load(address: string) {
   return { caller, calls }
 }
 
-/** One open position with the only actions a caller has: announce, then execute. */
-function OpenPosition({ call, onAnnounce }: { call: Call; onAnnounce: (c: Call) => void }) {
-  const unlocked = Date.now() >= call.unlockAt
+/** Default release grace from the contract; the contract checks the call's own value. */
+const RELEASE_GRACE = 6 * 3_600_000
+
+type Act = (label: string, fn: (t: TrustPoolTx) => Promise<unknown>, done: string) => Promise<boolean>
+
+/** One open position with the only actions a caller has: announce, execute, or release. */
+function OpenPosition({ call, onAnnounce, act, busy }: { call: Call; onAnnounce: (c: Call) => void; act: Act; busy: boolean }) {
+  const now = Date.now()
+  const unlocked = now >= call.unlockAt
+  const canRelease = call.state === 'Exiting' && now >= call.exitAt! + RELEASE_GRACE
   return (
     <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
       <Link to={`/app/calls/${call.id}`} className="flex items-center gap-3">
@@ -50,18 +58,86 @@ function OpenPosition({ call, onAnnounce }: { call: Call; onAnnounce: (c: Call) 
           Announce exit
         </Button>
       ) : (
-        <Button disabled={Date.now() < call.exitAt!} title="Available once the notice period ends">
-          Sell and settle
-        </Button>
+        <div className="flex gap-2">
+          {canRelease && (
+            <Button
+              variant="secondary"
+              icon={Unlock}
+              disabled={busy}
+              title="Take the tokens unsold. Your record counts this call as -100%."
+              onClick={() => void act('Releasing', (t) => t.releaseTokens(call.id), 'Tokens released to you. The record counts this call as -100%.')}
+            >
+              Release unsold
+            </Button>
+          )}
+          <Button
+            disabled={busy || now < call.exitAt!}
+            title="Available once the notice period ends"
+            onClick={() => void act('Selling', (t) => t.executeExit(call.id), 'Sold and settled. The result is on your record.')}
+          >
+            Sell and settle
+          </Button>
+        </div>
       )}
     </div>
   )
 }
 
+/** Add to the bond, or start and finish a withdrawal. The contract enforces every rule. */
+function BondModal({ open, onClose, act, busy, hasOpen }: { open: boolean; onClose: () => void; act: Act; busy: boolean; hasOpen: boolean }) {
+  const [amount, setAmount] = useState('10')
+  const value = Number(amount)
+  return (
+    <Modal open={open} onClose={onClose} title="Your bond">
+      <label className="block">
+        <span className="text-[13px] text-ink-3">Add MON</span>
+        <input
+          inputMode="decimal"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className="num mt-1.5 h-11 w-full rounded-xl border border-line bg-surface px-4 text-ink outline-none focus:border-accent/50 focus:shadow-ring"
+        />
+      </label>
+      <Button className="mt-3" block disabled={busy || !(value > 0)} onClick={() => void act('Posting bond', (t) => t.postBond(value), `Added ${value} MON to your bond.`).then((ok) => ok && onClose())}>
+        Add to bond
+      </Button>
+      <div className="mt-6 border-t border-line pt-5">
+        <p className="text-[13.5px] leading-[1.55] text-ink-2">
+          Withdrawing takes two steps: request it, then withdraw after 7 days. It needs no open calls, and opening a call or adding to the bond cancels a pending request.
+        </p>
+        <div className="mt-4 flex gap-2">
+          <Button variant="secondary" block disabled={busy || hasOpen} onClick={() => void act('Requesting withdrawal', (t) => t.requestBondWithdraw(), 'Withdrawal requested. You can withdraw in 7 days.')}>
+            Request withdrawal
+          </Button>
+          <Button variant="secondary" block disabled={busy || hasOpen} onClick={() => void act('Withdrawing', (t) => t.withdrawBond(), 'Bond withdrawn to your wallet.').then((ok) => ok && onClose())}>
+            Withdraw now
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 function Inner({ address }: { address: string }) {
-  const data = useLoad(() => load(address), [address])
+  const [version, setVersion] = useState(0)
+  const data = useLoad(() => load(address), [address, version])
   const calls = useLocalCalls(data?.calls)
   const [confirm, setConfirm] = useState<Call | null>(null)
+  const [bondOpen, setBondOpen] = useState(false)
+  const tx = useTrustPool()
+
+  /** Sends one transaction, reports the outcome, and reloads once the indexer has seen it. */
+  const act: Act = async (label, fn, done) => {
+    if (!tx.enabled) {
+      toast('Demo: transactions need a Privy wallet and a deployment')
+      return false
+    }
+    toast(`${label}… confirm in your wallet`)
+    const r = await tx.run(label, fn)
+    toast(r.ok ? done : r.error)
+    if (r.ok) setTimeout(() => setVersion((v) => v + 1), 2_500)
+    return r.ok
+  }
 
   if (!data || !calls) return <Skeleton className="h-[480px] rounded-2xl" />
   const { caller } = data
@@ -98,10 +174,10 @@ function Inner({ address }: { address: string }) {
           <p className="num mt-1.5 text-[28px] font-medium tracking-[-0.03em]">{mon(caller.bond)}</p>
           <p className="mt-1 text-[12.5px] text-white/75">Slashed {caller.record.slashes} times</p>
           <div className="mt-4 flex gap-2">
-            <button type="button" onClick={() => toast('Bond top-up arrives with the contract wiring')} className="h-8 rounded-lg bg-white px-3 text-[13px] font-medium text-accent-deep hover:bg-white/90">
+            <button type="button" onClick={() => setBondOpen(true)} className="h-8 rounded-lg bg-white px-3 text-[13px] font-medium text-accent-deep hover:bg-white/90">
               Add
             </button>
-            <button type="button" disabled={open.length > 0} className="h-8 rounded-lg px-3 text-[13px] font-medium text-white/90 ring-1 ring-inset ring-white/30 disabled:opacity-40">
+            <button type="button" disabled={open.length > 0} onClick={() => setBondOpen(true)} className="h-8 rounded-lg px-3 text-[13px] font-medium text-white/90 ring-1 ring-inset ring-white/30 disabled:opacity-40">
               Withdraw
             </button>
           </div>
@@ -141,7 +217,7 @@ function Inner({ address }: { address: string }) {
         ) : (
           <div className="mt-2 divide-y divide-line">
             {open.map((c) => (
-              <OpenPosition key={c.id} call={c} onAnnounce={setConfirm} />
+              <OpenPosition key={c.id} call={c} onAnnounce={setConfirm} act={act} busy={!!tx.pending} />
             ))}
           </div>
         )}
@@ -167,6 +243,8 @@ function Inner({ address }: { address: string }) {
         </ul>
       </Card>
 
+      <BondModal open={bondOpen} onClose={() => setBondOpen(false)} act={act} busy={!!tx.pending} hasOpen={open.length > 0} />
+
       <Modal open={!!confirm} onClose={() => setConfirm(null)} title="Announce your exit?">
         {confirm && (
           <>
@@ -188,10 +266,15 @@ function Inner({ address }: { address: string }) {
               <Button
                 block
                 variant="accent"
+                disabled={!!tx.pending}
                 onClick={() => {
-                  actions.announce(confirm.id)
+                  const c = confirm
                   setConfirm(null)
-                  toast(`Exit announced. ${confirm.watchers} watchers alerted.`)
+                  if (!tx.enabled) {
+                    actions.announce(c.id) // demo: shown locally only
+                    return toast(`Exit announced. ${c.watchers} watchers alerted.`)
+                  }
+                  void act('Announcing', (t) => t.announceExit(c.id), `Exit announced on chain. ${c.watchers} watchers alerted.`)
                 }}
               >
                 Announce

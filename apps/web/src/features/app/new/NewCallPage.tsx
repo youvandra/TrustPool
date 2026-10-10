@@ -8,6 +8,7 @@ import { Button, Card, Modal, Row, Skeleton, TokenIcon } from '@/components/ui'
 import { date, duration } from '@/lib/format'
 import { source } from '@/lib/data'
 import { useLoad, usePageVisible, useTitle } from '@/lib/hooks'
+import { useTrustPool } from '@/lib/tx'
 import CallCard from '../components/CallCard'
 import RequireAuth from '../shell/RequireAuth'
 
@@ -72,6 +73,9 @@ function Flow({ address }: { address: string }) {
   const [thesis, setThesis] = useState('')
   const [agree, setAgree] = useState(false)
   const [signing, setSigning] = useState<'idle' | 'wait' | 'done'>('idle')
+  const [error, setError] = useState<string | null>(null)
+  const [openedId, setOpenedId] = useState<number>()
+  const tx = useTrustPool()
 
   const bond = data?.me?.bond ?? 0
   const needsBond = bond < MIN_BOND
@@ -97,6 +101,23 @@ function Flow({ address }: { address: string }) {
       watchers: 0,
     }
   }, [token, mon, lockD, noticeH, thesis, address])
+
+  /** Posts the missing bond if needed, then buys and locks in one more transaction. */
+  async function submit() {
+    setError(null)
+    setSigning('wait')
+    if (!tx.enabled || !token) return // demo: the modal offers a simulated signature
+    if (needsBond) {
+      const r = await tx.run('Posting your bond', (t) => t.postBond(MIN_BOND - bond))
+      if (!r.ok) return setError(r.error)
+    }
+    const r = await tx.run('Buying and locking', (t) =>
+      t.openCall({ token: token.address as `0x${string}`, mon, lockSeconds: lockD * 86_400, noticeSeconds: noticeH * 3_600, thesis: thesis.trim() }),
+    )
+    if (!r.ok) return setError(r.error)
+    setOpenedId(r.value.id)
+    setSigning('done')
+  }
 
   if (!data) return <Skeleton className="h-[480px] rounded-2xl" />
 
@@ -190,7 +211,7 @@ function Flow({ address }: { address: string }) {
               {step === 3 && (
                 <>
                   <h2 className="text-[20px] font-semibold tracking-[-0.02em]">Review and lock</h2>
-                  <p className="mt-1 text-[14px] text-ink-3">One transaction{needsBond ? ' posts your bond and' : ''} buys the token and locks it.</p>
+                  <p className="mt-1 text-[14px] text-ink-3">{needsBond ? 'Two transactions: one posts your bond, the next buys the token and locks it.' : 'One transaction buys the token and locks it.'} The minimum fill allows 1% slippage.</p>
                   <div className="mt-6 rounded-2xl bg-subtle p-5">
                     <Row label="Token">{token?.symbol}</Row>
                     <Row label="Your MON">
@@ -198,7 +219,7 @@ function Flow({ address }: { address: string }) {
                     </Row>
                     {needsBond && (
                       <Row label="Bond">
-                        <span className="num">{MIN_BOND} MON</span>
+                        <span className="num">{MIN_BOND - bond} MON</span>
                       </Row>
                     )}
                     <Row label="Lock ends">
@@ -227,7 +248,7 @@ function Flow({ address }: { address: string }) {
               Continue
             </Button>
           ) : (
-            <Button variant="accent" icon={Lock} disabled={!ok} onClick={() => setSigning('wait')}>
+            <Button variant="accent" icon={Lock} disabled={!ok} onClick={() => void submit()}>
               Buy and lock
             </Button>
           )}
@@ -244,15 +265,37 @@ function Flow({ address }: { address: string }) {
         <p className="text-[12.5px] leading-[1.5] text-ink-3">This is how followers will see it, with your real fill in place of the estimate.</p>
       </div>
 
-      <Modal open={signing !== 'idle'} onClose={() => signing === 'done' && setSigning('idle')} title={signing === 'done' ? 'Your call is live' : 'Confirm in your wallet'}>
-        {signing === 'wait' ? (
+      <Modal
+        open={signing !== 'idle'}
+        onClose={() => (signing === 'done' || error) && setSigning('idle')}
+        title={signing === 'done' ? 'Your call is live' : error ? 'Nothing was opened' : 'Confirm in your wallet'}
+      >
+        {signing === 'wait' && error ? (
+          <div className="py-2">
+            <p className="text-[14px] leading-[1.55] text-ink-2">{error}</p>
+            <div className="mt-6 flex gap-2">
+              <Button variant="secondary" block onClick={() => setSigning('idle')}>
+                Back to the form
+              </Button>
+              <Button variant="accent" block onClick={() => void submit()}>
+                Try again
+              </Button>
+            </div>
+          </div>
+        ) : signing === 'wait' ? (
           <div className="flex flex-col items-center py-6 text-center">
             <Loader2 size={28} className="animate-spin text-accent" />
-            <p className="mt-4 text-[14px] text-ink-2">Waiting for your signature…</p>
-            <p className="mt-1 text-[12.5px] text-ink-3">Demo: contract wiring is the next build step.</p>
-            <Button className="mt-6" variant="secondary" onClick={() => setSigning('done')}>
-              Simulate signature
-            </Button>
+            <p className="mt-4 text-[14px] text-ink-2">{tx.pending ? `${tx.pending}…` : 'Waiting for your signature…'}</p>
+            {tx.enabled ? (
+              <p className="mt-1 text-[12.5px] text-ink-3">{needsBond ? 'Two transactions: the bond, then the buy.' : 'One transaction: the buy and the lock.'}</p>
+            ) : (
+              <>
+                <p className="mt-1 text-[12.5px] text-ink-3">Demo: no wallet or deployment, so nothing is sent.</p>
+                <Button className="mt-6" variant="secondary" onClick={() => setSigning('done')}>
+                  Simulate signature
+                </Button>
+              </>
+            )}
           </div>
         ) : (
           <div>
@@ -263,8 +306,8 @@ function Flow({ address }: { address: string }) {
               <Button variant="secondary" block onClick={() => navigate('/app/calls')}>
                 See all calls
               </Button>
-              <Button block onClick={() => navigate('/app/portfolio')}>
-                Go to portfolio
+              <Button block onClick={() => navigate(openedId !== undefined ? `/app/calls/${openedId}` : '/app/portfolio')}>
+                {openedId !== undefined ? 'See your call' : 'Go to portfolio'}
               </Button>
             </div>
           </div>
