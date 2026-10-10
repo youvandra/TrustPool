@@ -18,7 +18,7 @@ rules and the rolling arrow button.
 
 | Route | Who | What |
 | --- | --- | --- |
-| `/` | Everyone | Landing: hero with a real slice of the app, results ticker, 4-step bento, followers vs callers, comparison with call groups, honest FAQ, CTA |
+| `/` | Everyone | Landing: Kinsign-style full-height hero (WebGL water shader + a call ticket cycling Locked / Exit announced / Settled), "Inside the app" product shot, results ticker, 4-step bento, followers vs callers, comparison with call groups, honest FAQ, CTA |
 | `/app` | Everyone | Home: pulse tiles, "Exiting soon" (the key list), new calls, following/suggested callers, explainer |
 | `/app/calls` | Everyone | Explore: state tabs, token chips, search, sort, grid/list toggle. Newest first, no ranking |
 | `/app/calls/:id` | Everyone | Call: status block (exit countdown / lock / result), price since entry, rules (fixed), position, thesis, timeline, caller card, watch + buy-on-your-own |
@@ -30,6 +30,15 @@ rules and the rolling arrow button.
 
 Browsing never needs an account. Signing in is asked for at the moment it is
 needed (follow, watch, portfolio, opening a call), through `useSession().login()`.
+
+### Hero
+
+Same structure as Kinsign's hero, different material: `features/landing/HeroShader.tsx`
+stacks FlowingGradient, ChromaFlow (follows the cursor), CursorRipples and grain,
+all in one blue hue. Keep every colour on that hue: the gradient blends in oklch,
+where pure white has no hue and the blend sweeps a rainbow. The device is
+`CallTicket.tsx`, a boarding-pass ticket whose notches are cut with a CSS mask so
+the shader shows through. The cycle pauses while the tab is hidden.
 
 ### Shell
 

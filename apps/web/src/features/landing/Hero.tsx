@@ -1,18 +1,21 @@
-import { AnimatePresence, motion } from 'motion/react'
-import { BellRing, Eye, Lock, Receipt, ShieldCheck } from 'lucide-react'
+import { motion } from 'motion/react'
+import { ArrowDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { CALLERS, CALLS } from '@trustpool/core'
-import { ArrowLink, CallerAvatar, Signed, Sparkline, StateTag, TokenIcon } from '@/components/ui'
+import { Link } from 'react-router'
+import { CALLERS, CALLS, type Call } from '@trustpool/core'
+import { ArrowLink, CallerAvatar, Signed, Sparkline, TokenIcon } from '@/components/ui'
 import { mon } from '@/lib/format'
 import { usePageVisible } from '@/lib/hooks'
 import Countdown from '@/features/app/components/Countdown'
+import CallTicket from './CallTicket'
+import HeroShader from './HeroShader'
 
 const by = (a: string) => CALLERS.find((c) => c.address === a)
 const EXITING = CALLS.filter((c) => c.state === 'Exiting')
 const RECENT = CALLS.filter((c) => c.state === 'Settled' || c.state === 'Released').slice(-3).reverse()
 
 /** A small, real slice of the app: the "Exiting soon" panel, built from the same components. */
-function ProductShot() {
+export function ProductShot() {
   return (
     <div className="relative rounded-[28px] border border-line bg-surface p-2 shadow-pop">
       <div className="flex items-center gap-1.5 px-3 pb-2 pt-1">
@@ -69,133 +72,105 @@ function ProductShot() {
   )
 }
 
-const NOTES = [
-  { icon: BellRing, title: 'marisa announced an exit', body: 'MOE · sells in 9h at the earliest', tone: 'bg-accent text-white' },
-  { icon: Lock, title: 'ade bought MOYAKI and locked it', body: '250 MON of their own · 7 day lock', tone: 'bg-ink text-white' },
-  { icon: Receipt, title: 'olu settled CHOG at −30.07%', body: 'On the record, same as a gain', tone: 'bg-loss-fill text-loss' },
-]
 
-/** One notification at a time, cycling: the three moments the product exists for. */
-function FloatingNote() {
+const WORDS = ['Follow', 'callers', 'who', 'buy', 'first.', 'Hear', 'before', 'they', 'sell.']
+
+const H = 3_600_000
+const SEED = CALLS.find((c) => c.id === 9)!
+const T0 = Date.now()
+
+/** One call at three moments. The last is a loss on purpose: the hero has to read the same either way. */
+const STATES: Call[] = [
+  SEED,
+  { ...SEED, state: 'Exiting', announcedAt: T0 - 3 * H, exitAt: T0 + 9 * H + 14 * 60_000 },
+  { ...SEED, state: 'Settled', announcedAt: T0 - 14 * H, exitAt: T0 - 2 * H, monOut: SEED.monIn * 0.876 },
+]
+const LABELS = ['Locked', 'Exit announced', 'Settled']
+const CYCLE_MS = 3800
+
+/** The ticket steps through locked, announced and settled, like Kinsign's phone. It rests while the page is hidden. */
+function HeroTicket() {
   const visible = usePageVisible()
   const [i, setI] = useState(0)
   useEffect(() => {
     if (!visible) return
-    const id = setInterval(() => setI((n) => (n + 1) % NOTES.length), 3400)
+    const id = setInterval(() => setI((n) => (n + 1) % STATES.length), CYCLE_MS)
     return () => clearInterval(id)
   }, [visible])
-  const n = NOTES[i]!
   return (
-    <div className="absolute -bottom-8 -left-10 hidden w-[300px] xl:block">
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.div
-          key={i}
-          initial={{ y: 18, scale: 0.97 }}
-          animate={{ y: 0, scale: 1 }}
-          exit={{ y: -12, opacity: 0, scale: 0.98 }}
-          transition={{ type: 'spring', stiffness: 360, damping: 30 }}
-          className="flex items-center gap-3 rounded-2xl border border-line bg-surface/95 p-3 shadow-pop backdrop-blur"
-        >
-          <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${n.tone}`}>
-            <n.icon size={17} />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-[13.5px] font-semibold">{n.title}</span>
-            <span className="block truncate text-[12px] text-ink-3">{n.body}</span>
-          </span>
-        </motion.div>
-      </AnimatePresence>
-    </div>
-  )
-}
-
-function LockBadge() {
-  const c = CALLS.find((x) => x.state === 'Locked')!
-  return (
-    <div className="absolute -right-4 -top-6 hidden w-[230px] rounded-2xl border border-line bg-surface p-4 shadow-pop xl:block">
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-2 text-[13px] font-semibold">
-          <TokenIcon token={c.token} size={24} /> {c.token.symbol}
-        </span>
-        <StateTag state="Locked" size="sm" />
+    <div className="relative mx-auto w-[370px] xl:w-[400px]">
+      {/* A second ticket behind, tilted: the stack of calls on the record. */}
+      <div className="absolute bottom-16 left-10 right-[-28px] top-6 rotate-[6deg] rounded-[28px] bg-accent shadow-pop" aria-hidden="true">
+        <div className="absolute inset-0 rounded-[28px] opacity-[0.2] [background-image:radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:16px_16px]" />
       </div>
-      <p className="mt-3 text-[11.5px] text-ink-3">Lock ends in</p>
-      <Countdown at={c.unlockAt} className="mt-0.5 block text-[22px] font-medium tracking-[-0.02em]" />
-      <p className="mt-2 flex items-center gap-1 text-[11.5px] text-ink-3">
-        <Eye size={12} /> {c.watchers} watching for the exit
-      </p>
+      <motion.div
+        key={i}
+        className="relative"
+        initial={visible && i > 0 ? { y: 14, rotate: -1.5 } : false}
+        animate={{ y: 0, rotate: 0 }}
+        transition={{ type: 'spring', stiffness: 240, damping: 26 }}
+      >
+        <CallTicket call={STATES[i]!} caller={by(SEED.caller)} />
+      </motion.div>
+      <div className="relative mt-8 flex justify-center gap-4" aria-hidden="true">
+        {LABELS.map((l, n) => (
+          <span key={l} className={`flex items-center gap-2 text-[12px] font-medium transition-colors duration-500 ${n === i ? 'text-ink' : 'text-ink-3/70'}`}>
+            <span className={`h-1.5 rounded-full transition-all duration-500 ${n === i ? 'w-6 bg-accent' : 'w-1.5 bg-ink/25'}`} />
+            {l}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }
-
-const WORDS = ['Follow', 'callers', 'who', 'buy', 'first.']
 
 export default function Hero() {
   const visible = usePageVisible()
   return (
-    <section className="relative overflow-hidden pb-20 pt-32 sm:pt-36 lg:pb-28">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[720px] dots opacity-70 [mask-image:linear-gradient(to_bottom,black,transparent)]" aria-hidden="true" />
-      <div className="relative mx-auto grid max-w-[1240px] items-center gap-16 px-5 sm:px-8 lg:grid-cols-[1.05fr_1fr]">
+    <section className="relative isolate flex min-h-[100svh] flex-col overflow-hidden bg-bg pt-24">
+      <HeroShader />
+      <div className="relative z-10 mx-auto grid w-full max-w-[1240px] flex-1 items-center gap-14 px-5 pb-16 pt-10 sm:px-8 lg:grid-cols-[1.35fr_1fr] lg:pb-20">
         <div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-3 text-[13px] shadow-card">
-            <span className="rounded-full bg-accent px-2 py-0.5 text-[11.5px] font-medium text-white">Monad</span>
-            <span className="text-ink-2">Accountable calls, on chain</span>
-          </span>
-          <h1 className="mt-7 text-[clamp(2.7rem,6.6vw,5.4rem)] font-semibold leading-[0.98] tracking-[-0.05em]">
-            <span className="block">
-              {WORDS.map((w, i) => (
-                <motion.span
-                  key={w}
-                  className="mr-[0.22em] inline-block"
-                  initial={visible ? { y: 28 } : false}
-                  animate={{ y: 0 }}
-                  transition={{ delay: 0.05 * i, type: 'spring', stiffness: 220, damping: 24 }}
-                >
-                  {w}
-                </motion.span>
-              ))}
-            </span>
-            <span className="block text-accent">Hear before they sell.</span>
+          <Link
+            to="/app"
+            className="group inline-flex items-center gap-2 rounded-full bg-surface/85 py-1.5 pl-1.5 pr-3.5 text-[13px] shadow-card backdrop-blur transition-shadow hover:shadow-pop"
+          >
+            <span className="rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-semibold text-white">Live demo</span>
+            <span className="text-ink-2">Browse every call without signing in</span>
+            <span className="text-ink-3 transition-transform group-hover:translate-x-0.5">→</span>
+          </Link>
+          <h1 className="mt-7 max-w-[15ch] text-balance text-[clamp(2.6rem,6.6vw,5.4rem)] font-semibold leading-[0.98] tracking-[-0.05em]">
+            {WORDS.map((w, i) => (
+              <motion.span
+                key={w + i}
+                className={`mr-[0.22em] inline-block ${i >= 5 ? 'text-accent' : ''}`}
+                initial={visible ? { y: 28 } : false}
+                animate={{ y: 0 }}
+                transition={{ delay: 0.04 * i, type: 'spring', stiffness: 220, damping: 24 }}
+              >
+                {w}
+              </motion.span>
+            ))}
           </h1>
-          <p className="mt-7 max-w-[50ch] text-[17px] leading-[1.6] text-ink-2 sm:text-[18px]">
-            On trustpool a caller buys with their own money before anyone sees the call. The position is locked, every exit is announced hours ahead, and every
-            result stays on their record. Losses included.
+          <p className="mt-7 max-w-[52ch] text-[17px] leading-[1.6] text-ink-2 sm:text-[19px]">
+            On trustpool a caller buys with their own money before anyone sees the call. The position is locked, every exit is announced hours ahead, and
+            every result stays on their record. Losses included.
           </p>
-          <div className="mt-9 flex flex-wrap items-center gap-3">
+          <div className="mt-9 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
             <ArrowLink to="/app">Launch app</ArrowLink>
-            <a href="#how" className="inline-flex h-12 items-center rounded-full px-5 text-[15px] font-medium text-ink-2 transition-colors hover:text-ink">
+            <ArrowLink to="/#how" tone="light">
               How it works
-            </a>
+            </ArrowLink>
           </div>
-          <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-[13.5px] font-medium text-ink-2">
-            {[
-              [Lock, 'Caller money locked first'],
-              [BellRing, 'Exits announced ahead'],
-              [ShieldCheck, 'Bond at stake'],
-            ].map(([I, t]) => {
-              const Icon = I as typeof Lock
-              return (
-                <li key={t as string} className="flex items-center gap-2">
-                  <span className="grid h-6 w-6 place-items-center rounded-full bg-accent-fill text-accent-strong">
-                    <Icon size={13} />
-                  </span>
-                  {t as string}
-                </li>
-              )
-            })}
-          </ul>
         </div>
-        <motion.div className="relative" initial={visible ? { y: 40 } : false} animate={{ y: 0 }} transition={{ delay: 0.15, duration: 1, ease: [0.22, 1, 0.36, 1] }}>
-          <div className="absolute -inset-6 overflow-hidden rounded-[40px] bg-accent sm:-inset-10" aria-hidden="true">
-            <div className="absolute inset-0 opacity-[0.18] [background-image:radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:18px_18px]" />
-            <div className="absolute inset-x-0 top-[58%] h-[3px] bg-white/25" />
-          </div>
-          <div className="relative">
-            <ProductShot />
-            <FloatingNote />
-            <LockBadge />
-          </div>
-        </motion.div>
+        <div className="hidden lg:block">
+          <HeroTicket />
+        </div>
+      </div>
+      <div className="relative z-10 mx-auto hidden w-full max-w-[1240px] px-8 pb-8 lg:block">
+        <a href="#how" className="inline-flex items-center gap-2 text-[13px] text-ink-2">
+          Scroll <ArrowDown size={14} className="animate-bob motion-reduce:animate-none" />
+        </a>
       </div>
     </section>
   )
