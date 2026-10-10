@@ -5,6 +5,8 @@ COPY package.json package-lock.json ./
 COPY packages/core/package.json packages/core/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+# Every workspace in the lockfile must be present for the install, even unused ones.
+COPY e2e/package.json e2e/
 RUN bun install --production --filter '@trustpool/api'
 
 FROM oven/bun:1.2.22-slim
