@@ -5,6 +5,7 @@ import { CALLERS, CALLS, returnBps } from '@trustpool/core'
 import { ArrowLink, CallerAvatar, Signed, TokenIcon } from '@/components/ui'
 import Reveal from '@/components/marketing/Reveal'
 import Countdown from '@/features/app/components/Countdown'
+import { ProductShot } from './Hero'
 
 const by = (a: string) => CALLERS.find((c) => c.address === a)
 const DONE = CALLS.filter((c) => c.state === 'Settled' || c.state === 'Released')
@@ -317,6 +318,31 @@ export function FinalCta() {
             <ArrowLink to="/app" tone="light">
               Launch app
             </ArrowLink>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  )
+}
+
+/** The dashboard itself, on the brand-blue field. */
+export function InsideApp() {
+  return (
+    <section className="py-24 sm:py-32">
+      <div className="mx-auto grid max-w-[1240px] items-center gap-14 px-5 sm:px-8 lg:grid-cols-[1fr_1.1fr]">
+        <Heading
+          eyebrow="Inside the app"
+          title="Exits first, everything else after."
+          body="The dashboard opens on the calls that are about to move: who announced an exit, and how long you have. New calls and settled results sit right below, wins and losses in the same type."
+        />
+        <Reveal>
+          <div className="relative">
+            <div className="absolute -inset-6 overflow-hidden rounded-[40px] bg-accent sm:-inset-10" aria-hidden="true">
+              <div className="absolute inset-0 opacity-[0.18] [background-image:radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:18px_18px]" />
+            </div>
+            <div className="relative">
+              <ProductShot />
+            </div>
           </div>
         </Reveal>
       </div>

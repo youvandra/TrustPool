@@ -36,11 +36,13 @@ export default {
         },
         marquee: { from: { transform: 'translateX(0)' }, to: { transform: 'translateX(-50%)' } },
         shimmer: { from: { backgroundPosition: '200% 0' }, to: { backgroundPosition: '-200% 0' } },
+        bob: { '50%': { transform: 'translateY(3px)' } },
       },
       animation: {
         pulse2: 'pulse2 2.2s cubic-bezier(0.25,0.1,0.25,1) infinite',
         marquee: 'marquee 60s linear infinite',
         shimmer: 'shimmer 1.6s linear infinite',
+        bob: 'bob 2s cubic-bezier(0.25,0.1,0.25,1) infinite',
       },
     },
   },
