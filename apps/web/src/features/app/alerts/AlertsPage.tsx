@@ -2,7 +2,7 @@ import { Bell, BellRing, CheckCheck, Receipt, Sparkles, type LucideIcon } from '
 import { Link } from 'react-router'
 import type { AlertKind } from '@trustpool/core'
 import { Button, Card, CallerAvatar, Empty, Skeleton, TokenIcon } from '@/components/ui'
-import { ago } from '@/lib/format'
+import { ago, date } from '@/lib/format'
 import { source } from '@/lib/data'
 import { useLoad, useTitle } from '@/lib/hooks'
 import { useLiveVersion } from '@/lib/live'
@@ -61,7 +61,7 @@ function List() {
                 <p className="text-[14px] leading-[1.45]">
                   <span className="font-semibold">{who?.handle}</span> <span className="text-ink-2">{k.verb}</span> <span className="font-semibold">{call.token.symbol}</span>
                 </p>
-                <p className="mt-0.5 text-[12.5px] text-ink-3">{ago(a.at)}</p>
+                <p className="mt-0.5 text-[12.5px] text-ink-3" title={date(a.at)}>{ago(a.at)}</p>
               </div>
               <TokenIcon token={call.token} size={30} />
               {isNew && <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />}

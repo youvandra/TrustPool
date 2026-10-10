@@ -291,7 +291,7 @@ export default function CallPage() {
                     <p className="num text-[12px] text-ink-3">{shortAddress(caller.address)}</p>
                   </div>
                 </Link>
-                <FollowButton address={caller.address} handle={caller.handle} />
+                <FollowButton address={caller.address} handle={caller.handle} variant="secondary" />
               </div>
               <div className="mt-5">
                 <Row label="Record">

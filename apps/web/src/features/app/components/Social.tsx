@@ -5,15 +5,30 @@ import { useSession } from '@/auth/session'
 import { actions, isFollowing, useStore } from '@/lib/store'
 
 /** Follow or unfollow a caller. Signed-out users are asked to sign in first. */
-export function FollowButton({ address, handle, size = 'sm' }: { address: string; handle?: string; size?: 'sm' | 'md' }) {
+export function FollowButton({
+  address,
+  handle,
+  size = 'sm',
+  variant = 'primary',
+  compact,
+}: {
+  address: string
+  handle?: string
+  size?: 'sm' | 'md'
+  variant?: 'primary' | 'secondary'
+  /** Icon only on phones, where a list row has no room for the label. */
+  compact?: boolean
+}) {
   const { authenticated, login, address: me } = useSession()
   const on = useStore((s) => isFollowing(s, address)) && authenticated
   if (me && me.toLowerCase() === address.toLowerCase()) return null
   return (
     <Button
       size={size}
-      variant={on ? 'soft' : 'primary'}
+      variant={on ? 'soft' : variant}
       icon={on ? UserCheck : UserPlus}
+      aria-label={on ? `Following ${handle ?? 'caller'}` : `Follow ${handle ?? 'caller'}`}
+      className={compact ? 'max-sm:h-10 max-sm:w-10 max-sm:px-0' : ''}
       onClick={(e) => {
         e.preventDefault()
         if (!authenticated) return login()
@@ -21,7 +36,7 @@ export function FollowButton({ address, handle, size = 'sm' }: { address: string
         toast(now ? `Following ${handle ?? 'caller'}. New calls show up in Alerts.` : `Unfollowed ${handle ?? 'caller'}`)
       }}
     >
-      {on ? 'Following' : 'Follow'}
+      <span className={compact ? 'max-sm:sr-only' : ''}>{on ? 'Following' : 'Follow'}</span>
     </Button>
   )
 }

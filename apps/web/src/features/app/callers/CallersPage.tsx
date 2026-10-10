@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { averageBps } from '@trustpool/core'
 import { Card, CallerAvatar, Empty, Signed, Skeleton } from '@/components/ui'
-import { ago, compact, mon } from '@/lib/format'
+import { ago, compact, date, mon } from '@/lib/format'
 import { source } from '@/lib/data'
 import { useLoad, useTitle } from '@/lib/hooks'
 import { useSession } from '@/auth/session'
@@ -39,7 +39,7 @@ export default function CallersPage() {
         </Card>
       ) : (
         <Card className="overflow-hidden">
-          <div className="hidden grid-cols-[1.6fr_repeat(5,minmax(0,1fr))_120px] gap-4 border-b border-line bg-subtle px-5 py-3 text-[12px] text-ink-3 lg:grid">
+          <div className="hidden grid-cols-[minmax(0,1fr)_72px_80px_96px_96px_72px_104px] gap-4 border-b border-line bg-subtle px-5 py-3 text-[12px] text-ink-3 lg:grid">
             <span>Caller</span>
             <span className="text-right">Settled</span>
             <span className="text-right">At a loss</span>
@@ -53,14 +53,22 @@ export default function CallersPage() {
               <li key={c.address}>
                 <Link
                   to={`/app/callers/${c.address}`}
-                  className="grid grid-cols-[1fr_auto] items-center gap-4 px-4 py-4 transition-colors hover:bg-subtle sm:px-5 lg:grid-cols-[1.6fr_repeat(5,minmax(0,1fr))_120px]"
+                  className="grid cursor-pointer grid-cols-[1fr_auto] items-center gap-4 px-4 py-4 transition-colors hover:bg-subtle sm:px-5 lg:grid-cols-[minmax(0,1fr)_72px_80px_96px_96px_72px_104px]"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <CallerAvatar address={c.address} size={40} />
                     <div className="min-w-0">
                       <p className="truncate text-[14.5px] font-semibold">{c.handle}</p>
                       <p className="truncate text-[12.5px] text-ink-3">
-                        {compact(c.followers)} followers · active {ago(c.record.lastActive)}
+                        {compact(c.followers)} followers · <span title={date(c.record.lastActive)}>active {ago(c.record.lastActive)}</span>
+                      </p>
+                      <p className="mt-1 flex flex-wrap gap-x-1 text-[12.5px] text-ink-2 lg:hidden">
+                        <span className="whitespace-nowrap">
+                          <span className="num">{c.record.settled + c.record.released}</span> settled, <span className="num">{c.record.losses}</span> at a loss
+                        </span>
+                        <span className="whitespace-nowrap">
+                          · <Signed bps={averageBps(c.record)} />
+                        </span>
                       </p>
                     </div>
                   </div>
@@ -75,7 +83,7 @@ export default function CallersPage() {
                     {me === c.address.toLowerCase() ? (
                       <span className="rounded-full bg-accent-fill px-2.5 py-1 text-[12px] font-medium text-accent-deep">You</span>
                     ) : (
-                      <FollowButton address={c.address} handle={c.handle} />
+                      <FollowButton address={c.address} handle={c.handle} variant="secondary" compact />
                     )}
                   </span>
                 </Link>

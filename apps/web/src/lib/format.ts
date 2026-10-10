@@ -57,7 +57,8 @@ export function clock(ms: number): string {
 export function ago(ms: number, now = Date.now()): string {
   const d = now - ms
   if (d < 60_000) return 'just now'
-  return `${duration(d)} ago`.replace(/ 0m/, '')
+  // The largest unit only: "3h ago", "4d ago". The exact time goes in a title.
+  return `${duration(d).split(' ')[0]} ago`
 }
 
 export const compact = (n: number) => n.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 })
