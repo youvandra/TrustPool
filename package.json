@@ -16,7 +16,8 @@
     "test": "npm run test:contracts && npm test -w @trustpool/api",
     "test:contracts": "cd contracts && forge test",
     "sync:contracts": "cd contracts && forge build && cd .. && node scripts/sync-contracts.mjs",
-    "test:e2e": "npm test -w @trustpool/e2e"
+    "test:e2e": "npm test -w @trustpool/e2e",
+    "dev:local": "node scripts/local-stack.mjs"
   },
   "devDependencies": {
     "typescript": "5.9.3"

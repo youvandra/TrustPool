@@ -18,7 +18,8 @@ needs a person: a funded deploy key, a Privy app, a Discord answer, the video.
 | `packages/core` | Types (now with `stale`, marked value, closing alerts), demo set, generated ABIs and deployments, chain list (Monad testnet 10143, Monad 143, anvil). |
 | `apps/api` | `DATA=demo` or `DATA=chain`. Chain mode: viem indexer into PostgreSQL via Drizzle (PGlite locally; atomic ranges with the cursor, adaptive range, confirmations, one deployment per database, advisory lock so one of many instances indexes), price sampler (quotes through each call's adapter), alerts to followers and watchers, Privy access tokens verified locally, early-buyer scan. Route shapes unchanged; new `/me/*` writes and `/calls/:id/early-buyers`. 27 tests (run on PGlite and, in CI, a Postgres server) incl. an e2e check of every record against `recordOf` on anvil. |
 | `apps/web` | `lib/chain.ts` + `lib/tx.ts`: real transactions for Buy and lock (bond first if short, `minOut` from a quote at 1% slippage), announce, sell and settle, release, bond add/request/withdraw. Falls back to demo actions without Privy or a deployment. Follows, watches and read alerts write through to the API. Call page: DEX link, marked value, early buyers. |
-| CI | `.github/workflows/ci.yml`: forge fmt/build/test, ABI drift check, typecheck, API tests, anvil deploy + seed + indexer e2e, web build. |
+| CI | `.github/workflows/ci.yml`: forge fmt/build/test (incl. invariants), ABI drift check, typecheck, API tests on PGlite and Postgres 16, migration drift check, anvil indexer e2e, web build, API Docker image boot, Playwright e2e of a whole call. |
+| Local | `npm run dev:local`: anvil + contracts + API + web with an anvil wallet, one command. |
 
 ## Run
 
@@ -73,6 +74,9 @@ From docs.monad.xyz and third-party nad.fun skill docs, 10 Oct. Re-check before 
 8. [ ] Submission (keep a full half day): `docs/writeup.md` is drafted; record the demo
        video (open a call, show it locked, announce, the notice countdown, execute, the
        record with a loss on it), public project profile, verify the cited links.
+       The video can be recorded on `npm run dev:local` (real transactions on anvil, no
+       Privy needed); move time with `node scripts/local-stack.mjs warp 3d`. Say on screen
+       that it is a local chain, or record on testnet once deployed.
 
 ## Rules for working in this repo
 
