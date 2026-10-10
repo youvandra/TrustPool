@@ -35,6 +35,7 @@ export function demoStore(): Store {
     },
     listTokens: async () => TOKENS,
     async setProfile(claim) {
+      if (!CALLERS.some((c) => same(c.address, claim.address))) return 'unknown'
       if (CALLERS.some((c) => !same(c.address, claim.address) && withProfile(c).handle?.toLowerCase() === claim.handle)) return 'taken'
       const prev = profiles.get(claim.address.toLowerCase())
       if (prev && prev.signedAt >= claim.signedAt) return 'stale'

@@ -1,5 +1,6 @@
 import { checkProfile, PROFILE_MAX_AGE, profileMessage, type CallState } from '@trustpool/core'
 import { Hono } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
 import { logger } from 'hono/logger'
@@ -30,6 +31,9 @@ export interface AppDeps {
 
 const STATES: CallState[] = ['Locked', 'Exiting', 'Settled', 'Released']
 const MAX_PAGE = 500
+/** Per user; enough for anyone reading records, small enough to stop a script filling the table. */
+const MAX_FOLLOWS = 500
+const MAX_WATCHES = 500
 
 /**
  * The HTTP surface. Route shapes are fixed: apps/web consumes them (VITE_DATA=api).
@@ -46,6 +50,9 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuy
     const write = rateLimit(limits.write)
     app.use('*', (c, next) => (c.req.method === 'GET' || c.req.method === 'OPTIONS' ? read(c, next) : write(c, next)))
   }
+
+  // Every body this API takes is a few hundred bytes.
+  app.use('*', bodyLimit({ maxSize: 16 * 1024, onError: (c) => c.json({ error: 'body too large' }, 413) }))
 
   app.onError((err, c) => {
     if (err instanceof HTTPException) return c.json({ error: err.message }, err.status)
@@ -116,6 +123,7 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuy
     const result = await store.setProfile(claim)
     if (result === 'taken') throw new HTTPException(409, { message: 'handle taken' })
     if (result === 'stale') throw new HTTPException(409, { message: 'a newer profile is already stored' })
+    if (result === 'unknown') throw new HTTPException(403, { message: 'only an address that has posted a bond can name itself' })
     return c.body(null, 204)
   })
 
@@ -138,6 +146,7 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuy
 
   me.get('/following', async (c) => c.json(await store.following(c.var.user)))
   me.put('/following/:address', async (c) => {
+    if ((await store.following(c.var.user)).length >= MAX_FOLLOWS) throw new HTTPException(409, { message: `at most ${MAX_FOLLOWS} follows` })
     await store.setFollow(c.var.user, addressParam(c.req.param('address')), true)
     return c.body(null, 204)
   })
@@ -150,6 +159,7 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuy
   me.put('/watching/:id', async (c) => {
     const id = intParam(c.req.param('id'))
     if (!(await store.getCall(id))) throw new HTTPException(404, { message: 'no such call' })
+    if ((await store.watching(c.var.user)).length >= MAX_WATCHES) throw new HTTPException(409, { message: `at most ${MAX_WATCHES} watches` })
     await store.setWatch(c.var.user, id, true)
     return c.body(null, 204)
   })

@@ -29,7 +29,7 @@ export function auth(privy?: { appId: string; verificationKey: string }): Middle
     const token = bearer(c)
     key ??= importSPKI(privy.verificationKey, 'ES256')
     try {
-      const { payload } = await jwtVerify(token, await key, { issuer: 'privy.io', audience: privy.appId })
+      const { payload } = await jwtVerify(token, await key, { issuer: 'privy.io', audience: privy.appId, algorithms: ['ES256'] })
       if (!payload.sub || !USER_ID.test(payload.sub)) throw new Error('no subject')
       c.set('user', payload.sub)
     } catch {

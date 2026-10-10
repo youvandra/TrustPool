@@ -55,6 +55,11 @@ export function loadConfig(env: Env = process.env): Config {
     cfg.privy = { appId: env.PRIVY_APP_ID, verificationKey: env.PRIVY_VERIFICATION_KEY.replace(/\\n/g, '\n') }
   }
 
+  // Without Privy, /me trusts a header: anyone could read anyone's alerts. Never in production.
+  if (data === 'chain' && !cfg.privy && env.NODE_ENV === 'production' && env.ALLOW_DEMO_AUTH !== '1') {
+    throw new Error('DATA=chain in production needs PRIVY_APP_ID and PRIVY_VERIFICATION_KEY (or ALLOW_DEMO_AUTH=1 for a throwaway demo)')
+  }
+
   if (data === 'chain') {
     const chainId = int(env.CHAIN_ID, DEFAULT_CHAIN_ID)
     const deployment = deploymentFor(chainId)

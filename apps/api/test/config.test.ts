@@ -22,4 +22,9 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ PORT: 'x' })).toThrow(/integer/)
     expect(() => loadConfig({ PRIVY_APP_ID: 'a' })).toThrow(/PRIVY/)
   })
+
+  test('refuses header auth for chain data in production', () => {
+    expect(() => loadConfig({ DATA: 'chain', CHAIN_ID: '31337', NODE_ENV: 'production' })).toThrow(/PRIVY/)
+    expect(loadConfig({ DATA: 'chain', CHAIN_ID: '31337', NODE_ENV: 'production', ALLOW_DEMO_AUTH: '1' }).data).toBe('chain')
+  })
 })

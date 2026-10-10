@@ -15,8 +15,11 @@ export interface ReadStore {
   listCallers(page?: { limit?: number; offset?: number }): Promise<Caller[]>
   getCaller(address: string): Promise<Caller | undefined>
   listTokens(): Promise<Token[]>
-  /** Stores a verified claim. `taken`: another address has the handle. `stale`: an equal or newer claim exists. */
-  setProfile(claim: ProfileClaim): Promise<'ok' | 'taken' | 'stale'>
+  /**
+   * Stores a verified claim. `taken`: another address has the handle. `stale`: an equal or
+   * newer claim exists. `unknown`: the address has never bonded, so it is not a caller.
+   */
+  setProfile(claim: ProfileClaim): Promise<'ok' | 'taken' | 'stale' | 'unknown'>
 }
 
 /** Per-user state, keyed by the verified user id (the Privy `sub`). */

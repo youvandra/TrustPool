@@ -132,6 +132,8 @@ export function postgresStore(db: Db): Store {
     async setProfile(claim) {
       const address = getAddress(claim.address)
       return db.transaction(async (tx) => {
+        const [known] = await tx.select({ a: callers.address }).from(callers).where(eq(callers.address, address))
+        if (!known) return 'unknown' as const
         const [prev] = await tx.select({ signedAt: profiles.signedAt }).from(profiles).where(eq(profiles.address, address))
         if (prev && prev.signedAt >= claim.signedAt) return 'stale' as const
         const [owner] = await tx.select({ address: profiles.address }).from(profiles).where(eq(profiles.handle, claim.handle))
