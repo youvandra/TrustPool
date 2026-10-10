@@ -87,6 +87,7 @@ contract TrustPoolTest is Test {
         vm.prank(caller);
         pool.announceExit(id);
         assertEq(pool.getCall(id).exitAt, block.timestamp + 12 hours);
+        assertEq(pool.getCall(id).announcedAt, block.timestamp);
     }
 
     function test_settleRecordsGain() public {

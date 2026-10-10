@@ -30,7 +30,8 @@ contract TrustPool {
         uint64 openedAt;
         uint64 unlockAt; // earliest moment an exit can execute
         uint32 notice; // seconds between announcing and executing an exit
-        uint64 exitAt; // set when the exit is announced
+        uint64 announcedAt; // when the exit was announced
+        uint64 exitAt; // earliest moment the announced exit can execute
         uint96 monOut; // set on settlement
         State state;
         string thesis; // short public note, fixed at open
@@ -186,6 +187,7 @@ contract TrustPool {
                 openedAt: uint64(block.timestamp),
                 unlockAt: uint64(block.timestamp) + lockSeconds,
                 notice: notice,
+                announcedAt: 0,
                 exitAt: 0,
                 monOut: 0,
                 state: State.Locked,
@@ -209,6 +211,7 @@ contract TrustPool {
         if (msg.sender != c.caller) revert NotCaller();
         if (c.state != State.Locked) revert WrongState();
         uint64 afterNotice = uint64(block.timestamp) + c.notice;
+        c.announcedAt = uint64(block.timestamp);
         c.exitAt = afterNotice > c.unlockAt ? afterNotice : c.unlockAt;
         c.state = State.Exiting;
         emit ExitAnnounced(id, msg.sender, c.exitAt);
