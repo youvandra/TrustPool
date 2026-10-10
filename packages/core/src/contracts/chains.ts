@@ -5,14 +5,16 @@ import type { ChainInfo, Deployment } from './types'
  * Chains trustpool knows about. Public RPCs are rate limited; set your own in the
  * environment of the API and the web app for anything beyond a demo.
  * Addresses from docs.monad.xyz; check them again before a mainnet deploy.
+ * The testnet was regenesised on 16 Dec 2025: addresses from before that date (the old
+ * WMON, Uniswap V2 router, nad.fun routers) have no code any more. Each testnet address
+ * below was checked for code on 11 Oct 2026.
  */
 export const CHAINS: Record<number, ChainInfo> = {
   10143: {
     id: 10143,
     name: 'Monad Testnet',
     rpcUrl: 'https://testnet-rpc.monad.xyz',
-    explorer: 'https://testnet.monadexplorer.com',
-    wmon: '0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701',
+    explorer: 'https://testnet.monadscan.com',
     testnet: true,
   },
   143: {
@@ -26,9 +28,19 @@ export const CHAINS: Record<number, ChainInfo> = {
   31337: { id: 31337, name: 'Anvil', rpcUrl: 'http://127.0.0.1:8545', testnet: true },
 }
 
-/** Known Uniswap V2 routers, for Deploy.s.sol's V2_ROUTER. */
-export const V2_ROUTERS: Record<number, `0x${string}`> = {
-  10143: '0xfB8e1C3b833f9E67a71C859a132cf783b645e436',
+/** Known Uniswap V2 routers, for Deploy.s.sol's V2_ROUTER. None is live on the current testnet. */
+export const V2_ROUTERS: Record<number, `0x${string}`> = {}
+
+/**
+ * Uniswap v4 core, for script/DeployV4.s.sol and UniswapV4Adapter. Testnet from the
+ * monad-crypto/protocols registry, verified on chain and by the fork test on 11 Oct 2026.
+ */
+export const UNISWAP_V4: Record<number, { poolManager: `0x${string}`; stateView: `0x${string}`; universalRouter: `0x${string}` }> = {
+  10143: {
+    poolManager: '0x451D64ab3b650040d2aE1886602b97ed6eDc643d',
+    stateView: '0xB639209539c61BaF67AC04876315786F8D0b153c',
+    universalRouter: '0x1b7bfCd2870329b987191910D85c22C7287f3c22',
+  },
 }
 
 /**

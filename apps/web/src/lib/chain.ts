@@ -25,11 +25,15 @@ export const publicClient = createPublicClient({ chain, transport: http(rpcUrl) 
 export const explorerTx = (hash: string) => (info.explorer ? `${info.explorer}/tx/${hash}` : undefined)
 
 /**
- * Where a follower buys on their own. nad.fun holds the deepest pair for most Monad
- * tokens (docs/product.md); one place to change if that moves.
+ * Where a follower buys on their own. On mainnet nad.fun holds the deepest pair for most
+ * Monad tokens (docs/product.md). The testnet demo tokens trade only in the Uniswap v4
+ * pools seeded by DeployV4, so there the link opens the token on the explorer instead.
  */
 export function dexUrl(token: string): string | undefined {
   if (CHAIN_ID === 143) return `https://nad.fun/tokens/${token}`
-  if (CHAIN_ID === 10143) return `https://testnet.nad.fun/tokens/${token}`
+  if (CHAIN_ID === 10143) return `${info.explorer}/token/${token}`
   return undefined
 }
+
+/** True when `dexUrl` leads to a place to buy, false when it only shows the token. */
+export const dexIsMarket = CHAIN_ID === 143

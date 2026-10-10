@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router'
 import { averageBps, entryPrice, markedBps, returnBps, type Call } from '@trustpool/core'
 import { ButtonLink, Card, CallerAvatar, Empty, Row, Signed, Skeleton, Sparkline, StateTag, TokenIcon } from '@/components/ui'
 import { date, duration, mon, price, shortAddress, signedPct, tokens } from '@/lib/format'
-import { dexUrl } from '@/lib/chain'
+import { dexIsMarket, dexUrl } from '@/lib/chain'
 import { source } from '@/lib/data'
 import { useLoad, useNow, useTitle } from '@/lib/hooks'
 import { useLocalCalls } from '@/lib/view'
@@ -232,7 +232,7 @@ export default function CallPage() {
               <WatchButton id={call.id} block />
               {dexUrl(call.token.address) ? (
                 <ButtonLink href={dexUrl(call.token.address)} target="_blank" rel="noopener noreferrer" variant="secondary" block iconRight={ExternalLink}>
-                  Buy {call.token.symbol} on your own
+                  {dexIsMarket ? `Buy ${call.token.symbol} on your own` : `View ${call.token.symbol} on the explorer`}
                 </ButtonLink>
               ) : (
                 <ButtonLink href="#" variant="secondary" block iconRight={ExternalLink} onClick={(e) => e.preventDefault()} aria-disabled title="No public DEX on this chain">
