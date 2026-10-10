@@ -31,22 +31,47 @@ export function CallerAvatar({ address, size = 36, className = '' }: { address: 
   )
 }
 
-/** Token chip: the symbol's first letter on a tint of its display hue. */
+/** Logos we ship, by symbol. The testnet demo tokens share their mainnet namesake's mark. */
+const LOGOS: Record<string, string> = {
+  CHOG: '/tokens/chog.svg',
+  TCHOG: '/tokens/chog.svg',
+  MOE: '/tokens/moe.svg',
+  TMOE: '/tokens/moe.svg',
+}
+
+/**
+ * Token chip: the token's logo when there is one, otherwise a blockie drawn from its
+ * address, a mirrored 5x5 grid in the token's hue. Same address, same blockie, everywhere.
+ */
 export function TokenIcon({ token, size = 36, className = '' }: { token: Token; size?: number; className?: string }) {
+  const logo = token.logo ?? LOGOS[token.symbol.toUpperCase()]
+  if (logo) {
+    return <img src={logo} alt="" width={size} height={size} className={`shrink-0 rounded-full ${className}`} style={{ width: size, height: size }} aria-hidden="true" />
+  }
+  let h = hash(token.address.toLowerCase())
+  const next = () => {
+    h ^= h << 13
+    h ^= h >>> 17
+    h ^= h << 5
+    return (h >>> 0) / 4294967296
+  }
+  const fills = [`hsl(${token.hue} 72% 48%)`, `hsl(${(token.hue + 40) % 360} 80% 70%)`]
+  const cells: { x: number; y: number; fill: string }[] = []
+  for (let y = 0; y < 5; y++) {
+    for (let x = 0; x < 3; x++) {
+      const v = next()
+      if (v < 0.35) continue
+      const fill = fills[v < 0.72 ? 0 : 1]!
+      cells.push({ x, y, fill })
+      if (x < 2) cells.push({ x: 4 - x, y, fill })
+    }
+  }
   return (
-    <span
-      className={`grid shrink-0 place-items-center rounded-full font-semibold ${className}`}
-      style={{
-        width: size,
-        height: size,
-        fontSize: size * 0.42,
-        background: `hsl(${token.hue} 85% 91%)`,
-        color: `hsl(${token.hue} 65% 30%)`,
-        boxShadow: `inset 0 0 0 1px hsl(${token.hue} 60% 80%)`,
-      }}
-      aria-hidden="true"
-    >
-      {token.symbol[0]}
-    </span>
+    <svg width={size} height={size} viewBox="0 0 50 50" className={`shrink-0 rounded-full ${className}`} aria-hidden="true">
+      <rect width="50" height="50" fill={`hsl(${token.hue} 60% 94%)`} />
+      {cells.map((c) => (
+        <rect key={`${c.x}-${c.y}`} x={c.x * 10} y={c.y * 10} width="10.5" height="10.5" fill={c.fill} />
+      ))}
+    </svg>
   )
 }

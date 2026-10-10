@@ -8,6 +8,8 @@ export interface Token {
   name: string
   /** Display hue 0-360 for the token chip; purely cosmetic. */
   hue: number
+  /** Logo URL, when one is known. Without it the app draws a blockie from the address. */
+  logo?: string
 }
 
 export interface Call {
