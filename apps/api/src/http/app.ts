@@ -52,13 +52,13 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuy
     return c.json({ ok: !status?.lastError, source: store.source, auth: privy ? 'privy' : 'demo', indexer: status })
   })
 
-  app.get('/calls', (c) => {
+  app.get('/calls', async (c) => {
     const state = c.req.query('state')?.split(',').filter(Boolean)
     if (state?.some((s) => !STATES.includes(s as CallState))) throw new HTTPException(400, { message: `state must be in ${STATES.join(',')}` })
     const caller = c.req.query('caller')
     if (caller !== undefined && !isAddress(caller, { strict: false })) throw new HTTPException(400, { message: 'caller must be an address' })
     return c.json(
-      store.listCalls({
+      await store.listCalls({
         state: state as CallState[] | undefined,
         caller,
         limit: intQuery(c.req.query('limit'), MAX_PAGE, MAX_PAGE),
@@ -67,25 +67,27 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuy
     )
   })
 
-  app.get('/calls/:id', (c) => {
+  app.get('/calls/:id', async (c) => {
     const id = intParam(c.req.param('id'))
-    const call = store.getCall(id)
+    const call = await store.getCall(id)
     return call ? c.json(call) : c.json({ error: 'not found' }, 404)
   })
 
   app.get('/calls/:id/early-buyers', async (c) => {
     const id = intParam(c.req.param('id'))
     if (!earlyBuyers) throw new HTTPException(501, { message: 'early buyers need chain mode' })
-    if (!store.getCall(id)) return c.json({ error: 'not found' }, 404)
+    if (!(await store.getCall(id))) return c.json({ error: 'not found' }, 404)
     const report = await earlyBuyers(id)
     return report ? c.json(report) : c.json({ error: 'this call was indexed before block numbers were kept' }, 404)
   })
 
-  app.get('/callers', (c) => c.json(store.listCallers()))
+  app.get('/callers', async (c) =>
+    c.json(await store.listCallers({ limit: intQuery(c.req.query('limit'), MAX_PAGE, MAX_PAGE), offset: intQuery(c.req.query('offset'), 0) })),
+  )
 
-  app.get('/callers/:address', (c) => {
+  app.get('/callers/:address', async (c) => {
     const a = addressParam(c.req.param('address'))
-    const caller = store.getCaller(a)
+    const caller = await store.getCaller(a)
     return caller ? c.json(caller) : c.json({ error: 'not found' }, 404)
   })
 
@@ -102,48 +104,48 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuy
     if (Math.abs(Date.now() - claim.signedAt) > PROFILE_MAX_AGE) throw new HTTPException(400, { message: 'signature too old; sign again' })
     const ok = await verifySignature({ address, message: profileMessage(claim), signature: body.signature as Hex }).catch(() => false)
     if (!ok) throw new HTTPException(401, { message: 'signature does not match this address' })
-    const result = store.setProfile(claim)
+    const result = await store.setProfile(claim)
     if (result === 'taken') throw new HTTPException(409, { message: 'handle taken' })
     if (result === 'stale') throw new HTTPException(409, { message: 'a newer profile is already stored' })
     return c.body(null, 204)
   })
 
-  app.get('/tokens', (c) => c.json(store.listTokens()))
+  app.get('/tokens', async (c) => c.json(await store.listTokens()))
 
   // ---------------------------------------------------------------- per user
 
   const me = new Hono<AuthEnv>()
   me.use('*', auth(privy))
 
-  me.get('/alerts', (c) => c.json(store.alerts(c.var.user, intQuery(c.req.query('limit'), 100, 500))))
+  me.get('/alerts', async (c) => c.json(await store.alerts(c.var.user, intQuery(c.req.query('limit'), 100, 500))))
   me.post('/alerts/read', async (c) => {
     const body = await json<{ ids?: unknown }>(c.req.raw)
     if (!Array.isArray(body.ids) || body.ids.length > 1000 || !body.ids.every((x) => typeof x === 'string')) {
       throw new HTTPException(400, { message: 'ids must be a list of alert ids' })
     }
-    store.markRead(c.var.user, body.ids as string[])
+    await store.markRead(c.var.user, body.ids as string[])
     return c.body(null, 204)
   })
 
-  me.get('/following', (c) => c.json(store.following(c.var.user)))
-  me.put('/following/:address', (c) => {
-    store.setFollow(c.var.user, addressParam(c.req.param('address')), true)
+  me.get('/following', async (c) => c.json(await store.following(c.var.user)))
+  me.put('/following/:address', async (c) => {
+    await store.setFollow(c.var.user, addressParam(c.req.param('address')), true)
     return c.body(null, 204)
   })
-  me.delete('/following/:address', (c) => {
-    store.setFollow(c.var.user, addressParam(c.req.param('address')), false)
+  me.delete('/following/:address', async (c) => {
+    await store.setFollow(c.var.user, addressParam(c.req.param('address')), false)
     return c.body(null, 204)
   })
 
-  me.get('/watching', (c) => c.json(store.watching(c.var.user)))
-  me.put('/watching/:id', (c) => {
+  me.get('/watching', async (c) => c.json(await store.watching(c.var.user)))
+  me.put('/watching/:id', async (c) => {
     const id = intParam(c.req.param('id'))
-    if (!store.getCall(id)) throw new HTTPException(404, { message: 'no such call' })
-    store.setWatch(c.var.user, id, true)
+    if (!(await store.getCall(id))) throw new HTTPException(404, { message: 'no such call' })
+    await store.setWatch(c.var.user, id, true)
     return c.body(null, 204)
   })
-  me.delete('/watching/:id', (c) => {
-    store.setWatch(c.var.user, intParam(c.req.param('id')), false)
+  me.delete('/watching/:id', async (c) => {
+    await store.setWatch(c.var.user, intParam(c.req.param('id')), false)
     return c.body(null, 204)
   })
 

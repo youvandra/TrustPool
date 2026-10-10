@@ -10,23 +10,23 @@ export interface CallFilter {
 /** Public data: calls, callers, tokens. Same shapes in demo and chain mode. */
 export interface ReadStore {
   readonly source: 'demo' | 'chain'
-  listCalls(filter?: CallFilter): Call[]
-  getCall(id: number): Call | undefined
-  listCallers(): Caller[]
-  getCaller(address: string): Caller | undefined
-  listTokens(): Token[]
+  listCalls(filter?: CallFilter): Promise<Call[]>
+  getCall(id: number): Promise<Call | undefined>
+  listCallers(page?: { limit?: number; offset?: number }): Promise<Caller[]>
+  getCaller(address: string): Promise<Caller | undefined>
+  listTokens(): Promise<Token[]>
   /** Stores a verified claim. `taken`: another address has the handle. `stale`: an equal or newer claim exists. */
-  setProfile(claim: ProfileClaim): 'ok' | 'taken' | 'stale'
+  setProfile(claim: ProfileClaim): Promise<'ok' | 'taken' | 'stale'>
 }
 
 /** Per-user state, keyed by the verified user id (the Privy `sub`). */
 export interface UserStore {
-  following(user: string): string[]
-  setFollow(user: string, caller: string, on: boolean): void
-  watching(user: string): number[]
-  setWatch(user: string, callId: number, on: boolean): void
-  alerts(user: string, limit?: number): Alert[]
-  markRead(user: string, ids: string[]): void
+  following(user: string): Promise<string[]>
+  setFollow(user: string, caller: string, on: boolean): Promise<void>
+  watching(user: string): Promise<number[]>
+  setWatch(user: string, callId: number, on: boolean): Promise<void>
+  alerts(user: string, limit?: number): Promise<Alert[]>
+  markRead(user: string, ids: string[]): Promise<void>
 }
 
 export type Store = ReadStore & UserStore

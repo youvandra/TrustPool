@@ -47,7 +47,7 @@ contracts/
   script/SeedLocal.s.sol        three demo calls on anvil
   test/                         unit + fuzz tests, V2 adapter tests, opt-in fork test
 packages/core/                  shared types, demo set, generated ABIs + deployments, chains
-apps/api/                       Bun + Hono: demo mode, or chain mode with a SQLite indexer
+apps/api/                       Bun + Hono: demo mode, or chain mode with a Postgres indexer
 apps/web/                       Vite + React + Tailwind: landing at /, app at /app, Privy
 scripts/sync-contracts.mjs      Foundry output -> typed ABIs and addresses in core
 docs/                           product.md (spec and decisions), design.md, writeup.md
@@ -76,7 +76,7 @@ cd contracts
 forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --private-key <anvil key 0>
 forge script script/SeedLocal.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
 cd .. && npm run sync:contracts
-DATA=chain CHAIN_ID=31337 npm run dev:api
+DATA=chain CHAIN_ID=31337 DATABASE_URL=pglite://data/dev npm run dev:api
 VITE_DATA=api VITE_CHAIN_ID=31337 npm run dev
 ```
 
