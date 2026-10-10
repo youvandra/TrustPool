@@ -5,7 +5,7 @@ export interface Deployment {
   startBlock: number
   trustPool: `0x${string}`
   adapter: `0x${string}`
-  adapterKind: 'uniswap-v2' | 'mock' | 'existing' | (string & {})
+  adapterKind: 'nadfun' | 'uniswap-v2' | 'mock' | 'existing' | (string & {})
   admin: `0x${string}`
   treasury: `0x${string}`
   tokens: `0x${string}`[]

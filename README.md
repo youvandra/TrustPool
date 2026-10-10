@@ -41,7 +41,7 @@ Built on Monad for Metropolis 2026.
 ```
 contracts/
   src/TrustPool.sol             the locked-call contract
-  src/adapters/                 UniswapV2Adapter (real DEX), behind ISwapAdapter
+  src/adapters/                 NadFunAdapter, UniswapV2Adapter, behind ISwapAdapter
   src/mocks/                    fixed-price DEX, V2 router, tokens: tests and anvil only
   script/Deploy.s.sol           env-driven deploy, writes deployments/<chainId>.json
   script/SeedLocal.s.sol        three demo calls on anvil
@@ -89,7 +89,9 @@ V2_ROUTER=0xfB8e1C3b833f9E67a71C859a132cf783b645e436 TOKENS=0x... ADMIN=0x... \
 cd .. && npm run sync:contracts      # commit the new deployments/10143.json and core files
 ```
 
-Without `V2_ROUTER` the script deploys the fixed-price mock DEX instead; say so in any demo.
+For nad.fun instead of Uniswap V2, set `NADFUN_LENS`, `NADFUN_CURVE_ROUTER` and
+`NADFUN_DEX_ROUTER` (mainnet values in `NADFUN` in `packages/core/src/contracts/chains.ts`).
+With neither, the script deploys the fixed-price mock DEX; say so in any demo.
 API settings are in `apps/api/.env.example`, web settings in `apps/web/.env.example`.
 
 ## License

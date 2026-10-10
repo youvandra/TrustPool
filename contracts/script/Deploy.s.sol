@@ -6,6 +6,8 @@ import {TrustPool} from "../src/TrustPool.sol";
 import {ISwapAdapter} from "../src/interfaces/ISwapAdapter.sol";
 import {IUniswapV2Router02} from "../src/interfaces/IUniswapV2Router02.sol";
 import {UniswapV2Adapter} from "../src/adapters/UniswapV2Adapter.sol";
+import {NadFunAdapter} from "../src/adapters/NadFunAdapter.sol";
+import {INadFunLens} from "../src/interfaces/INadFun.sol";
 import {MockToken} from "../src/mocks/MockToken.sol";
 import {MockSwapAdapter} from "../src/mocks/MockSwapAdapter.sol";
 
@@ -13,6 +15,8 @@ import {MockSwapAdapter} from "../src/mocks/MockSwapAdapter.sol";
 /// deployments/<chainId>.json for `npm run sync:contracts`.
 ///
 /// Which adapter, in order:
+///   NADFUN_LENS=0x... with NADFUN_CURVE_ROUTER and NADFUN_DEX_ROUTER
+///                    deploy a NadFunAdapter (curve before graduation, DEX after)
 ///   V2_ROUTER=0x...  deploy a UniswapV2Adapter on that router (real DEX)
 ///   ADAPTER=0x...    reuse an adapter that is already deployed
 ///   (neither)        deploy the fixed-price mock DEX and two mock tokens, CHOG and MOE.
@@ -42,7 +46,14 @@ contract Deploy is Script {
         address existing = vm.envOr("ADAPTER", address(0));
         address[] memory tokens = vm.envOr("TOKENS", ",", new address[](0));
 
-        if (router != address(0)) {
+        address nadLens = vm.envOr("NADFUN_LENS", address(0));
+
+        if (nadLens != address(0)) {
+            d.adapter = new NadFunAdapter(
+                INadFunLens(nadLens), vm.envAddress("NADFUN_CURVE_ROUTER"), vm.envAddress("NADFUN_DEX_ROUTER")
+            );
+            d.adapterKind = "nadfun";
+        } else if (router != address(0)) {
             d.adapter = new UniswapV2Adapter(IUniswapV2Router02(router));
             d.adapterKind = "uniswap-v2";
         } else if (existing != address(0)) {
