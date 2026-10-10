@@ -26,22 +26,30 @@ contract TrustPool {
         Released // tokens handed to the caller unsold; recorded as a total loss
     }
 
+    /// @dev Five fixed slots. Opening a call writes the first four; announcing rewrites slot 2
+    /// and the state, settling adds slot 4. Times are uint40 (good until the year 36812) and
+    /// every narrowing cast is checked, so an admin setting cannot make a value wrap.
     struct Call {
+        // slot 0
         address caller;
-        uint64 openedAt;
+        uint40 openedAt;
         uint32 notice; // seconds between announcing and executing an exit
+        // slot 1
         address token;
-        uint64 unlockAt; // earliest moment an exit can execute
+        uint40 unlockAt; // earliest moment an exit can execute
         State state;
         bool stale; // left open past its max hold; permanent once set
-        ISwapAdapter adapter; // DEX this call sells through; only the caller can move it
-        uint64 announcedAt; // when the exit was announced
-        uint64 exitAt; // earliest moment the announced exit can execute
         uint32 releaseGrace; // seconds after `exitAt` before the tokens can be released unsold
+        // slot 2
+        ISwapAdapter adapter; // DEX this call sells through; only the caller can move it
+        uint40 announcedAt; // when the exit was announced
+        uint40 exitAt; // earliest moment the announced exit can execute
+        // slot 3
+        uint96 monIn; // MON spent on entry (79 billion MON fits)
         uint32 maxHold; // seconds after `unlockAt` (or `exitAt`) before anyone can mark the call stale
-        uint128 monIn; // MON spent on entry
+        uint128 tokens; // tokens actually received (fee-on-transfer safe)
+        // slot 4, written on settlement
         uint128 monOut; // MON received on settlement, measured by this contract
-        uint256 tokens; // tokens actually received (fee-on-transfer safe)
         string thesis; // short public note, fixed at open
     }
 
@@ -236,7 +244,7 @@ contract TrustPool {
         if (lockSeconds < minLock || lockSeconds > maxLock) revert LockOutOfRange();
         if (notice < minNotice) revert NoticeTooShort();
         if (bytes(thesis).length > MAX_THESIS) revert ThesisTooLong();
-        uint128 monIn = _u128(msg.value);
+        uint96 monIn = _u96(msg.value);
 
         ISwapAdapter a = adapter;
         uint256 before = IERC20Min(token).balanceOf(address(this));
@@ -245,11 +253,11 @@ contract TrustPool {
         if (received == 0) revert NothingBought();
         if (received < minOut) revert Slippage();
 
-        uint64 unlockAt = uint64(block.timestamp) + lockSeconds;
+        uint40 unlockAt = _u40(block.timestamp + lockSeconds);
         id = _calls.length;
         Call storage c = _calls.push();
         c.caller = msg.sender;
-        c.openedAt = uint64(block.timestamp);
+        c.openedAt = uint40(block.timestamp);
         c.notice = notice;
         c.token = token;
         c.unlockAt = unlockAt;
@@ -258,7 +266,7 @@ contract TrustPool {
         c.releaseGrace = releaseGrace;
         c.maxHold = maxHold;
         c.monIn = monIn;
-        c.tokens = received;
+        c.tokens = _u128(received);
         c.thesis = thesis;
         _callsOf[msg.sender].push(id);
 
@@ -276,8 +284,8 @@ contract TrustPool {
         Call storage c = _callOf(id);
         if (msg.sender != c.caller) revert NotCaller();
         if (c.state != State.Locked) revert WrongState();
-        uint64 afterNotice = uint64(block.timestamp) + c.notice;
-        c.announcedAt = uint64(block.timestamp);
+        uint40 afterNotice = _u40(block.timestamp + c.notice);
+        c.announcedAt = uint40(block.timestamp);
         c.exitAt = afterNotice > c.unlockAt ? afterNotice : c.unlockAt;
         c.state = State.Exiting;
         emit ExitAnnounced(id, msg.sender, c.exitAt);
@@ -454,6 +462,16 @@ contract TrustPool {
     function _callOf(uint256 id) internal view returns (Call storage) {
         if (id >= _calls.length) revert UnknownCall();
         return _calls[id];
+    }
+
+    function _u40(uint256 x) internal pure returns (uint40) {
+        if (x > type(uint40).max) revert Overflow();
+        return uint40(x);
+    }
+
+    function _u96(uint256 x) internal pure returns (uint96) {
+        if (x > type(uint96).max) revert Overflow();
+        return uint96(x);
     }
 
     function _u128(uint256 x) internal pure returns (uint128) {

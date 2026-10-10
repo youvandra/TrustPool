@@ -485,6 +485,17 @@ contract TrustPoolTest is Test {
         new TrustPool(admin, treasury, ISwapAdapter(address(0)));
     }
 
+    function test_narrowCastsAreChecked() public {
+        // An admin can allow any lock length; a time that does not fit uint40 must revert, not wrap.
+        TrustPool.Params memory p = _params(6 hours, 30 days);
+        p.maxLock = type(uint64).max;
+        vm.prank(admin);
+        pool.setParams(p);
+        vm.prank(caller);
+        vm.expectRevert(TrustPool.Overflow.selector);
+        pool.openCall{value: 1 ether}(address(chog), uint64(type(uint40).max), 12 hours, 0, "");
+    }
+
     // ------------------------------------------------------------ fuzz
 
     /// The record's return always equals what the measured fill implies, for any size and price.
