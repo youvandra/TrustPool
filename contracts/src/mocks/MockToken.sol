@@ -34,7 +34,7 @@ contract MockToken {
         return true;
     }
 
-    function transfer(address to, uint256 amount) external returns (bool) {
+    function transfer(address to, uint256 amount) public virtual returns (bool) {
         _move(msg.sender, to, amount);
         return true;
     }

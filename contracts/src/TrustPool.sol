@@ -121,8 +121,8 @@ contract TrustPool {
     event CallMarkedStale(uint256 indexed id, address indexed caller);
     event CallAdapterMoved(uint256 indexed id, address adapter);
     event TokenAllowed(address indexed token, bool allowed);
-    event AdapterSet(address adapter);
-    event TreasurySet(address treasury);
+    event AdapterSet(address indexed adapter);
+    event TreasurySet(address indexed treasury);
     event ParamsSet(Params params);
     event OpenPausedSet(bool paused);
     event AdminTransferStarted(address indexed from, address indexed to);
@@ -162,6 +162,8 @@ contract TrustPool {
         _;
     }
 
+    /// @dev On every state-changing entry point, not only the ones that call out: an allowed
+    /// token or an adapter can call back during a swap, and must find every door shut.
     modifier nonReentrant() {
         if (_lock != 1) revert Reentrant();
         _lock = 2;
@@ -187,7 +189,7 @@ contract TrustPool {
 
     // ---------------------------------------------------------------- bond
 
-    function postBond() external payable {
+    function postBond() external payable nonReentrant {
         if (msg.value == 0) revert ZeroValue();
         Bond storage b = bonds[msg.sender];
         b.amount += msg.value;
@@ -195,7 +197,7 @@ contract TrustPool {
         emit BondPosted(msg.sender, msg.value, b.amount);
     }
 
-    function requestBondWithdraw() external {
+    function requestBondWithdraw() external nonReentrant {
         if (_records[msg.sender].open != 0) revert OpenCalls();
         Bond storage b = bonds[msg.sender];
         if (b.amount == 0) revert NoBond();
@@ -270,7 +272,7 @@ contract TrustPool {
 
     /// @notice Publishes the caller's intent to exit. The exit executes no earlier than
     /// `notice` seconds from now, and never before the lock ends.
-    function announceExit(uint256 id) external {
+    function announceExit(uint256 id) external nonReentrant {
         Call storage c = _callOf(id);
         if (msg.sender != c.caller) revert NotCaller();
         if (c.state != State.Locked) revert WrongState();
@@ -336,7 +338,7 @@ contract TrustPool {
     /// sat locked for `maxHold` past its unlock, or unexecuted for `maxHold` past its exit time.
     /// Nothing is sold and no price is needed: the record simply counts the call as stale, for
     /// good. The caller can still exit it normally afterwards.
-    function markStale(uint256 id) external {
+    function markStale(uint256 id) external nonReentrant {
         Call storage c = _callOf(id);
         if (c.stale) revert AlreadyStale();
         uint256 from;
@@ -352,7 +354,7 @@ contract TrustPool {
 
     /// @notice Moves one of the caller's own calls to the current adapter, for when the DEX it
     /// opened on has lost its liquidity. Only the caller can do this; the admin never can.
-    function moveToCurrentAdapter(uint256 id) external {
+    function moveToCurrentAdapter(uint256 id) external nonReentrant {
         Call storage c = _callOf(id);
         if (msg.sender != c.caller) revert NotCaller();
         if (c.state != State.Locked && c.state != State.Exiting) revert WrongState();
@@ -400,6 +402,7 @@ contract TrustPool {
     }
 
     /// @notice First step of a two-step handover; the new admin must accept.
+    /// Passing address(0) cancels a pending handover.
     function transferAdmin(address to) external onlyAdmin {
         pendingAdmin = to;
         emit AdminTransferStarted(admin, to);

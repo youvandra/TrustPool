@@ -769,7 +769,7 @@ export const trustPoolAbi = [
       {
         "name": "adapter",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -1170,7 +1170,7 @@ export const trustPoolAbi = [
       {
         "name": "treasury",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
