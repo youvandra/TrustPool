@@ -28,6 +28,12 @@ export interface Call {
   series: number[]
   /** Addresses watching this call for an exit alert. */
   watchers: number
+  /** Left open past its max hold (`markStale` on chain). Permanent once set. */
+  stale?: boolean
+  /** Unrealised: what selling the whole position would return now, in MON. Open calls only. */
+  markedValue?: number
+  /** ms, when `markedValue` was quoted. */
+  markedAt?: number
 }
 
 export interface CallerRecord {
@@ -36,6 +42,8 @@ export interface CallerRecord {
   released: number
   open: number
   slashes: number
+  /** Calls left open past their max hold. */
+  stale: number
   sumReturnBps: number
   lastActive: number // ms
 }
@@ -60,6 +68,12 @@ export interface Caller {
 /** Entry price in MON per token. */
 export const entryPrice = (c: Call) => c.monIn / c.tokens
 
+/** Unrealised return in basis points from the latest quote, for open calls. */
+export function markedBps(c: Call): number | undefined {
+  if (c.markedValue === undefined || (c.state !== 'Locked' && c.state !== 'Exiting')) return undefined
+  return Math.trunc(((c.markedValue - c.monIn) * 10_000) / c.monIn)
+}
+
 /** Realised return in basis points; a release counts as −100%, as in the contract. */
 export function returnBps(c: Call): number | undefined {
   if (c.state === 'Released') return -10_000
@@ -72,7 +86,7 @@ export const averageBps = (r: CallerRecord) => {
   return n === 0 ? 0 : Math.trunc(r.sumReturnBps / n)
 }
 
-export type AlertKind = 'exit_announced' | 'exit_executable' | 'call_opened' | 'call_settled'
+export type AlertKind = 'exit_announced' | 'exit_executable' | 'call_opened' | 'call_settled' | 'call_released' | 'call_stale'
 
 export interface Alert {
   id: string

@@ -106,7 +106,7 @@ const SLASHES: Record<string, Slash[]> = {
 /** Built from the calls themselves, so the record and the call list can never disagree. */
 export function recordOf(address: string, calls: Call[] = CALLS): CallerRecord {
   const mine = calls.filter((c) => c.caller.toLowerCase() === address.toLowerCase())
-  const r: CallerRecord = { settled: 0, losses: 0, released: 0, open: 0, slashes: SLASHES[address]?.length ?? 0, sumReturnBps: 0, lastActive: 0 }
+  const r: CallerRecord = { settled: 0, losses: 0, released: 0, open: 0, slashes: SLASHES[address]?.length ?? 0, stale: 0, sumReturnBps: 0, lastActive: 0 }
   for (const c of mine) {
     r.lastActive = Math.max(r.lastActive, c.openedAt)
     if (c.state === 'Locked' || c.state === 'Exiting') {

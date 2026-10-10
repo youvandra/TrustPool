@@ -13,6 +13,8 @@ const KIND: Record<AlertKind, { icon: LucideIcon; verb: string; tone: string }> 
   exit_executable: { icon: BellRing, verb: 'can now sell', tone: 'bg-accent-fill text-accent-deep' },
   call_opened: { icon: Sparkles, verb: 'opened a call on', tone: 'bg-subtle text-ink-2 ring-1 ring-inset ring-line' },
   call_settled: { icon: Receipt, verb: 'settled', tone: 'bg-subtle text-ink-2 ring-1 ring-inset ring-line' },
+  call_released: { icon: Receipt, verb: 'took unsold, at −100%,', tone: 'bg-subtle text-ink-2 ring-1 ring-inset ring-line' },
+  call_stale: { icon: Bell, verb: 'left open past its max hold:', tone: 'bg-subtle text-ink-2 ring-1 ring-inset ring-line' },
 }
 
 async function load() {
