@@ -24,6 +24,8 @@ export interface Database {
    * only one API instance indexes while any number serve reads. False if another holds it.
    */
   tryIndexerLock(): Promise<boolean>
+  /** LISTEN on a channel; NOTIFY from any instance reaches every listener after commit. */
+  listen(channel: string, onPayload: (payload: string) => void): Promise<() => Promise<void>>
   close(): Promise<void>
 }
 
@@ -53,6 +55,10 @@ export async function openDatabase(url = ''): Promise<Database> {
         const [row] = await reserved`SELECT pg_try_advisory_lock(${INDEXER_LOCK.toString()}::bigint) AS locked`
         return row?.locked === true
       },
+      async listen(channel, onPayload) {
+        const { unlisten } = await client.listen(channel, onPayload)
+        return unlisten
+      },
       async close() {
         reserved?.release()
         await client.end({ timeout: 5 })
@@ -73,6 +79,10 @@ export async function openDatabase(url = ''): Promise<Database> {
     async tryIndexerLock() {
       const { rows } = await client.query<{ locked: boolean }>(`SELECT pg_try_advisory_lock(${INDEXER_LOCK}::bigint) AS locked`)
       return rows[0]?.locked === true
+    },
+    async listen(channel, onPayload) {
+      const unlisten = await client.listen(channel, onPayload)
+      return () => unlisten()
     },
     close: () => client.close(),
   }

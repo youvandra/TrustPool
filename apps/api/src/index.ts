@@ -5,6 +5,7 @@ import { chainClient } from './indexer/chain'
 import { EarlyBuyers } from './indexer/earlyBuyers'
 import { Indexer } from './indexer/indexer'
 import { PriceSampler } from './indexer/prices'
+import { AlertHub } from './live/hub'
 import { log } from './log'
 import { demoStore } from './store/demo'
 import { postgresStore } from './store/postgres'
@@ -31,6 +32,8 @@ if (cfg.chain) {
     windowBlocks: cfg.chain.earlyBuyerWindow,
     maxBlockRange: cfg.chain.maxBlockRange,
   })
+  const hub = new AlertHub()
+  await hub.start(database)
   indexer.start()
   prices.start()
   app = createApp({
@@ -41,8 +44,10 @@ if (cfg.chain) {
     earlyBuyers: (id) => early.report(id),
     verifySignature: (p) => client.verifyMessage(p),
     limits: cfg.limits,
+    hub,
   })
   shutdown = async () => {
+    await hub.close()
     indexer.stop()
     prices.stop()
     await database.close()
