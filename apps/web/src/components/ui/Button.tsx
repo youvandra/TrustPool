@@ -14,7 +14,8 @@ const variants: Record<Variant, string> = {
   danger: 'bg-surface text-loss ring-1 ring-inset ring-loss/30 hover:bg-loss-fill',
 }
 const sizes: Record<Size, string> = {
-  sm: 'h-8 gap-1.5 px-3 text-[13px] rounded-lg',
+  // 40px tall on phones so every tap target clears 40px; 32px where a pointer is precise.
+  sm: 'h-10 gap-1.5 px-3 text-[13px] rounded-lg sm:h-8',
   md: 'h-10 gap-2 px-4 text-[14px] rounded-xl',
   lg: 'h-12 gap-2 px-5 text-[15px] rounded-xl',
 }

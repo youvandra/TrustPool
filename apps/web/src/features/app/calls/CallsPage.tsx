@@ -88,7 +88,7 @@ export default function CallsPage() {
                 key={v}
                 type="button"
                 onClick={() => setView(v)}
-                className={`grid h-8 w-8 place-items-center rounded-lg ${view === v ? 'bg-ink text-white' : 'text-ink-3 hover:text-ink'}`}
+                className={`grid h-10 w-10 place-items-center rounded-lg sm:h-8 sm:w-8 ${view === v ? 'bg-ink text-white' : 'text-ink-3 hover:text-ink'}`}
                 aria-label={v === 'grid' ? 'Grid view' : 'List view'}
               >
                 {v === 'grid' ? <LayoutGrid size={15} /> : <List size={15} />}

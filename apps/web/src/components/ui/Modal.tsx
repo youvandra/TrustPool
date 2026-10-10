@@ -28,7 +28,7 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
           >
             <div className="flex items-center justify-between">
               <p className="text-[16px] font-semibold">{title}</p>
-              <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full text-ink-3 hover:bg-subtle hover:text-ink" aria-label="Close">
+              <button type="button" onClick={onClose} className="-mr-1 grid h-10 w-10 place-items-center rounded-full text-ink-3 hover:bg-subtle hover:text-ink sm:h-8 sm:w-8" aria-label="Close">
                 <X size={16} />
               </button>
             </div>
