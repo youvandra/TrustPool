@@ -58,6 +58,9 @@ behind a proxy you control so the client IP comes from `X-Forwarded-For`.
 
 ## Routes
 
+Full reference: `GET /api/openapi.json` (OpenAPI 3.1), rendered at `/api/docs`. A test
+fails when a route is served without being documented, or documented without being served.
+
 Public: `GET /api/health`, `/calls?state=&caller=&limit=&offset=`, `/calls/:id`, `/callers`,
 `/callers/:address`, `/tokens`.
 
