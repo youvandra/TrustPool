@@ -81,14 +81,28 @@ Open http://127.0.0.1:5290/app. The web app signs with an anvil key (a new calle
 bond yet), so every button sends a real transaction; no Privy app needed. Needs foundry
 and bun on PATH.
 
-### Monad testnet
+### Monad testnet (Uniswap v4)
+
+The testnet has no live Uniswap V2 router or nad.fun routers since its December 2025
+regenesis; Uniswap v4 is live. `DeployV4.s.sol` deploys two fixed-supply demo tokens
+(tCHOG, tMOE), seeds a (MON, token) v4 pool for each with full-range liquidity from your
+wallet, then the `UniswapV4Adapter` and TrustPool with demo-sized params (0.5 MON bond,
+10 minute minimum lock, 5 minute minimum notice). Cost on 11 Oct 2026: about 2.4 MON,
+of which 2 MON stays in the pools as liquidity (`SEED_MON`, per pool, default 1).
 
 ```bash
+cast wallet import trustpool-deployer --interactive   # once: paste the key, set a password
 cd contracts
-V2_ROUTER=0xfB8e1C3b833f9E67a71C859a132cf783b645e436 TOKENS=0x... ADMIN=0x... \
-  forge script script/Deploy.s.sol --rpc-url monad_testnet --broadcast --account <keystore>
-cd .. && npm run sync:contracts      # commit the new deployments/10143.json and core files
+forge script script/DeployV4.s.sol --network monad --rpc-url https://testnet-rpc.monad.xyz \
+  --broadcast --account trustpool-deployer
+cd .. && npm run sync:contracts      # commit deployments/10143.json and the core files
 ```
+
+`--network monad` is required: Foundry runs Monad's EVM rules only with it. Check the
+v4 adapter against the live pool manager any time with
+`FORK_RPC_URL=https://testnet-rpc.monad.xyz forge test --network monad --match-path 'test/fork/UniswapV4*'`.
+
+### Other DEXes
 
 For nad.fun instead of Uniswap V2, set `NADFUN_LENS`, `NADFUN_CURVE_ROUTER` and
 `NADFUN_DEX_ROUTER` (mainnet values in `NADFUN` in `packages/core/src/contracts/chains.ts`).
