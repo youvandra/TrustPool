@@ -1,7 +1,7 @@
 import { Bell, BellRing, CheckCheck, Receipt, Sparkles, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import type { AlertKind } from '@trustpool/core'
-import { Button, Card, CallerAvatar, Empty, Skeleton, TokenIcon } from '@/components/ui'
+import { Button, ButtonLink, CallerAvatar, Card, Empty, SkeletonRows, TokenIcon } from '@/components/ui'
 import { ago, date } from '@/lib/format'
 import { source } from '@/lib/data'
 import { useLoad, useTitle } from '@/lib/hooks'
@@ -26,8 +26,22 @@ async function load() {
 function List() {
   const data = useLoad(load, [useLiveVersion()])
   const read = useStore((s) => s.read)
-  if (!data) return <Skeleton className="h-[360px] rounded-2xl" />
-  if (!data.alerts.length) return <Card><Empty icon={<Bell size={18} />} title="Nothing yet" body="Watch a call to hear about its exit first." /></Card>
+  if (!data) return <SkeletonRows rows={5} className="mt-12" />
+  if (!data.alerts.length)
+    return (
+      <Card>
+        <Empty
+          icon={<Bell size={18} />}
+          title="Nothing yet"
+          body="Watch a call to hear about its exit first."
+          action={
+            <ButtonLink to="/app/calls" variant="secondary">
+              Browse calls
+            </ButtonLink>
+          }
+        />
+      </Card>
+    )
   const unread = data.alerts.filter((a) => !a.read && !read.includes(a.id))
   return (
     <div className="space-y-4">

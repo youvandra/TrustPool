@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { averageBps, returnBps, type Call } from '@trustpool/core'
 import { useSession } from '@/auth/session'
-import { Button, ButtonLink, Card, Empty, Modal, Row, SectionHead, Signed, Skeleton, Stat, StateTag, TokenIcon, toast } from '@/components/ui'
+import { Button, ButtonLink, Card, Empty, Modal, Row, SectionHead, Signed, Skeleton, SkeletonRows, Stat, StateTag, toast, TokenIcon } from '@/components/ui'
 import { date, duration, mon } from '@/lib/format'
 import { source } from '@/lib/data'
 import { useLoad, useTitle } from '@/lib/hooks'
@@ -139,7 +139,17 @@ function Inner({ address }: { address: string }) {
     return r.ok
   }
 
-  if (!data || !calls) return <Skeleton className="h-[480px] rounded-2xl" />
+  if (!data || !calls)
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1.2fr]">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-[190px] rounded-2xl" />
+          ))}
+        </div>
+        <SkeletonRows rows={3} />
+      </div>
+    )
   const { caller } = data
   const open = calls.filter((c) => c.state === 'Locked' || c.state === 'Exiting')
   const done = calls.filter((c) => !open.includes(c))
@@ -215,7 +225,14 @@ function Inner({ address }: { address: string }) {
           }
         />
         {open.length === 0 ? (
-          <Empty title="No open calls" />
+          <Empty
+            title="No open calls"
+            action={
+              <ButtonLink to="/app/new" variant="secondary" icon={Plus}>
+                Open a call
+              </ButtonLink>
+            }
+          />
         ) : (
           <div className="mt-2 divide-y divide-line">
             {open.map((c) => (

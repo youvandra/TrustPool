@@ -2,7 +2,7 @@ import { Search, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { averageBps } from '@trustpool/core'
-import { Card, CallerAvatar, Empty, Signed, Skeleton } from '@/components/ui'
+import { Button, CallerAvatar, Card, Empty, Signed, SkeletonRows } from '@/components/ui'
 import { ago, compact, date, mon } from '@/lib/format'
 import { source } from '@/lib/data'
 import { useLoad, useTitle } from '@/lib/hooks'
@@ -32,10 +32,18 @@ export default function CallersPage() {
       </div>
 
       {!callers ? (
-        <Skeleton className="h-[360px] rounded-2xl" />
+        <SkeletonRows rows={4} />
       ) : shown.length === 0 ? (
         <Card>
-          <Empty icon={<Users size={18} />} title="No caller by that name" />
+          <Empty
+            icon={<Users size={18} />}
+            title="No caller by that name"
+            action={
+              <Button variant="secondary" onClick={() => setQ('')}>
+                Clear search
+              </Button>
+            }
+          />
         </Card>
       ) : (
         <Card className="overflow-hidden">

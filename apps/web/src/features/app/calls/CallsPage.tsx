@@ -2,7 +2,7 @@ import { LayoutGrid, List, Search, SearchX } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import type { Call, CallState } from '@trustpool/core'
-import { Card, Empty, Skeleton, Tabs, TokenIcon } from '@/components/ui'
+import { Button, Card, Empty, Skeleton, Tabs, TokenIcon } from '@/components/ui'
 import { source } from '@/lib/data'
 import { useLoad, useTitle } from '@/lib/hooks'
 import { useLocalCalls } from '@/lib/view'
@@ -123,12 +123,20 @@ export default function CallsPage() {
       {!calls ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-[300px] rounded-2xl" />
+            <Skeleton key={i} className="h-[312px] rounded-2xl" />
           ))}
         </div>
       ) : shown.length === 0 ? (
         <Card>
-          <Empty icon={<SearchX size={18} />} title="No calls match" body="Try another token." />
+          <Empty
+            icon={<SearchX size={18} />}
+            title="No calls match"
+            action={
+              <Button variant="secondary" onClick={() => setParams(new URLSearchParams(), { replace: true })}>
+                Clear filters
+              </Button>
+            }
+          />
         </Card>
       ) : view === 'grid' ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

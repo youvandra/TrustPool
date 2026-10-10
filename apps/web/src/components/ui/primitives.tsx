@@ -111,6 +111,24 @@ export function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`skeleton rounded-xl ${className}`} />
 }
 
+/** A list card while it loads: the same rows (avatar, two lines, a value) as the real one. */
+export function SkeletonRows({ rows = 4, className = '' }: { rows?: number; className?: string }) {
+  return (
+    <div className={`divide-y divide-line overflow-hidden rounded-2xl bg-surface shadow-card ${className}`} aria-busy="true" aria-label="Loading">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="flex items-center gap-3 px-5 py-4">
+          <div className="skeleton h-10 w-10 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="skeleton h-3.5 w-32 max-w-full rounded-md" />
+            <div className="skeleton h-3 w-48 max-w-full rounded-md" />
+          </div>
+          <div className="skeleton h-8 w-20 shrink-0 rounded-lg" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function Empty({ icon, title, body, action }: { icon?: ReactNode; title: string; body?: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center px-6 py-14 text-center">

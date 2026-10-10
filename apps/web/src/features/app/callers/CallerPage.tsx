@@ -2,7 +2,7 @@ import { ArrowLeft, ShieldAlert } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { averageBps, returnBps } from '@trustpool/core'
-import { ButtonLink, Card, CallerAvatar, Empty, Signed, Skeleton, Stat, StateTag, Tabs, TokenIcon } from '@/components/ui'
+import { ButtonLink, CallerAvatar, Card, Empty, Signed, Skeleton, SkeletonRows, Stat, StateTag, Tabs, TokenIcon } from '@/components/ui'
 import { compact, date, mon, price, shortAddress } from '@/lib/format'
 import { entryPrice } from '@trustpool/core'
 import { source } from '@/lib/data'
@@ -27,7 +27,14 @@ export default function CallerPage() {
   const [tab, setTab] = useState<'calls' | 'slashes'>('calls')
   useTitle(data?.caller.handle ? `${data.caller.handle} · trustpool` : 'Caller · trustpool')
 
-  if (data === undefined) return <Skeleton className="h-[480px] rounded-2xl" />
+  if (data === undefined)
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-5 w-20" />
+        <Skeleton className="h-[244px] rounded-2xl" />
+        <SkeletonRows rows={4} />
+      </div>
+    )
   if (data === null)
     return (
       <Card>

@@ -2,7 +2,7 @@ import { ArrowUpRight, BellRing, Lock, Receipt, Shield } from 'lucide-react'
 import { Link } from 'react-router'
 import { averageBps, returnBps, type Call, type Caller } from '@trustpool/core'
 import { useSession } from '@/auth/session'
-import { Button, Card, CallerAvatar, Empty, SeeAll, SectionHead, Signed, Skeleton } from '@/components/ui'
+import { Button, ButtonLink, CallerAvatar, Card, Empty, SectionHead, SeeAll, Signed, Skeleton } from '@/components/ui'
 import { mon } from '@/lib/format'
 import { useLoad, useTitle } from '@/lib/hooks'
 import { source } from '@/lib/data'
@@ -154,7 +154,16 @@ export default function HomePage() {
               action={<SeeAll to="/app/calls?tab=exiting" />}
             />
             {exiting.length === 0 ? (
-              <Empty icon={<BellRing size={18} />} title="No exits announced" body="They show here hours before a sale." />
+              <Empty
+                icon={<BellRing size={18} />}
+                title="No exits announced"
+                body="They show here hours before a sale."
+                action={
+                  <ButtonLink to="/app/calls" variant="secondary">
+                    Browse calls
+                  </ButtonLink>
+                }
+              />
             ) : (
               <div className="divide-y divide-line">
                 {[...exiting].sort((a, b) => mineFirst(a) - mineFirst(b)).map((c) => (
