@@ -6,11 +6,14 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "test": "bun test"
   },
   "dependencies": {
     "@trustpool/core": "*",
-    "hono": "4.9.8"
+    "hono": "4.9.8",
+    "jose": "6.1.0",
+    "viem": "2.37.6"
   },
   "devDependencies": {
     "@types/bun": "1.2.22"
