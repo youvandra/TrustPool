@@ -4,12 +4,14 @@
   "license": "MIT",
   "type": "module",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "dev": "npm run dev -w @trustpool/web",
+    "dev:api": "cd apps/api && bun --watch src/index.ts",
     "build": "npm run build -w @trustpool/web",
-    "typecheck": "npm run typecheck -w @trustpool/web",
+    "typecheck": "npm run typecheck -w @trustpool/web && npm run typecheck -w @trustpool/api",
     "test:contracts": "cd contracts && forge test"
   },
   "devDependencies": {

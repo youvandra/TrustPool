@@ -6,6 +6,8 @@ export interface Token {
   address: string
   symbol: string
   name: string
+  /** Display hue 0-360 for the token chip; purely cosmetic. */
+  hue: number
 }
 
 export interface Call {
@@ -22,6 +24,10 @@ export interface Call {
   monOut?: number // set on settlement
   state: CallState
   thesis: string
+  /** Price in MON per token since open, for the sparkline. Demo only until an indexer exists. */
+  series: number[]
+  /** Addresses watching this call for an exit alert. */
+  watchers: number
 }
 
 export interface CallerRecord {
@@ -43,6 +49,9 @@ export interface Slash {
 export interface Caller {
   address: string
   handle?: string // display name; ENS or similar later
+  bio?: string
+  followers: number
+  joinedAt: number
   bond: number
   record: CallerRecord
   slashHistory: Slash[]
@@ -61,4 +70,14 @@ export function returnBps(c: Call): number | undefined {
 export const averageBps = (r: CallerRecord) => {
   const n = r.settled + r.released
   return n === 0 ? 0 : Math.trunc(r.sumReturnBps / n)
+}
+
+export type AlertKind = 'exit_announced' | 'exit_executable' | 'call_opened' | 'call_settled'
+
+export interface Alert {
+  id: string
+  kind: AlertKind
+  callId: number
+  at: number
+  read: boolean
 }
