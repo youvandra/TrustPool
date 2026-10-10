@@ -6,130 +6,66 @@ then `docs/design.md`. Update the "State" section whenever something lands.
 **Deadline: 13 Oct 2026, 23:59 ET** (Monad Metropolis). Everything below is
 ordered so that a submittable product exists as early as possible.
 
-## State (10 Oct 2026, evening)
+## State (10 Oct 2026, night)
 
-The front end was rebuilt as a product on 10 Oct (owner's call: "make it feel
-like a product, light theme, Privy, a light backend; contracts come after").
+Contracts, backend and the transaction layer landed on 10 Oct night. What is left
+needs a person: a funded deploy key, a Privy app, a Discord answer, the video.
 
 | Part | Status |
 | --- | --- |
-| `contracts/` | MVP contract done, 14 Foundry tests green. Untouched since the morning. |
-| `packages/core` | Shared types (mirror the contract) and the demo data set. Records are derived from calls, never hand-written. |
-| `apps/api` | Bun + Hono read API over the demo set: `/api/calls`, `/calls/:id`, `/callers`, `/callers/:address`, `/tokens`, `/me/alerts`, `/me/following`, `/health`. No auth, no persistence yet. |
-| `apps/web` | Landing at `/`, app at `/app` (Home, Calls, Call, Callers, Caller, Portfolio, Alerts, Open-a-call wizard). Light only. Builds clean, no horizontal scroll at 375px. |
-| Auth | `src/auth/session.tsx`: Privy when `VITE_PRIVY_APP_ID` is set (email, Google, wallet; embedded wallet for users without one; Monad testnet), otherwise a demo login as caller `olu`. Pages only use `useSession()`. |
-| Data | `src/lib/data.ts`: `VITE_DATA=demo` (default, in-browser) or `api` (Bun API via the Vite proxy). |
-| User state | `src/lib/store.ts`: follows, watches, read alerts, demo-announced exits, in localStorage. Moves to the API with accounts. |
-| Real DEX adapter, deploy, chain reads, transactions | **Missing.** Tasks 1 to 5. Every button that would send a transaction is wired to a demo action or a toast. |
+| `contracts/` | Hardened: every rule of a call (lock, notice, adapter, release grace, max hold) is fixed at open; settlement measures the MON that arrived; `markStale`; caller-only `moveToCurrentAdapter`; two-step admin; validated params; pause for new calls only. `UniswapV2Adapter` with quotes. 47 tests incl. fuzz, a V2 mock-router suite and an opt-in fork test. |
+| Deploy | `script/Deploy.s.sol` (V2 router, existing adapter or mock DEX; writes `deployments/<chainId>.json`), `script/SeedLocal.s.sol` for anvil. `npm run sync:contracts` puts typed ABIs and addresses into `@trustpool/core`. **Not yet deployed to testnet** (no key in this environment). |
+| `packages/core` | Types (now with `stale`, marked value, closing alerts), demo set, generated ABIs and deployments, chain list (Monad testnet 10143, Monad 143, anvil). |
+| `apps/api` | `DATA=demo` or `DATA=chain`. Chain mode: viem indexer into `bun:sqlite` (atomic ranges with the cursor, adaptive range, confirmations, one deployment per file), price sampler (quotes through each call's adapter), alerts to followers and watchers, Privy access tokens verified locally, early-buyer scan. Route shapes unchanged; new `/me/*` writes and `/calls/:id/early-buyers`. 21 tests incl. an e2e check of every record against `recordOf` on anvil. |
+| `apps/web` | `lib/chain.ts` + `lib/tx.ts`: real transactions for Buy and lock (bond first if short, `minOut` from a quote at 1% slippage), announce, sell and settle, release, bond add/request/withdraw. Falls back to demo actions without Privy or a deployment. Follows, watches and read alerts write through to the API. Call page: DEX link, marked value, early buyers. |
+| CI | `.github/workflows/ci.yml`: forge fmt/build/test, ABI drift check, typecheck, API tests, anvil deploy + seed + indexer e2e, web build. |
 
 ## Run
 
 ```bash
 git submodule update --init
 npm install
-cp apps/web/.env.example apps/web/.env   # optional: VITE_PRIVY_APP_ID, VITE_DATA
-npm run dev            # web, http://localhost:5280
-npm run dev:api        # Bun API, http://localhost:8787 (needed only with VITE_DATA=api)
+npm run dev            # web, http://localhost:5280 (demo)
+npm run dev:api        # API, http://localhost:8787 (DATA=demo by default)
+npm test               # forge + bun tests
 npm run typecheck
 npm run build
-cd contracts && forge test
 ```
 
-Local chain end to end (once task 4 exists):
+Local chain end to end: see README "Full stack on a local chain".
 
-```bash
-anvil
-cd contracts && forge script script/DeployLocal.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --private-key <anvil key 0>
-```
+## Findings from the day-one checks (task 1)
 
-## Tasks, in order
+From docs.monad.xyz and third-party nad.fun skill docs, 10 Oct. Re-check before mainnet.
 
-### 1. Day-one checks (do first, they can change the design)
+- Monad testnet: chain id 10143, RPC `https://testnet-rpc.monad.xyz`, WMON
+  `0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701`, Uniswap V2 router
+  `0xfB8e1C3b833f9E67a71C859a132cf783b645e436`, explorer `testnet.monadexplorer.com`.
+- Monad mainnet: chain id 143, WMON `0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A`.
+- nad.fun has its own router and a Lens contract for quotes, **not** the V2 interface
+  (reported: testnet router `0x5D4a4f430cA3B1b2dB86B9cFE48a5316800F5fb2`, mainnet
+  `0x0B79d71AE99528D1dB24A4148b5f4F865cc2b137`; unverified). A `NadFunAdapter` is a
+  separate adapter behind the same `ISwapAdapter`; the V2 adapter ships first.
 
-- [ ] Testnet or mainnet for the submission? The Metropolis FAQ does not say.
-      Ask in the Monad Discord. Default: Monad testnet.
-- [ ] Chain ids, public RPC, WMON address, block explorer for Monad testnet (and mainnet).
-- [ ] Which DEX to adapt. Measured 7 Oct: the deepest pair of most tokens is on
-      **nad.fun's own DEX**; Uniswap and PancakeSwap are also live. Find the router
-      address and interface for nad.fun, and whether it exists on testnet.
-- [ ] On testnet, can we get a token with a real pool? If not, deploy the mock DEX
-      on testnet for the demo and **say so in the write-up**.
+## What is left, in order
 
-### 2. Real swap adapter
-
-- `contracts/src/adapters/<Dex>Adapter.sol` implementing `ISwapAdapter`.
-- `buy`: swap the attached MON (wrap to WMON if the router needs it) for `token`, send to `to`.
-- `sell`: TrustPool has already transferred `amountIn` to the adapter; approve the
-  router, swap to MON, send MON to `to`. Use the fee-on-transfer-safe router
-  functions where they exist.
-- Fork test against the real router (`forge test --fork-url $MONAD_TESTNET_RPC`).
-- Adapter is swappable by the admin (`setAdapter`), so ship mock first if needed.
-
-### 3. Deploy
-
-- `contracts/script/Deploy.s.sol` for testnet: TrustPool with admin, treasury,
-  adapter; allow two or three tokens.
-- Admin should be a multisig if time allows (Safe on Monad?). Otherwise one key,
-  and say so.
-- Write the addresses to `apps/web/src/lib/chain.ts` (create it) and to the README.
-
-### 4. Indexer and chain reads (backend)
-
-- In `apps/api`: follow TrustPool events (`CallOpened`, `ExitAnnounced`,
-  `CallSettled`, `CallReleased`, `Slashed`, `BondPosted`) with viem into
-  `bun:sqlite`, and answer the existing routes from it. Keep the route shapes:
-  the web app already consumes them (`VITE_DATA=api`).
-- Price series for the sparklines: sample the pair price every few minutes per
-  open call. Until then the series is illustrative and the call page says so.
-- Alerts: when `ExitAnnounced` lands, write an alert for every watcher and
-  follower. Watches and follows move from `lib/store.ts` into the API, keyed by
-  the Privy user (verify the Privy access token server side).
-- Units: contract is wei and seconds; `@trustpool/core` types are MON and ms.
-  Convert in the indexer, nowhere else.
-
-### 5. Transactions from the web app
-
-- Create a Privy app (dashboard.privy.io), set `VITE_PRIVY_APP_ID`. Add Monad
-  testnet to the app's allowed chains.
-- With the Privy wallet (`useWallets()` to a viem wallet client), wire:
-  - `/app/new` "Buy and lock": `postBond` if the bond is short, then `openCall`.
-    Compute `minOut` from a quote with a slippage setting; never send 0 on a real DEX.
-  - `/app/portfolio` "Announce exit" to `announceExit`; "Sell and settle" to
-    `executeExit` after `exitAt`; add "Release tokens" after `exitAt + releaseGrace`.
-  - Bond "Add" / "Withdraw" to `postBond`, `requestBondWithdraw`, `withdrawBond`.
-- Replace the demo `actions.announce` path and the "Simulate signature" button.
-- Call page "Buy on your own": link to the DEX pair for the token (nad.fun or
-  Uniswap), opening in a new tab. Today it is a disabled placeholder.
-
-### 6. Design question still open: losing calls that never close
-
-A caller can leave a losing position locked and never announce, so the loss
-never reaches `sumReturnBps`. Options, pick one and note it in `docs/product.md`:
-
-- (a) UI only: show open calls with their age and a marked-to-market value from a
-  price read. Cheapest. Mark it clearly as unrealised.
-- (b) `maxHold`: after `unlockAt + maxHold` anyone can call `expire(id)`, which
-  counts the call in a separate `stale` counter on the record (no sale, no price
-  needed). Honest and cheap on chain.
-- (c) Forced sale after `maxHold` with a TWAP floor. Needs a price oracle; v2.
-
-Recommendation: (b) plus (a).
-
-### 7. Nice to have, in this order
-
-1. Follow a caller and get told when they announce an exit (the product's best
-   feature for followers; needs an indexer or polling).
-2. Suspicious-wallet check: wallets that bought the token between a caller's
-   funding transfer and `openCall`. Input for manual review, never proof.
-3. Caller handles (ENS-style names on Monad, if any exist).
-
-### 8. Submission (keep a full half day for this)
-
-- Public repo with README (problem, mechanism, known limits, roadmap).
-- Short write-up: same structure. Lead with the honest limits table.
-- Demo video: open a call, show it locked, announce, show the notice countdown,
-  execute, show the record with a loss on it.
-- Public project profile on the submission platform.
+1. [ ] Ask in the Monad Discord: testnet or mainnet for the submission? (default testnet)
+2. [ ] Find a testnet token with a real WMON pair on the V2 router; run the fork test:
+       `FORK_RPC_URL=$MONAD_TESTNET_RPC V2_ROUTER=0xfB8e… FORK_TOKEN=0x… forge test --match-path 'test/fork/*'`.
+       No pool → deploy with the mock DEX and **say so in the write-up**.
+3. [ ] Deploy to testnet (README "Monad testnet"), `npm run sync:contracts`, commit
+       `contracts/deployments/10143.json` and the regenerated core files. Admin: a Safe
+       if one exists on Monad, otherwise one key, and say so. The new admin must call
+       `acceptAdmin()`.
+4. [ ] Privy: create the app, add the chain, set `VITE_PRIVY_APP_ID` (web) and
+       `PRIVY_APP_ID` + `PRIVY_VERIFICATION_KEY` (API).
+5. [ ] Host the API with `DATA=chain` and a persistent `DB_PATH`, web with `VITE_DATA=api`.
+6. [ ] Optional: `NadFunAdapter` once its router ABI is verified from nad.fun's own docs.
+7. [ ] Nice to have still open: caller handles (no ENS-style names found on Monad yet;
+       the API shows short addresses).
+8. [ ] Submission (keep a full half day): `docs/writeup.md` is drafted; record the demo
+       video (open a call, show it locked, announce, the notice countdown, execute, the
+       record with a loss on it), public project profile, verify the cited links.
 
 ## Rules for working in this repo
 
