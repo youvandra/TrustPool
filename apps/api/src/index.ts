@@ -35,6 +35,7 @@ if (cfg.chain) {
     corsOrigins: cfg.corsOrigins,
     indexer: () => indexer.status(),
     earlyBuyers: (id) => early.report(id),
+    verifySignature: (p) => client.verifyMessage(p),
   })
   shutdown = () => {
     indexer.stop()

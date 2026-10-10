@@ -117,4 +117,13 @@ describe('EventWriter', () => {
     expect(store.getCaller(CALLER)!.followers).toBe(1)
     expect(store.watching('a')).toEqual([0])
   })
+
+  test('a stored profile names the caller; without one the address stands in', () => {
+    const { store } = setup()
+    expect(store.getCaller(CALLER)!.handle).toBe('0x7099…79C8')
+    expect(store.setProfile({ address: CALLER, handle: 'olu', bio: 'Small caps.', signedAt: 2 })).toBe('ok')
+    expect(store.getCaller(CALLER)).toMatchObject({ handle: 'olu', bio: 'Small caps.' })
+    expect(store.setProfile({ address: CALLER, handle: 'older', bio: '', signedAt: 1 })).toBe('stale')
+    expect(store.setProfile({ address: TOKEN, handle: 'OLU'.toLowerCase(), bio: '', signedAt: 3 })).toBe('taken')
+  })
 })

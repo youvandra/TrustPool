@@ -1,10 +1,10 @@
-import type { CallState } from '@trustpool/core'
+import { checkProfile, PROFILE_MAX_AGE, profileMessage, type CallState } from '@trustpool/core'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
 import { logger } from 'hono/logger'
 import { secureHeaders } from 'hono/secure-headers'
-import { isAddress } from 'viem'
+import { getAddress, isAddress, verifyMessage, type Hex } from 'viem'
 import type { EarlyBuyerReport } from '../indexer/earlyBuyers'
 import type { IndexerStatus } from '../indexer/indexer'
 import { log } from '../log'
@@ -19,6 +19,8 @@ export interface AppDeps {
   indexer?: () => IndexerStatus
   /** Present in chain mode: wallets that received a call's token just before it opened. */
   earlyBuyers?: (callId: number) => Promise<EarlyBuyerReport | undefined>
+  /** Checks a wallet signature. Chain mode passes the RPC client's, which also accepts smart wallets. */
+  verifySignature?: (p: { address: `0x${string}`; message: string; signature: Hex }) => Promise<boolean>
   /** Request log lines; off in tests. */
   requestLog?: boolean
 }
@@ -30,7 +32,7 @@ const MAX_PAGE = 500
  * The HTTP surface. Route shapes are fixed: apps/web consumes them (VITE_DATA=api).
  * Public reads need no account; everything under /me needs a verified user.
  */
-export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuyers, requestLog = true }: AppDeps) {
+export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuyers, verifySignature = verifyMessage, requestLog = true }: AppDeps) {
   const app = new Hono<AuthEnv>().basePath('/api')
   if (requestLog) app.use('*', logger())
   app.use('*', secureHeaders())
@@ -85,6 +87,25 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuy
     const a = addressParam(c.req.param('address'))
     const caller = store.getCaller(a)
     return caller ? c.json(caller) : c.json({ error: 'not found' }, 404)
+  })
+
+  /** A handle and bio, signed by the caller's own wallet. No account needed: the signature is the proof. */
+  app.put('/callers/:address/profile', async (c) => {
+    const address = getAddress(addressParam(c.req.param('address')))
+    const body = await json<{ handle?: unknown; bio?: unknown; signedAt?: unknown; signature?: unknown }>(c.req.raw)
+    if (typeof body.handle !== 'string' || typeof body.bio !== 'string' || typeof body.signedAt !== 'number' || typeof body.signature !== 'string') {
+      throw new HTTPException(400, { message: 'expected { handle, bio, signedAt, signature }' })
+    }
+    const claim = { address, handle: body.handle, bio: body.bio.trim(), signedAt: body.signedAt }
+    const problem = checkProfile(claim)
+    if (problem) throw new HTTPException(400, { message: problem })
+    if (Math.abs(Date.now() - claim.signedAt) > PROFILE_MAX_AGE) throw new HTTPException(400, { message: 'signature too old; sign again' })
+    const ok = await verifySignature({ address, message: profileMessage(claim), signature: body.signature as Hex }).catch(() => false)
+    if (!ok) throw new HTTPException(401, { message: 'signature does not match this address' })
+    const result = store.setProfile(claim)
+    if (result === 'taken') throw new HTTPException(409, { message: 'handle taken' })
+    if (result === 'stale') throw new HTTPException(409, { message: 'a newer profile is already stored' })
+    return c.body(null, 204)
   })
 
   app.get('/tokens', (c) => c.json(store.listTokens()))
