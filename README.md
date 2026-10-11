@@ -1,297 +1,267 @@
 # trustpool
 
-**One buy. One sale. The same price for everyone.** trustpool runs pooled calls. A caller
-opens a call on one token, fixes every rule up front, and puts their own MON in first.
-For a short window anyone can join the pool or take their MON back. Then the caller runs one
-buy for the whole pool, and when a rule is met anyone triggers one sale for the whole pool.
-Everyone, the caller included, gets the same entry, the same exit and the same percentage.
-The net result goes on the caller's permanent record, and the record sets how much they may
-raise next time.
+**One buy. One sale. The same price for everyone.**
+
+trustpool turns a crypto call into a shared position. A caller opens a pool on one token,
+fixes every rule up front and puts their own MON in first. Anyone can join while the window
+is open. The pool then buys once for everyone, sells once for everyone when a rule is met,
+and every participant, the caller included, ends with the same percentage. The result goes
+on the caller's permanent record, and that record decides how much they may raise next.
 
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.28-363636)](contracts)
-[![Foundry](https://img.shields.io/badge/Foundry-47%20tests%20%2B%205%20invariants-2f855a)](#testing)
-[![Monad testnet](https://img.shields.io/badge/Monad%20testnet-10143-6E54FF)](#what-is-deployed)
+[![Foundry](https://img.shields.io/badge/Foundry-fuzz%20%2B%20invariants-2f855a)](#testing)
+[![Monad testnet](https://img.shields.io/badge/Monad%20testnet-10143-6E54FF)](#deployment)
 [![Uniswap v4](https://img.shields.io/badge/Uniswap-v4-FF007A)](contracts/src/adapters/UniswapV4Adapter.sol)
-[![Bun](https://img.shields.io/badge/Bun-Hono%20API-000000)](apps/api)
+[![Bun](https://img.shields.io/badge/Bun-Hono-000000)](apps/api)
 [![React](https://img.shields.io/badge/React-18-149ECA)](apps/web)
 [![Licence](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
 
 | | |
 |---|---|
-| **Live app** | <https://trustpool.web.id> |
+| **App** | <https://trustpool.web.id> |
 | **Docs** | <https://trustpool.web.id/docs> |
 | **API reference** | <https://trustpool.web.id/api/docs> |
-| **Build spec** | [`docs/pool-spec.md`](docs/pool-spec.md) |
+| **Contract** | [`0xF21E…Da0E`](https://testnet.monadscan.com/address/0xF21E849d861a70742cC975a8E1E4934f583ADa0E) on Monad testnet |
 
-Built for **Monad Metropolis 2026**. The repository was created on 10 October 2026 and
-its whole history is the entry: `git log --reverse`.
+Built for **Monad Metropolis 2026**. The repository started on 10 October 2026 and its
+whole history is the entry (`git log --reverse`).
 
 ---
 
 ## Contents
 
-[Overview](#overview) · [How a pooled call works](#how-a-pooled-call-works) · [The arithmetic](#the-arithmetic) ·
-[One call, end to end](#one-call-end-to-end) · [Architecture](#architecture) ·
-[The rules, and where each one lives](#the-rules-and-where-each-one-lives) · [What is deployed](#what-is-deployed) ·
-[Quick start](#quick-start) · [Known limits](#known-limits) · [Security review](#security-review) ·
-[Tech stack](#tech-stack) · [Repository structure](#repository-structure) · [Testing](#testing) ·
-[Running it](#running-it) · [Roadmap](#roadmap) · [Licence](#licence)
+[The problem](#the-problem) · [How it works](#how-it-works) · [Worked example](#worked-example) ·
+[Architecture](#architecture) · [Guarantees](#guarantees) · [Deployment](#deployment) ·
+[Getting started](#getting-started) · [Testing](#testing) · [Known limits](#known-limits) ·
+[Security](#security) · [Tech stack](#tech-stack) · [Repository](#repository) ·
+[Roadmap](#roadmap) · [Licence](#licence)
 
 ---
 
-## Overview
+## The problem
 
-In a call group the caller posts "buying X", followers pile in, and the caller is free to
-have bought earlier and sell into that buying, delete the call when it goes wrong, and start
-again tomorrow with a clean history. Followers carry the risk and see none of the caller's
-own trades.
+Call groups on Telegram and Discord move a lot of money with no consequence for the caller.
+A caller can buy early, post the call, sell into the followers' buying, delete the call when
+it goes wrong and start again with a clean history. Followers carry the risk and never see
+the caller's own trades.
 
-A pooled call removes the head start instead of trying to police it:
-
-- **Own money first, same terms.** The caller's stake is in the pool before anyone joins,
-  at least 5% of it when it buys, and it cannot be taken out early.
-- **One buy, one sale.** The caller can only buy for the whole pool. Nobody, the caller
-  included, can sell alone: the sale is for everyone, at one price.
-- **Rules fixed at open.** Take-profit, stop-loss, max hold and the caller's share of profit
-  are written into the call when it opens. Neither the caller nor the admin can change them.
-- **Paid for profit only.** The caller earns a share of profit, never of a loss, and loses
-  the same percentage as everyone else.
-- **A permanent record.** Every call's net result to participants goes on the record,
-  losses included. The record sets the caller's tier, and the tier sets the next cap.
+trustpool removes the head start instead of policing it. The caller's money rides in the same
+pool, at the same price, under rules nobody can change, and every result stays on the record.
 
 ---
 
-## How a pooled call works
+## How it works
 
-1. **Bond.** The caller posts a bond in MON. It stays locked while any of their calls is
-   open or holding, and the admin can slash it with a public reason.
-2. **Open.** `openCall` takes the caller's first deposit and every rule: window, take-profit,
-   stop-loss, max hold, profit share (capped by tier). The cap is fixed too: bond times the
-   tier multiple.
-3. **Window.** `deposit` and `withdraw` (1:1) while the window is open. A deposit is refused
-   if it would take the pool over its cap, push one buy's price impact over 2%, or put the
-   caller under 5% of the pool.
-4. **Buy.** After the window, the caller's `buy` swaps the whole pool in one transaction. The
-   contract checks the token, the minimum pool, the cap, the caller's stake and the impact
-   again, then records the tokens that actually arrived.
-5. **Price records.** Anyone can `checkpoint`: the contract stores what selling the whole
-   position would return now. At most one per gap (3 minutes in the demo).
-6. **Sale.** Anyone can `sell` when the last two records, a gap apart, both meet take-profit or
-   both meet stop-loss, or at max hold when the two agree within 2%. The contract computes the
-   least the sale must return from those records; nobody passes it in. The seller earns 0.1%.
-7. **Claim.** Each participant `claim`s their part once. The last claimer takes the remainder,
-   so nothing is stranded.
-8. **Safety nets.** A pool below its minimum, or never bought by the deadline, is `refund`ed
-   1:1 by anyone (the second case marks the caller negligent). A position nobody could sell by
-   max hold plus a grace period is `split`: everyone claims tokens pro rata.
-
-The keeper in the API sends checkpoints, sales, refunds and splits when the contract allows
-them. Every one of those is also a plain button in the app, for anyone.
-
----
-
-## The arithmetic
-
-The PM's worked example, as a test (`test_workedExample_profit`): 1,000 MON in (caller 100,
-A 300, B 400, C 200), 10% share of profit, sold for 1,300.
-
-```
-net     = gross − keeper reward = 1,300 − 1.30   = 1,298.70
-profit  = max(net − totalIn, 0) =                    298.70
-fee     = profit × 10%          =                     29.87
-payout  = net − fee             =                  1,268.83   shared pro rata, caller included
-caller  = 126.88 + 29.87        =                    156.75
-A 380.65 · B 507.53 · C 253.77 · every participant +26.88% · record +26.88%
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> Open: caller opens with stake and rules
+    Open --> Open: anyone deposits or withdraws
+    Open --> Holding: caller buys for the whole pool
+    Open --> Refunded: under minimum, or no buy by the deadline
+    Holding --> Settled: anyone sells when a rule is met
+    Holding --> Split: sale keeps failing past the grace period
+    Settled --> [*]: everyone claims MON
+    Refunded --> [*]: everyone claims deposits 1:1
+    Split --> [*]: everyone claims tokens
 ```
 
-Sold for 700 instead: no profit, no fee, everyone −30.07%, and the record says −30.07%.
+1. **Bond.** A caller posts a bond in MON before their first pool. It stays locked while any of
+   their pools is open or holding, and the admin can slash it with a public reason.
+2. **Open.** The caller sets the token, the window, take-profit, stop-loss, max hold and their
+   share of profit, and deposits their stake. All of it is fixed from this transaction on.
+3. **Join.** While the window is open anyone deposits MON or takes it back 1:1. Deposits stop at
+   the pool's cap, and the caller always keeps at least 5% of the pool.
+4. **Buy.** After the window the caller runs one swap for the whole pool. The contract checks
+   the cap, the minimum, the caller's share and the price impact (at most 2%), then records the
+   tokens that actually arrived.
+5. **Watch.** Anyone can record the price: what selling the whole position would return now.
+6. **Sell.** Anyone can trigger the sale when two price records, a few minutes apart, both meet
+   take-profit or both meet stop-loss, or when max hold is reached and the two agree. The
+   contract sets the minimum the sale must return. Whoever sends it earns 0.1%.
+7. **Claim.** Each participant claims their share once.
+
+A keeper in the API records prices and triggers sales, refunds and splits as soon as the
+contract allows. Every one of those actions is also a button in the app, open to anyone.
+
+### Tiers
+
+The record sets the caller's tier, and the tier sets the cap on the next pool and the largest
+profit share they may ask for.
+
+| Tier | Requirement | Pool cap | Max profit share |
+|---|---|---|---|
+| 0 | fewer than 3 settled, or ever slashed | 2 × bond | 5% |
+| 1 | 3 settled, average net return above 0 | 5 × bond | 10% |
+| 2 | 10 settled, average net return above 0 | 10 × bond | 15% |
+| 3 | 25 settled, average net return above 0 | 20 × bond | 20% |
 
 ---
 
-## One call, end to end
+## Worked example
 
-| When | What happens | Where |
-|---|---|---|
-| Once | Caller signs in (email or wallet) and posts a bond | Privy, `TrustPool.postBond` |
-| T+0 | Pool opens with the caller's stake; rules fixed | `TrustPool.openCall` → `CallOpened` |
-| Window | Anyone joins or takes their MON back; live cap from the contract | `deposit`, `withdraw`, `capOf` |
-| Window end | Caller buys for the whole pool | `TrustPool.buy` → `UniswapV4Adapter.buy` |
-| Holding | Price sampled every few minutes; keeper records prices | `indexer/prices.ts`, `keeper/keeper.ts` → `checkpoint` |
-| Rule met | Anyone sells the whole position | `TrustPool.sell` → `Sold` |
-| After | Participants claim; the result is on the record | `claim`, `recordOf`, caller page |
-| Every step | Followers and watchers get a live alert, and a Telegram post | Postgres `NOTIFY` → SSE `/api/me/stream` |
+1,000 MON in (caller 100, A 300, B 400, C 200), 10% share of profit, sold for 1,300 MON.
+This exact case is a contract test (`test_workedExample_profit`).
+
+```
+net      = 1,300 − 0.1% keeper reward   = 1,298.70
+profit   = net − 1,000                  =   298.70
+fee      = 10% of profit                =    29.87
+payout   = net − fee                    = 1,268.83   shared by deposit, caller included
+
+caller   156.75   (126.88 share + 29.87 fee)
+A 380.65 · B 507.53 · C 253.77   every participant +26.88%, and the record says +26.88%
+```
+
+Sold for 700 MON instead, there is no profit and no fee: everyone, the caller included, ends at
+−30.07%, and the record says −30.07% (`test_workedExample_loss`).
 
 ---
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    subgraph Browser
+        W["Web app<br/>Vite · React · Privy"]
+    end
+    subgraph Server["API host"]
+        A["REST + OpenAPI<br/>Hono on Bun"]
+        I["Indexer"]
+        K["Keeper"]
+        L["Live alerts<br/>SSE · Telegram"]
+        D[("Postgres")]
+    end
+    subgraph Monad["Monad testnet"]
+        T["TrustPool"]
+        U["UniswapV4Adapter"]
+        P["Uniswap v4<br/>PoolManager"]
+    end
+    W -- "reads" --> A
+    W -- "transactions" --> T
+    L -- "alerts" --> W
+    A --> D
+    T -- "events" --> I
+    I --> D
+    D -- "NOTIFY" --> L
+    K -- "checkpoint · sell · refund · split" --> T
+    T --> U --> P
 ```
-            ┌──────────────── apps/web (Vite + React) ───────────────┐
-            │  landing /   docs /docs   app /app   Privy sign-in     │
-            └───────┬───────────────────────────────┬────────────────┘
-        reads + SSE │                               │ transactions (viem)
-                    ▼                               ▼
-   ┌──── apps/api (Bun + Hono) ────┐      ┌──── Monad testnet ─────────────┐
-   │ REST + OpenAPI   SSE alerts   │      │ TrustPool                      │
-   │ indexer ── viem getLogs ──────┼─────▶│   └ UniswapV4Adapter           │
-   │ price sampler   keeper        │      │        └ Uniswap v4 PoolManager│
-   └────────────┬──────────────────┘      └────────────────────────────────┘
-                ▼
-        Postgres (Supabase; PGlite locally)
-```
 
-- **Contract** holds pooled MON, tokens and bonds, enforces every rule and writes the record.
-- **Adapter** is the only code that touches a DEX. Each call keeps the adapter it opened
-  with, so a later admin change cannot redirect a pool.
-- **API** indexes events into Postgres, samples prices and live caps, runs the keeper, fans
-  out alerts (in the app and to a Telegram channel) and serves the app. One instance indexes
-  and keeps at a time (advisory lock); any number can serve.
-- **Web** reads from the API and sends transactions straight to the chain.
-
----
-
-## The rules, and where each one lives
-
-| Rule | Enforced by |
+| Part | Role |
 |---|---|
-| Nothing about a call changes after open | every rule, the adapter and all timings copied into the call; tested against every admin setter |
-| The caller is in first and stays in | `openCall` requires a deposit; `withdraw` refuses the caller |
-| The caller keeps at least 5% | `deposit` and `buy` both check it |
-| Pools stay small enough for the market | cap = bond × tier; `deposit` and `buy` check impact ≤ 2% against a tiny probe |
-| One buy for everyone | `buy` is the only path into the token, for the whole pool |
-| No early sale, no sale on one pushed block | `sell` needs two records a gap apart that both meet a rule, or agree at max hold |
-| No caller-chosen sale price | `sell` computes its minimum from the records |
-| Result is what arrived | `buy` and `sell` measure balances; adapter return values are ignored |
-| Fee on profit only | `sell`: `fee = max(net − totalIn, 0) × share` |
-| Nobody's money is stranded | `refund`, `split`, and the last claim taking the remainder |
-| Admin cannot touch a pool | no admin function reads or moves MON or tokens held for a call |
+| **TrustPool** | Holds pooled MON, tokens and bonds; enforces every rule; keeps each caller's record and tier. |
+| **UniswapV4Adapter** | The only code that touches the DEX. Each pool keeps the adapter it opened with. |
+| **Indexer** | Follows contract events into Postgres, samples prices and live caps, lists early buyers. |
+| **Keeper** | Simulates, then sends price records, sales, refunds and splits when they are allowed. |
+| **Live alerts** | Postgres `NOTIFY` to server-sent events in the app, and to a Telegram channel. |
+| **Web app** | Reads from the API, signs transactions in the user's wallet through Privy. |
 
-Current values are read live on [the docs page](https://trustpool.web.id/docs#rules).
-Spec and decisions: [`docs/pool-spec.md`](docs/pool-spec.md), [`docs/product.md`](docs/product.md).
+One API instance indexes and runs the keeper at a time (Postgres advisory lock); any number
+can serve reads.
 
 ---
 
-## What is deployed
+## Guarantees
 
-Monad testnet (chain 10143), deployed 11 October 2026 with
-[`DeployPool.s.sol`](contracts/script/DeployPool.s.sol). It reuses the adapter and demo tokens below.
+| Guarantee | How the contract enforces it |
+|---|---|
+| Rules are final | Every rule, the adapter and all timings are copied into the pool at open. No setter, admin included, reaches them. |
+| The caller is in first and stays in | Opening requires a stake; the caller cannot withdraw; deposits and the buy both keep the caller at 5% or more. |
+| One entry price | The buy is the only path into the token and covers the whole pool. |
+| One exit price | The sale covers the whole position; nobody sells alone. |
+| No sale on a pushed price | A sale needs two price records a gap apart, and its minimum output comes from them. |
+| Results are real | Buys and sales measure balance changes; adapter return values are ignored. |
+| Fee on profit only | `fee = max(net − deposits, 0) × share`. |
+| No stranded funds | Refunds, token splits, and the last claim taking the remainder. |
+| Small market impact | A pool's buy may move the price at most 2%; the cap follows. |
+| Admin has no path to pool funds | Admin functions cover the token list, later parameters and bonds only. |
+
+Current parameters are read live on [the docs page](https://trustpool.web.id/docs#rules). The
+full design and every decision are in [`docs/pool-spec.md`](docs/pool-spec.md) and
+[`docs/product.md`](docs/product.md).
+
+---
+
+## Deployment
+
+Monad testnet, chain 10143, deployed 11 October 2026.
 
 | Contract | Address |
 |---|---|
-| TrustPool (pooled calls) | [`0xF21E849d861a70742cC975a8E1E4934f583ADa0E`](https://testnet.monadscan.com/address/0xF21E849d861a70742cC975a8E1E4934f583ADa0E) |
+| TrustPool | [`0xF21E849d861a70742cC975a8E1E4934f583ADa0E`](https://testnet.monadscan.com/address/0xF21E849d861a70742cC975a8E1E4934f583ADa0E) |
 | UniswapV4Adapter | [`0xA50d9454E71aCf152399C872815ae6895cB53229`](https://testnet.monadscan.com/address/0xA50d9454E71aCf152399C872815ae6895cB53229) |
 | tCHOG (demo token) | [`0x12d15135b5bBa8EEF0d1098Aa65A15AF503d09c9`](https://testnet.monadscan.com/address/0x12d15135b5bBa8EEF0d1098Aa65A15AF503d09c9) |
 | tMOE (demo token) | [`0x2A8361Ac23F5FfcFDe9f0D7BC7618178770332d0`](https://testnet.monadscan.com/address/0x2A8361Ac23F5FfcFDe9f0D7BC7618178770332d0) |
-| Earlier locked-call TrustPool | [`0x98eee74eBcCe4d109B8eA7D653A594435503f0Ab`](https://testnet.monadscan.com/address/0x98eee74eBcCe4d109B8eA7D653A594435503f0Ab), replaced |
 
-Swaps are real Uniswap v4 swaps against the live PoolManager. The testnet had no liquid
-(MON, token) pool, so the demo tokens and their pools are ours. The 2% impact limit makes
-pool depth the cap: [`DeepenPools.s.sol`](contracts/script/DeepenPools.s.sol) adds
-full-range liquidity to the demo pools so a pool can reach about 0.1 MON.
+**Demo setup.** Every swap is a real Uniswap v4 swap against the live PoolManager. The testnet
+had no liquid MON pool to trade against, so the two demo tokens and their liquidity are ours.
+The pools in the app's history were opened and joined by our own wallets with
+[`scripts/seed-demo.ts`](scripts/seed-demo.ts); one of those wallets trades the demo tokens
+between a pool's buy and its sale, so the history shows a take-profit and a stop-loss. The
+keeper recorded prices and sold each pool on its own.
 
-The pools in the live app's history were opened and joined by our own testnet wallets with
-[`scripts/seed-demo.ts`](scripts/seed-demo.ts). One wallet trades the demo tokens between a
-pool's buy and its sale, so one pool reaches its take-profit and one its stop-loss; the keeper
-records prices and sells as it would for anyone.
-
-Demo parameters: 0.5 MON bond, 0.05 MON minimum pool, windows of 2 to 10 minutes, max hold of
-5 to 30 minutes, 3 minutes between price records.
+**Demo parameters.** 0.5 MON bond, 0.05 MON minimum pool, 2 to 10 minute windows, 5 to 30
+minute max hold, 3 minutes between price records. With the current demo liquidity a pool can
+reach about 0.1 MON before its buy would move the price 2%.
 
 ---
 
-## Quick start
+## Getting started
+
+**Demo data, no wallet.**
 
 ```bash
 git submodule update --init
 npm install
-npm run dev
+npm run dev                  # http://localhost:5280
 ```
 
-Open <http://localhost:5280>. The app runs on demo data with a demo sign-in, so every
-screen works without a wallet or an API, and joining or claiming in the demo is kept locally.
+Every screen works on demo data with a demo sign-in.
 
----
+**Full stack on a local chain.** Anvil, contracts, API and web in one command. The app signs
+with an anvil key, so every button sends a real transaction.
 
-## Known limits
-
-- **Second wallets.** A caller can still buy from another wallet before the pool does. Their
-  own stake rides the same price, the bond is at stake, and each call lists the wallets that
-  received the token just before the pool's buy, marking any the caller funded.
-- **Spot prices.** Uniswap v4 has no built-in average price. Two records a gap apart make a
-  one-block push useless, but a price held down across a whole gap still counts.
-- **Falling fast at max hold.** If the price falls more than 2% per gap, a max-hold sale waits
-  for two records that agree; the split after the grace period is the backstop.
-- **Fee-on-transfer tokens.** A token taking more than the 2% sale tolerance cannot be sold
-  against its quote and ends in a split. Keep such tokens off the allow list.
-- **Admin.** One key keeps the token list, sets parameters for later calls and slashes
-  bonds. It has no path to MON or tokens held for a call.
-- **Small pools.** A pool is capped by what one buy can take within 2% of price impact. On
-  Monad's median token that is a few hundred dollars. This is the point: the cap exists to
-  keep impact small.
-
----
-
-## Security review
-
-Slither (102 detectors) and a manual review, run again on the pooled rewrite on 11 October
-2026. Every external entry point is
-`nonReentrant` (a test proves each door is shut during a swap), admin is two-step, parameters
-are validated, pausing affects new calls only, the sale minimum comes from the contract, and
-invariant tests check that the contract's MON and tokens always equal what it owes. The API
-verifies Privy access tokens locally, rate-limits writes, and the keeper simulates every
-transaction before sending it. Details: [`docs/product.md`](docs/product.md#security-review).
-This is a self-review, with no external audit.
-
----
-
-## Tech stack
-
-| Layer | Tools |
-|---|---|
-| Contracts | Solidity 0.8.28, Foundry, Uniswap v4 (unlock → swap → settle → take) |
-| API | Bun, Hono 4, Drizzle ORM, Postgres (Supabase) or PGlite, viem, SSE |
-| Web | Vite 5, React 18, Tailwind 3, motion, react-router 7, Privy, viem |
-| Testing | forge (unit, fuzz, invariant, fork), bun test, Playwright |
-| Hosting | nginx + systemd on a VPS, Let's Encrypt |
-
----
-
-## Repository structure
-
+```bash
+npm run dev:local                        # http://127.0.0.1:5290/app
+node scripts/local-stack.mjs warp 1h     # move time past a window or a hold
 ```
-contracts/
-  src/TrustPool.sol           the pooled-call contract
-  src/adapters/               UniswapV4Adapter, UniswapV2Adapter, NadFunAdapter
-  src/v4/                     demo token and pool seeder for testnet
-  script/                     DeployPool, DeployV4, Deploy, SeedLocal
-  test/                       unit, fuzz, invariant, fork
-packages/core/                shared types, demo data, generated ABIs and addresses
-apps/api/                     Bun API: http/, indexer/, keeper/, store/, db/, live/
-apps/web/                     landing, docs and app
-e2e/                          Playwright: a whole pooled call, and live alerts, on anvil
-scripts/                      local stack, ABI sync
-docs/                         pool-spec.md, product.md, design.md, writeup.md
+
+**Configuration.** API settings are in [`apps/api/.env.example`](apps/api/.env.example):
+`DATA=chain`, `DATABASE_URL` and `PRIVY_APP_ID` for chain mode, `KEEPER_PRIVATE_KEY` for the
+keeper, `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` for channel alerts. On Supabase use the
+session pooler (port 5432), which advisory locks and `LISTEN` need. Web settings are in
+[`apps/web/.env.example`](apps/web/.env.example).
+
+**Deploying.** From `contracts/`, with `MONAD_TESTNET_RPC` set:
+
+```bash
+forge script script/DeployPool.s.sol --network monad --rpc-url monad_testnet --broadcast --account <keystore>
+ADD_MON=5 forge script script/DeepenPools.s.sol --network monad --rpc-url monad_testnet --broadcast --account <keystore>
+cd .. && npm run sync:contracts
 ```
+
+`--network monad` makes Foundry apply Monad's EVM rules. `DeepenPools` adds whole MON of
+full-range liquidity to each demo pool, which raises the cap.
 
 ---
 
 ## Testing
 
 ```bash
-npm test             # forge (47 tests + 5 invariants) and API (62 tests)
-npm run test:e2e     # the browser drives a whole pooled call on a local chain
+npm test             # contracts (forge) and API (bun)
+npm run test:e2e     # a browser drives a whole pooled call on a local chain
 npm run typecheck
 ```
 
-The contract tests include the PM's two worked examples to the cent, every case of the PM's
-table (break-even, caller at 4%, over cap, below minimum, no buy, fee-on-transfer, double
-claim, a sale that keeps failing), rule immutability against every admin setter, the sale
-guards (one record, records too close, a dump, record and sell in one transaction), and fuzz
-tests that every participant gets the same percentage to the wei.
-
-API tests run on PGlite locally and on Postgres 16 in CI. On anvil, `indexer.e2e` checks every
-record, pool and deposit against the contract, and `keeper.e2e` lets the keeper drive the
-seeded calls to their ends. The v4 adapter fork tests run against the live testnet PoolManager:
+- **Contracts.** Both worked examples to the cent; break-even, a caller under 5%, over cap,
+  under minimum, no buy, fee-on-transfer tokens, double claims and a sale that keeps failing;
+  rule immutability against every admin setter; every sale guard, including a dump, a price
+  record and a sale in one transaction; fuzz tests that every participant gets the same
+  percentage; invariants that the contract always holds what it owes.
+- **API.** Runs on PGlite locally and Postgres 16 in CI. On anvil, an indexer test checks every
+  pool, deposit and record against the contract, and a keeper test drives pools to their end.
+- **Fork tests** run the pooled buy and sale against the live testnet PoolManager:
 
 ```bash
 cd contracts
@@ -300,36 +270,74 @@ FORK_RPC_URL=https://testnet-rpc.monad.xyz forge test --network monad --match-pa
 
 ---
 
-## Running it
+## Known limits
 
-**Full stack on a local chain.** Anvil, contracts, API and web in one command; the app
-signs with an anvil key, so every button sends a real transaction.
+- **Second wallets.** A caller can still buy from another wallet before the pool does. Their own
+  stake rides the same price, their bond is at stake, and every pool lists the wallets that
+  received the token just before its buy, marking any the caller funded directly.
+- **Spot prices.** Uniswap v4 has no built-in average price, so the contract uses spot records a
+  few minutes apart. A one-block push does nothing; a price held down for a whole gap counts.
+- **Fast falls at max hold.** If the price keeps falling more than 2% per gap, the sale waits
+  for two records that agree, and the token split after the grace period is the backstop.
+- **Fee-on-transfer tokens** that take more than the 2% sale tolerance end in a split. They
+  belong off the allow list.
+- **One admin key** keeps the token list, sets parameters for later pools and slashes bonds.
+- **Small pools.** The 2% impact limit keeps pools to what the token's liquidity can absorb,
+  a few hundred dollars on Monad's median token today. That limit is deliberate.
+- **Legal.** trustpool is an accountability experiment built for a hackathon and has had no
+  legal review.
 
-```bash
-npm run dev:local                        # open http://127.0.0.1:5290/app
-node scripts/local-stack.mjs warp 1h     # move past a window or a hold
+---
+
+## Security
+
+Slither (102 detectors) and a manual review on 11 October 2026. Every external entry point is
+`nonReentrant`, and a test proves each one is closed during a swap. Admin transfer is two-step,
+parameters are validated, pausing stops new pools only, and invariant tests check the
+contract's balances against what it owes. The API verifies Privy tokens locally, rate-limits
+writes, and the keeper simulates every transaction before sending it. Details and accepted
+findings: [`docs/product.md`](docs/product.md#security-review). This is a self-review;
+there has been no external audit.
+
+---
+
+## Tech stack
+
+| Layer | Tools |
+|---|---|
+| Contracts | Solidity 0.8.28, Foundry, Uniswap v4 |
+| API | Bun, Hono, Drizzle ORM, Postgres (Supabase) or PGlite, viem |
+| Web | Vite, React 18, Tailwind, motion, react-router, Privy, viem |
+| Testing | forge (unit, fuzz, invariant, fork), bun test, Playwright |
+| Hosting | nginx and systemd on a VPS, Let's Encrypt |
+
+---
+
+## Repository
+
 ```
-
-**API.** `npm run dev:api` starts it on :8787 in demo mode. Set `DATA=chain`,
-`DATABASE_URL` and `PRIVY_APP_ID` for chain mode, and `KEEPER_PRIVATE_KEY` to run the keeper;
-see [`apps/api/.env.example`](apps/api/.env.example). On Supabase use the session pooler
-(port 5432): advisory locks and `LISTEN` need it.
-
-**Web.** Set `VITE_PRIVY_APP_ID` and `VITE_DATA=api` in `apps/web/.env`; see
-[`apps/web/.env.example`](apps/web/.env.example).
-
-**Deploy to Monad testnet.** The command, what it costs and the order to upgrade the API are
-at the top of [`docs/pool-spec.md`](docs/pool-spec.md). `--network monad` is required for
-Foundry to apply Monad's EVM rules.
+contracts/
+  src/TrustPool.sol         the pooled-call contract
+  src/adapters/             Uniswap v4 (live), Uniswap v2 and nad.fun adapters
+  src/v4/                   demo token and liquidity seeder for testnet
+  script/                   DeployPool, DeepenPools, DeployV4, SeedLocal
+  test/                     unit, fuzz, invariant, fork
+packages/core/              shared types, demo data, generated ABIs and addresses
+apps/api/                   http, indexer, keeper, live alerts, store, db
+apps/web/                   landing, docs and app
+e2e/                        Playwright stories on anvil
+scripts/                    local stack, ABI sync, testnet seed
+docs/                       pool-spec, product, design, writeup
+```
 
 ---
 
 ## Roadmap
 
-- A time-weighted price once a Monad DEX offers one, in place of spaced spot records.
-- Slashing by a council or on-chain evidence instead of one admin key.
-- Reputation decay from `lastActive`, so an old record counts for less.
-- nad.fun adapter on mainnet (written, fork test pending).
+- A time-weighted price once a Monad DEX offers one.
+- Slashing by a council or on-chain evidence in place of one admin key.
+- Reputation that decays with inactivity (`lastActive` is already recorded).
+- nad.fun adapter on mainnet (written; fork test pending).
 
 ---
 
