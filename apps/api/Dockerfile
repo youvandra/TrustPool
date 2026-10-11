@@ -1,5 +1,5 @@
 # Build from the repo root: docker build -f apps/api/Dockerfile -t trustpool-api .
-FROM oven/bun:1.2.22-slim AS deps
+FROM oven/bun:1.3.14-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/core/package.json packages/core/
@@ -9,7 +9,7 @@ COPY apps/web/package.json apps/web/
 COPY e2e/package.json e2e/
 RUN bun install --production --filter '@trustpool/api'
 
-FROM oven/bun:1.2.22-slim
+FROM oven/bun:1.3.14-slim
 WORKDIR /app
 ENV NODE_ENV=production PORT=8787
 COPY --from=deps /app/node_modules node_modules
