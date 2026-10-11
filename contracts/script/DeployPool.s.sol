@@ -19,7 +19,7 @@ interface IERC20Approve {
 ///   cd contracts
 ///   ADD_MON=4 forge script script/DeployPool.s.sol --network monad --rpc-url monad_testnet --broadcast --account trustpool-deployer
 ///
-/// Env (all optional): ADD_MON (MON added to each pool, default 0; the token side comes from the
+/// Env (all optional): ADD_MON (whole MON added to each pool, default 0; the token side comes from the
 /// broadcaster, who holds the demo token supply), ADAPTER and TOKENS to override the addresses.
 contract DeployPool is Deploy {
     address constant TESTNET_ADAPTER = 0xA50d9454E71aCf152399C872815ae6895cB53229;
@@ -33,7 +33,7 @@ contract DeployPool is Deploy {
         defaults[0] = TCHOG;
         defaults[1] = TMOE;
         address[] memory tokens = vm.envOr("TOKENS", ",", defaults);
-        uint256 addMon = vm.envOr("ADD_MON", uint256(0));
+        uint256 addMon = vm.envOr("ADD_MON", uint256(0)) * 1 ether;
         require(address(adapter).code.length != 0, "no adapter at ADAPTER");
 
         vm.startBroadcast();
