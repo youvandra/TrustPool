@@ -13,8 +13,6 @@ sets how much they may raise next time.
 
 > One buy. One sale. The same price for everyone.
 
-The build spec, with every decision and departure, is [`pool-spec.md`](pool-spec.md).
-
 ## The problem
 
 The pattern is documented and repeats: the person giving a signal buys early, then sells
@@ -162,7 +160,37 @@ With the production defaults a tier-0 caller needs a bond of at least 25 MON for
 covers the 50 MON minimum; the new call form posts that much. Lower `minPool` to at most twice
 `minBond` before a production deploy.
 
-## Known limits (say these out loud)
+## Contract decisions
+
+- `buy(id, minTokens)`: the caller may add a least-tokens guard against a price moved just
+  before the buy. The impact check still applies. The sale's minimum stays contract-computed.
+- A joiner's deposit reverts if it would put the caller under `minCallerBps`. The caller cannot
+  top up after the window, so otherwise one late deposit could make the buy impossible and get
+  the caller recorded negligent.
+- The caller cannot withdraw during the window ("cannot leave before others").
+- The bond cap (bond × tier multiple) is fixed at open, like every other rule. A later slash
+  does not shrink an open pool. Each call gets its own cap from the same bond.
+- `sell` also needs the latest checkpoint to be at most one gap old for take-profit and
+  stop-loss, not only for max hold, so old checkpoints cannot trigger a sale.
+- Refund after the buy deadline marks the caller negligent unless the token was delisted.
+- A fee-on-transfer token losing more than the 2% sale tolerance cannot be sold against the
+  checkpoint quote; such a call ends in a split. Keep such tokens off the allow list.
+- Window and max hold are bounded by params (production: window 30 min to 6 h, hold 1 h to 72 h;
+  demo: window 2 to 10 min, hold 5 to 30 min). Stop-loss between 1% and 90%. Take-profit 0
+  (none) up to 100x. A `thesis` (280 bytes) stays, as on locked calls.
+- Views for the UI: `capOf(id)` (live cap, same impact measure as the contract),
+  `impactBps(adapter, token, mon)`, `tierOf`, `tierLimits`, `participantsOf(id)`, `depositOf`.
+
+## Departures from the capability document
+
+| Capability document | This build | Why |
+|---|---|---|
+| TP/SL from a 30-minute average price | Two spot checkpoints ≥ `minCheckpointGap` apart, contract-computed minimum output | Uniswap v4 has no built-in oracle; the capability document's own fallback says use spot and say so. Two spaced checkpoints make a one-block push insufficient. |
+| Pool cap 3% of liquidity, buy slippage 2% | Cap by measured price impact ≤ 2% | A pool of 3% of liquidity moves a constant-product price about 12% (see "Why pooled" above), so the 2% check always fails at the cap. |
+| Pool currency WMON | Native MON | No WMON on the testnet after the 16 Dec 2025 regenesis; MON is also the deepest quote asset on Monad. |
+| Slashing by multisig | Single admin key, stated openly | A multisig is not set up yet; stated in the README. |
+
+## Known limits
 
 | Risk | What the design does | What remains |
 | --- | --- | --- |
@@ -192,13 +220,8 @@ The one answer to memorise, for "what stops a caller using another wallet?":
 
 ## Hackathon
 
-Monad **Metropolis**. Submission deadline **13 Oct 2026, 23:59 ET**. Judging 14 to 27 Oct,
-results 3 Nov. Required: a working product with a public project profile, a demo, a short
-write-up and a link to the code.
-
-Suggested track: **Trust, Identity & AI Infrastructure** (reputation systems). Alternative:
-Social, Attention & Culture. Pooled calls sit closer to Onchain Finance & Trading than locked
-calls did; the record and the tiers are what keep this a reputation product.
+Built for Monad **Metropolis** 2026, track **Trust, Identity & AI Infrastructure** (reputation
+systems). The record and the tiers are what make this a reputation product.
 
 ## Legal note
 

@@ -79,8 +79,8 @@ contract Deploy is Script {
         _write(d, admin, treasury, startBlock);
     }
 
-    /// @notice Small enough to demo with faucet MON, short enough to film a whole call.
-    /// See docs/pool-spec.md "Params".
+    /// @notice Small enough to run with faucet MON, short enough to finish a whole call in minutes.
+    /// See docs/product.md "Parameters".
     function _demoParams() internal pure returns (TrustPool.Params memory) {
         return TrustPool.Params({
             minBond: 0.5 ether,

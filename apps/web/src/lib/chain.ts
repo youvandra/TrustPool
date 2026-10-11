@@ -53,7 +53,7 @@ export interface PoolParams {
   checkpointGap: number
 }
 
-/** Production defaults from docs/pool-spec.md, for the demo and until the chain answers. */
+/** Production defaults from docs/product.md, for the demo and until the chain answers. */
 export const DEFAULT_PARAMS: PoolParams = {
   minBond: 10,
   minPool: 50,

@@ -18,7 +18,7 @@ interface IERC20Min {
 /// share of profit only, and the net result to participants goes on the caller's record.
 /// @dev Every rule of a call, the adapter and every timing param are copied into the call when
 /// it opens. Admin changes apply to later calls only, so the admin has no path to MON or tokens
-/// held for a call. See docs/pool-spec.md.
+/// held for a call. See docs/product.md.
 contract TrustPool {
     enum State {
         None,
@@ -121,7 +121,7 @@ contract TrustPool {
     uint256 public constant PROBE = 0.001 ether;
 
     // ---------------------------------------------------------------- params
-    // Production defaults from docs/pool-spec.md. Admin-settable, for later calls only.
+    // Production defaults from docs/product.md. Admin-settable, for later calls only.
 
     Params internal _params = Params({
         minBond: 10 ether,

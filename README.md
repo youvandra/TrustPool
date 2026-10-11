@@ -178,8 +178,7 @@ can serve reads.
 | Admin has no path to pool funds | Admin functions cover the token list, later parameters and bonds only. |
 
 Current parameters are read live on [the docs page](https://trustpool.web.id/docs#rules). The
-full design and every decision are in [`docs/pool-spec.md`](docs/pool-spec.md) and
-[`docs/product.md`](docs/product.md).
+full design and every decision are in [`docs/product.md`](docs/product.md).
 
 ---
 
@@ -196,9 +195,8 @@ Monad testnet, chain 10143, deployed 11 October 2026.
 
 **Demo setup.** Every swap is a real Uniswap v4 swap against the live PoolManager. The testnet
 had no liquid MON pool to trade against, so the two demo tokens and their liquidity are ours.
-The pools in the app's history were opened and joined by our own wallets with
-[`scripts/seed-demo.ts`](scripts/seed-demo.ts); one of those wallets trades the demo tokens
-between a pool's buy and its sale, so the history shows a take-profit and a stop-loss. The
+The pools in the app's history were opened and joined by our own wallets; one of those
+wallets trades the demo tokens between a pool's buy and its sale, so the history shows a take-profit and a stop-loss. The
 keeper recorded prices and sold each pool on its own.
 
 **Demo parameters.** 0.5 MON bond, 0.05 MON minimum pool, 2 to 10 minute windows, 5 to 30
@@ -237,12 +235,10 @@ session pooler (port 5432), which advisory locks and `LISTEN` need. Web settings
 
 ```bash
 forge script script/DeployPool.s.sol --network monad --rpc-url monad_testnet --broadcast --account <keystore>
-ADD_MON=5 forge script script/DeepenPools.s.sol --network monad --rpc-url monad_testnet --broadcast --account <keystore>
 cd .. && npm run sync:contracts
 ```
 
-`--network monad` makes Foundry apply Monad's EVM rules. `DeepenPools` adds whole MON of
-full-range liquidity to each demo pool, which raises the cap.
+`--network monad` makes Foundry apply Monad's EVM rules.
 
 ---
 
@@ -320,14 +316,14 @@ contracts/
   src/TrustPool.sol         the pooled-call contract
   src/adapters/             Uniswap v4 (live), Uniswap v2 and nad.fun adapters
   src/v4/                   demo token and liquidity seeder for testnet
-  script/                   DeployPool, DeepenPools, DeployV4, SeedLocal
+  script/                   DeployPool, DeployV4, SeedLocal
   test/                     unit, fuzz, invariant, fork
 packages/core/              shared types, demo data, generated ABIs and addresses
 apps/api/                   http, indexer, keeper, live alerts, store, db
 apps/web/                   landing, docs and app
 e2e/                        Playwright stories on anvil
-scripts/                    local stack, ABI sync, testnet seed
-docs/                       pool-spec, product, design, writeup
+scripts/                    local stack, ABI sync
+docs/                       product, design, writeup
 ```
 
 ---

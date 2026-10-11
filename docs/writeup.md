@@ -70,7 +70,7 @@ history. Examples: [`docs/product.md`](product.md#the-problem).
 The repository was created on 10 October 2026; `git log --reverse` is the whole entry. It
 started as locked calls (the caller alone buys and locks, followers buy on their own) and
 moved to pooled calls on 11 October, following the PM's capability document. The reasons and
-every departure from that document are in [`docs/pool-spec.md`](pool-spec.md).
+every departure from that document are in [`docs/product.md`](product.md#departures-from-the-capability-document).
 
 ## Roadmap
 

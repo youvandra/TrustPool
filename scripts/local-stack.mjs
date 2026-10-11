@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The whole product on one machine: anvil, the contracts (deployed and seeded), the API in
 // chain mode and the web app signing with an anvil key. No Privy, no testnet, no Postgres
-// server. Used by `npm run dev:local` (for working and recording demos) and by the e2e tests.
+// server. Used by `npm run dev:local` (for local work) and by the e2e tests.
 //
 //   npm run dev:local                 then open http://127.0.0.1:5290/app
 //   node scripts/local-stack.mjs warp 3d   moves the chain forward (lock and notice clocks)
