@@ -18,6 +18,8 @@ export interface Session {
   authenticated: boolean
   address?: string
   label?: string // email or short address, for the account chip
+  /** Privy only: a handle suggested from the sign-in (Google name, social username or email), never saved without the user. */
+  suggestedName?: string
   login(): void
   logout(): void
   /** Privy only: a viem wallet client on the app's chain, switching the wallet if needed. */
@@ -50,6 +52,7 @@ function PrivyBridge({ children }: { children: ReactNode }) {
       authenticated,
       address,
       label: user?.email?.address ?? user?.google?.email ?? undefined,
+      suggestedName: suggestHandle(user?.google?.name ?? user?.twitter?.username ?? user?.github?.username ?? user?.email?.address?.split('@')[0]),
       login: () => login(),
       logout: () => void logout(),
       walletClient: address
@@ -65,6 +68,20 @@ function PrivyBridge({ children }: { children: ReactNode }) {
     [ready, authenticated, address, user, login, logout, wallets],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+}
+
+/** Fits a name to the handle rule (3 to 20 of a-z, 0-9, _), or nothing if too little is left. */
+export function suggestHandle(raw?: string | null): string | undefined {
+  const h = (raw ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '') // é -> e, ñ -> n
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 20)
+    .replace(/_$/, '')
+  return h.length >= 3 ? h : undefined
 }
 
 const DEMO_KEY = 'trustpool:demo-session'

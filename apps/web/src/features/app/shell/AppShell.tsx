@@ -8,6 +8,7 @@ import { useLoad } from '@/lib/hooks'
 import { useLiveAlerts, useLiveVersion } from '@/lib/live'
 import { useServerState, useStore } from '@/lib/store'
 import Account from './Account'
+import NamePrompt from './NamePrompt'
 import { MOBILE_NAV, NAV } from './nav'
 
 function useUnread() {
@@ -191,6 +192,7 @@ export default function AppShell() {
         </main>
       </div>
       <MobileTabs />
+      <NamePrompt />
       <Toaster />
     </div>
   )
