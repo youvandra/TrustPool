@@ -173,13 +173,12 @@ Spec and decisions: [`docs/pool-spec.md`](docs/pool-spec.md), [`docs/product.md`
 
 ## What is deployed
 
-Monad testnet (chain 10143). The pooled TrustPool is deployed with
-[`DeployPool.s.sol`](contracts/script/DeployPool.s.sol); the exact command is at the top of
-[`docs/pool-spec.md`](docs/pool-spec.md). It reuses the adapter and demo tokens below.
+Monad testnet (chain 10143), deployed 11 October 2026 with
+[`DeployPool.s.sol`](contracts/script/DeployPool.s.sol). It reuses the adapter and demo tokens below.
 
 | Contract | Address |
 |---|---|
-| TrustPool (pooled calls) | set by `DeployPool`, written to [`contracts/deployments/10143.json`](contracts/deployments/10143.json) |
+| TrustPool (pooled calls) | [`0xF21E849d861a70742cC975a8E1E4934f583ADa0E`](https://testnet.monadscan.com/address/0xF21E849d861a70742cC975a8E1E4934f583ADa0E) |
 | UniswapV4Adapter | [`0xA50d9454E71aCf152399C872815ae6895cB53229`](https://testnet.monadscan.com/address/0xA50d9454E71aCf152399C872815ae6895cB53229) |
 | tCHOG (demo token) | [`0x12d15135b5bBa8EEF0d1098Aa65A15AF503d09c9`](https://testnet.monadscan.com/address/0x12d15135b5bBa8EEF0d1098Aa65A15AF503d09c9) |
 | tMOE (demo token) | [`0x2A8361Ac23F5FfcFDe9f0D7BC7618178770332d0`](https://testnet.monadscan.com/address/0x2A8361Ac23F5FfcFDe9f0D7BC7618178770332d0) |
@@ -187,8 +186,8 @@ Monad testnet (chain 10143). The pooled TrustPool is deployed with
 
 Swaps are real Uniswap v4 swaps against the live PoolManager. The testnet had no liquid
 (MON, token) pool, so the demo tokens and their pools are ours. The 2% impact limit makes
-pool depth the cap: `DeployPool` can add liquidity (`ADD_MON`) so demo pools can reach about
-0.1 MON.
+pool depth the cap: [`DeepenPools.s.sol`](contracts/script/DeepenPools.s.sol) adds
+full-range liquidity to the demo pools so a pool can reach about 0.1 MON.
 
 Demo parameters: 0.5 MON bond, 0.05 MON minimum pool, windows of 2 to 10 minutes, max hold of
 5 to 30 minutes, 3 minutes between price records.

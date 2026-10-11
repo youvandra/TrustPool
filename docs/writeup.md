@@ -84,5 +84,5 @@ every departure from that document are in [`docs/pool-spec.md`](pool-spec.md).
 - App: <https://trustpool.web.id>
 - Docs: <https://trustpool.web.id/docs>
 - Code: <https://github.com/youvandra/TrustPool>
-- TrustPool contract: see [`contracts/deployments/10143.json`](../contracts/deployments/10143.json) after `DeployPool`
+- TrustPool contract: [`0xF21E849d861a70742cC975a8E1E4934f583ADa0E`](https://testnet.monadscan.com/address/0xF21E849d861a70742cC975a8E1E4934f583ADa0E)
 - Demo video: TODO
