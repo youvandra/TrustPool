@@ -27,12 +27,12 @@ export function useLiveVersion(): number {
 }
 
 const SAY: Record<AlertKind, string> = {
-  exit_announced: 'A caller you follow announced an exit',
-  exit_executable: 'An announced exit can now execute',
-  call_opened: 'A caller you follow opened a call',
-  call_settled: 'A call you watch settled',
-  call_released: 'A call you watch was released at −100%',
-  call_stale: 'A call you watch went stale',
+  window_opened: 'A caller you follow opened a pool',
+  window_closing: 'A pool you watch closes soon',
+  bought: 'A pool you watch bought',
+  sold: 'A pool you watch sold',
+  refunded: 'A pool you watch was refunded',
+  split: 'A pool you watch could not be sold and was split',
 }
 
 export function useLiveAlerts(authenticated: boolean) {

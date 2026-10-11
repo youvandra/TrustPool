@@ -1,5 +1,5 @@
-import { chainFor, DEFAULT_CHAIN_ID, deploymentFor, type Deployment } from '@trustpool/core'
-import { createPublicClient, defineChain, http } from 'viem'
+import { chainFor, DEFAULT_CHAIN_ID, deploymentFor, trustPoolAbi, type Deployment } from '@trustpool/core'
+import { createPublicClient, defineChain, formatEther, http } from 'viem'
 
 /**
  * The chain this build talks to, and the TrustPool deployment on it. Addresses come from
@@ -25,9 +25,9 @@ export const publicClient = createPublicClient({ chain, transport: http(rpcUrl) 
 export const explorerTx = (hash: string) => (info.explorer ? `${info.explorer}/tx/${hash}` : undefined)
 
 /**
- * Where a follower buys on their own. On mainnet nad.fun holds the deepest pair for most
- * Monad tokens (docs/product.md). The testnet demo tokens trade only in the Uniswap v4
- * pools seeded by DeployV4, so there the link opens the token on the explorer instead.
+ * Where a token trades. On mainnet nad.fun holds the deepest pair for most Monad tokens
+ * (docs/product.md). The testnet demo tokens trade only in the Uniswap v4 pools seeded by
+ * DeployV4, so there the link opens the token on the explorer instead.
  */
 export function dexUrl(token: string): string | undefined {
   if (CHAIN_ID === 143) return `https://nad.fun/tokens/${token}`
@@ -37,3 +37,51 @@ export function dexUrl(token: string): string | undefined {
 
 /** True when `dexUrl` leads to a place to buy, false when it only shows the token. */
 export const dexIsMarket = CHAIN_ID === 143
+
+/** The contract's parameters for new calls, in MON and seconds. */
+export interface PoolParams {
+  minBond: number
+  minPool: number
+  minWindow: number
+  maxWindow: number
+  minHold: number
+  maxHold: number
+  minStopLossBps: number
+  maxStopLossBps: number
+  minCallerBps: number
+  maxImpactBps: number
+  checkpointGap: number
+}
+
+/** Production defaults from docs/pool-spec.md, for the demo and until the chain answers. */
+export const DEFAULT_PARAMS: PoolParams = {
+  minBond: 10,
+  minPool: 50,
+  minWindow: 30 * 60,
+  maxWindow: 6 * 3600,
+  minHold: 3600,
+  maxHold: 72 * 3600,
+  minStopLossBps: 100,
+  maxStopLossBps: 9000,
+  minCallerBps: 500,
+  maxImpactBps: 200,
+  checkpointGap: 15 * 60,
+}
+
+export async function readParams(): Promise<PoolParams> {
+  if (!deployment) return DEFAULT_PARAMS
+  const p = await publicClient.readContract({ address: deployment.trustPool, abi: trustPoolAbi, functionName: 'params' })
+  return {
+    minBond: Number(formatEther(p.minBond)),
+    minPool: Number(formatEther(p.minPool)),
+    minWindow: p.minWindow,
+    maxWindow: p.maxWindow,
+    minHold: p.minHold,
+    maxHold: p.maxHold,
+    minStopLossBps: p.minStopLossBps,
+    maxStopLossBps: p.maxStopLossBps,
+    minCallerBps: p.minCallerBps,
+    maxImpactBps: p.maxImpactBps,
+    checkpointGap: p.checkpointGap,
+  }
+}

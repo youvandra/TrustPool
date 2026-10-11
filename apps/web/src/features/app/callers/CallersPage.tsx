@@ -68,11 +68,11 @@ export default function CallersPage() {
                     <div className="min-w-0">
                       <p className="truncate text-[14.5px] font-semibold">{c.handle}</p>
                       <p className="truncate text-[12.5px] text-ink-3">
-                        {compact(c.followers)} followers · <span title={date(c.record.lastActive)}>active {ago(c.record.lastActive)}</span>
+                        Tier <span className="num">{c.tier}</span> · {compact(c.followers)} followers · <span title={date(c.record.lastActive)}>active {ago(c.record.lastActive)}</span>
                       </p>
                       <p className="mt-1 flex flex-wrap gap-x-1 text-[12.5px] text-ink-2 lg:hidden">
                         <span className="whitespace-nowrap">
-                          <span className="num">{c.record.settled + c.record.released}</span> settled, <span className="num">{c.record.losses}</span> at a loss
+                          <span className="num">{c.record.settled}</span> settled, <span className="num">{c.record.losses}</span> at a loss
                         </span>
                         <span className="whitespace-nowrap">
                           · <Signed bps={averageBps(c.record)} />
@@ -80,7 +80,7 @@ export default function CallersPage() {
                       </p>
                     </div>
                   </div>
-                  <span className="num hidden text-right text-[14px] lg:block">{c.record.settled + c.record.released}</span>
+                  <span className="num hidden text-right text-[14px] lg:block">{c.record.settled}</span>
                   <span className="num hidden text-right text-[14px] lg:block">{c.record.losses}</span>
                   <span className="hidden text-right text-[14px] lg:block">
                     <Signed bps={averageBps(c.record)} />

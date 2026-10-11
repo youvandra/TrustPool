@@ -1,7 +1,7 @@
 import { ArrowLeft, ShieldAlert } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { averageBps, returnBps } from '@trustpool/core'
+import { averageBps, returnBps, TIERS } from '@trustpool/core'
 import { ButtonLink, CallerAvatar, Card, Empty, Signed, Skeleton, SkeletonRows, Stat, StateTag, Tabs, TokenIcon } from '@/components/ui'
 import { compact, date, mon, price, shortAddress } from '@/lib/format'
 import { entryPrice } from '@trustpool/core'
@@ -71,17 +71,24 @@ export default function CallerPage() {
             <EmbedBadgeButton address={caller.address} handle={caller.handle} />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-px border-t border-line bg-line sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-px border-t border-line bg-line sm:grid-cols-3 lg:grid-cols-6">
           {[
-            ['Settled', r.settled + r.released],
+            ['Settled', r.settled],
             ['At a loss', r.losses],
-            ['Open now', r.open],
-            ['Average result', <Signed key="a" bps={averageBps(r)} />],
+            ['Average net result', r.settled ? <Signed key="a" bps={averageBps(r)} /> : '—'],
+            ['Never bought', <span key="n" className={r.negligent ? 'text-loss' : ''}>{r.negligent}</span>],
+            ['Tier', caller.tier],
             ['Bond', mon(caller.bond)],
-          ].map(([l, v], i, all) => (
-            <Stat key={String(l)} label={String(l)} value={v} className={`bg-surface px-5 py-4 ${i === all.length - 1 ? 'col-span-2 sm:col-span-1' : ''}`} />
+          ].map(([l, v]) => (
+            <Stat key={String(l)} label={String(l)} value={v} className="bg-surface px-5 py-4" />
           ))}
         </div>
+        <p className="border-t border-line px-5 py-3 text-[12.5px] text-ink-3 sm:px-7">
+          Next pool: up to <span className="num text-ink-2">{mon(caller.bond * TIERS[caller.tier]!.multiple, 0)}</span> ({TIERS[caller.tier]!.multiple}x the bond), and at most{' '}
+          <span className="num text-ink-2">{TIERS[caller.tier]!.maxShareBps / 100}%</span> of profit. {r.refunded ? `${r.refunded} refunded with no fault. ` : ''}
+          {r.split ? `${r.split} split unsold. ` : ''}
+          <span className="num">{r.active}</span> active now.
+        </p>
       </Card>
 
       <Tabs
@@ -100,7 +107,7 @@ export default function CallerPage() {
           <div className="hidden grid-cols-[1.4fr_1fr_1fr_1fr_1fr] gap-4 border-b border-line bg-subtle px-5 py-3 text-[12px] text-ink-3 md:grid">
             <span>Call</span>
             <span>State</span>
-            <span className="text-right">Caller in</span>
+            <span className="text-right">Pool</span>
             <span className="text-right">Entry</span>
             <span className="text-right">Result or clock</span>
           </div>
@@ -122,8 +129,8 @@ export default function CallerPage() {
                     <span className="hidden md:block">
                       <StateTag state={c.state} size="sm" />
                     </span>
-                    <span className="num hidden text-right text-[13.5px] md:block">{mon(c.monIn)}</span>
-                    <span className="num hidden text-right text-[13.5px] md:block">{price(entryPrice(c))}</span>
+                    <span className="num hidden text-right text-[13.5px] md:block">{mon(c.totalIn)}</span>
+                    <span className="num hidden text-right text-[13.5px] md:block">{entryPrice(c) === undefined ? '—' : price(entryPrice(c)!)}</span>
                     <span className="text-right text-[13.5px]">{res === undefined ? <ClockCell call={c} /> : <Signed bps={res} pill />}</span>
                   </Link>
                 </li>

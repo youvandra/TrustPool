@@ -33,22 +33,23 @@ export function SeeAll({ to, children = 'See all' }: { to: string; children?: Re
 }
 
 const STATE: Record<CallState, { label: string; cls: string; dot: string }> = {
-  Locked: { label: 'Locked', cls: 'bg-ink/[0.06] text-ink ring-ink/10', dot: '' },
-  Exiting: { label: 'Exit announced', cls: 'bg-accent text-white ring-accent', dot: 'bg-white' },
+  Open: { label: 'Window open', cls: 'bg-accent text-white ring-accent', dot: 'bg-white' },
+  Holding: { label: 'Bought together', cls: 'bg-ink/[0.06] text-ink ring-ink/10', dot: '' },
   Settled: { label: 'Settled', cls: 'bg-subtle text-ink-2 ring-line-strong', dot: 'bg-ink-3' },
-  Released: { label: 'Released unsold', cls: 'bg-loss-fill text-loss ring-loss/20', dot: 'bg-loss' },
+  Refunded: { label: 'Refunded', cls: 'bg-subtle text-ink-2 ring-line-strong', dot: 'bg-ink-3' },
+  Split: { label: 'Split, unsold', cls: 'bg-loss-fill text-loss ring-loss/20', dot: 'bg-loss' },
 }
 
-/** The one pulsing thing in the product is an announced exit: the moment a follower must see. */
+/** The one pulsing thing in the product is an open window: the moment someone can still join. */
 export function StateTag({ state, size = 'md' }: { state: CallState; size?: 'sm' | 'md' }) {
   const s = STATE[state]
   return (
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full font-medium ring-1 ring-inset ${s.cls} ${size === 'sm' ? 'h-6 px-2 text-[11.5px]' : 'h-7 px-2.5 text-[12px]'}`}
     >
-      {state === 'Locked' ? (
+      {state === 'Holding' ? (
         <Lock size={11} strokeWidth={2.4} />
-      ) : state === 'Exiting' ? (
+      ) : state === 'Open' ? (
         <span className="relative flex h-1.5 w-1.5">
           <span className="absolute inset-0 animate-ping rounded-full bg-white/70 motion-reduce:animate-none" />
           <span className="relative h-1.5 w-1.5 rounded-full bg-white" />
@@ -58,6 +59,16 @@ export function StateTag({ state, size = 'md' }: { state: CallState; size?: 'sm'
       )}
       {s.label}
     </span>
+  )
+}
+
+/** How full a pool is against its cap: one thin bar, the numbers beside it. */
+export function Fill({ value, max, className = '' }: { value: number; max: number; className?: string }) {
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0
+  return (
+    <div className={`h-1.5 overflow-hidden rounded-full bg-ink/[0.07] ${className}`} role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}>
+      <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+    </div>
   )
 }
 

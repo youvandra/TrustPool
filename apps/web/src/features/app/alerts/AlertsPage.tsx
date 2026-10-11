@@ -1,4 +1,4 @@
-import { Bell, BellRing, CheckCheck, Receipt, Sparkles, type LucideIcon } from 'lucide-react'
+import { Bell, BellRing, CheckCheck, Lock, Receipt, Sparkles, Split, Undo2, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import type { AlertKind } from '@trustpool/core'
 import { Button, ButtonLink, CallerAvatar, Card, Empty, SkeletonRows, TokenIcon } from '@/components/ui'
@@ -9,13 +9,14 @@ import { useLiveVersion } from '@/lib/live'
 import { actions, useStore } from '@/lib/store'
 import RequireAuth from '../shell/RequireAuth'
 
+const quiet = 'bg-subtle text-ink-2 ring-1 ring-inset ring-line'
 const KIND: Record<AlertKind, { icon: LucideIcon; verb: string; tone: string }> = {
-  exit_announced: { icon: BellRing, verb: 'announced an exit on', tone: 'bg-accent text-white' },
-  exit_executable: { icon: BellRing, verb: 'can now sell', tone: 'bg-accent-fill text-accent-deep' },
-  call_opened: { icon: Sparkles, verb: 'opened a call on', tone: 'bg-subtle text-ink-2 ring-1 ring-inset ring-line' },
-  call_settled: { icon: Receipt, verb: 'settled', tone: 'bg-subtle text-ink-2 ring-1 ring-inset ring-line' },
-  call_released: { icon: Receipt, verb: 'took unsold, at −100%,', tone: 'bg-subtle text-ink-2 ring-1 ring-inset ring-line' },
-  call_stale: { icon: Bell, verb: 'left open past its max hold:', tone: 'bg-subtle text-ink-2 ring-1 ring-inset ring-line' },
+  window_opened: { icon: Sparkles, verb: 'opened a pool on', tone: 'bg-accent text-white' },
+  window_closing: { icon: BellRing, verb: 'has a pool closing soon on', tone: 'bg-accent-fill text-accent-deep' },
+  bought: { icon: Lock, verb: 'bought for the pool on', tone: quiet },
+  sold: { icon: Receipt, verb: 'sold the pool on', tone: quiet },
+  refunded: { icon: Undo2, verb: 'had every deposit refunded on', tone: quiet },
+  split: { icon: Split, verb: 'could not sell, and split, the pool on', tone: quiet },
 }
 
 async function load() {
@@ -33,7 +34,7 @@ function List() {
         <Empty
           icon={<Bell size={18} />}
           title="Nothing yet"
-          body="Watch a call to hear about its exit first."
+          body="Follow a caller to hear when they open a pool. Watch a call to hear when it buys and sells."
           action={
             <ButtonLink to="/app/calls" variant="secondary">
               Browse calls
@@ -94,7 +95,7 @@ export default function AlertsPage() {
       <div>
         <h1 className="text-[26px] font-semibold tracking-[-0.03em] sm:text-[30px]">Alerts</h1>
       </div>
-      <RequireAuth title="Sign in for exit alerts" body="Hear about exits before they happen.">
+      <RequireAuth title="Sign in for alerts" body="Hear when a pool opens, closes, buys and sells.">
         <List />
       </RequireAuth>
     </div>

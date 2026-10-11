@@ -1,4 +1,4 @@
-import { ALERTS, CALLERS, CALLS, DEMO_FOLLOWING, TOKENS, type Alert, type Call, type Caller, type CallState, type Token } from '@trustpool/core'
+import { ALERTS, CALLERS, CALLS, DEMO_FOLLOWING, participantsOf, positionsOf, TOKENS, type Alert, type Call, type Caller, type CallState, type Participant, type Position, type Token } from '@trustpool/core'
 
 /**
  * Every page reads through this interface. `demo` serves @trustpool/core in the
@@ -9,13 +9,17 @@ export interface DataSource {
   readonly kind: 'demo' | 'api'
   listCalls(filter?: { state?: CallState[]; caller?: string }): Promise<Call[]>
   getCall(id: number): Promise<Call | undefined>
+  /** Everyone with money in a call, caller first, and what each claim pays. */
+  participants(id: number): Promise<Participant[]>
+  /** A wallet's part in every call it joined. Public on chain, so no account needed. */
+  positions(address: string): Promise<Position[]>
   listCallers(): Promise<Caller[]>
   getCaller(address: string): Promise<Caller | undefined>
   listTokens(): Promise<Token[]>
   alerts(): Promise<Alert[]>
   following(): Promise<string[]>
   watching(): Promise<number[]>
-  /** Wallets that received the token just before the call opened. API source only. */
+  /** Wallets that received the token just before the pool bought. API source only. */
   earlyBuyers(id: number): Promise<EarlyBuyerReport | undefined>
 }
 
@@ -41,6 +45,8 @@ const demo: DataSource = {
     return wait(out)
   },
   getCall: async (id) => wait(CALLS.find((c) => c.id === id)),
+  participants: async (id) => wait(participantsOf(id)),
+  positions: async (a) => wait(positionsOf(a)),
   listCallers: async () => wait(CALLERS),
   getCaller: async (a) => wait(CALLERS.find((c) => same(c.address, a))),
   listTokens: async () => wait(TOKENS),
@@ -93,6 +99,8 @@ const api: DataSource = {
     return (await get<Call[]>(`/calls?${q}`)) ?? []
   },
   getCall: (id) => get<Call>(`/calls/${id}`),
+  participants: async (id) => (await get<Participant[]>(`/calls/${id}/participants`)) ?? [],
+  positions: async (a) => (await get<Position[]>(`/accounts/${a}/positions`)) ?? [],
   listCallers: async () => (await get<Caller[]>('/callers')) ?? [],
   getCaller: (a) => get<Caller>(`/callers/${a}`),
   listTokens: async () => (await get<Token[]>('/tokens')) ?? [],

@@ -20,21 +20,35 @@ export const DEFAULT_SLIPPAGE_BPS = 100
 const REVERTS: Record<string, string> = {
   BondTooSmall: 'Your bond is below the minimum. Add to it first.',
   TokenNotAllowed: 'This token is not on the allow list.',
-  LockOutOfRange: 'The lock is outside the allowed range.',
-  NoticeTooShort: 'The notice is shorter than the minimum.',
+  BadRules: 'A rule is outside the allowed range.',
+  ShareAboveTier: 'That profit share is above what your tier allows.',
   ThesisTooLong: 'The thesis is longer than 280 bytes.',
   ZeroValue: 'The amount must be more than zero.',
+  BadAmount: 'You cannot take out more than you put in.',
+  OverCap: 'That would take the pool over its cap.',
+  ImpactTooHigh: 'That would take the pool past what one buy can take without moving the price more than the limit.',
+  NoLiquidity: 'This token has no liquidity to quote.',
+  CallerStakeTooSmall: "That would put the caller's share under the minimum.",
+  CallerCannotWithdraw: 'The caller cannot take money out of their own pool.',
+  PoolTooSmall: 'The pool is below its minimum. Anyone can refund it now.',
   NothingBought: 'The swap returned no tokens.',
-  Slippage: 'The price moved more than your slippage allows. Try again.',
+  Slippage: 'The price moved more than the slippage allows. Try again.',
   NotCaller: 'Only the caller of this call can do that.',
   WrongState: 'This call is not in a state that allows that.',
-  TooEarly: 'Too early: the lock, notice or grace period has not ended yet.',
-  OpenCalls: 'Close your open calls before withdrawing the bond.',
+  TooEarly: 'Too early for that.',
+  TooLate: 'Too late: the deadline has passed.',
+  CheckpointTooSoon: 'The last price was recorded less than one gap ago.',
+  CheckpointStale: 'Record the price first: the last record is too old.',
+  ConditionNotMet: 'No sale rule is met by the last two price records.',
+  CheckpointsDisagree: 'The last two price records disagree by more than the tolerance. Record again after one gap.',
+  NotParticipant: 'You have nothing in this pool.',
+  AlreadyClaimed: 'You already claimed.',
+  ActiveCalls: 'Your bond stays locked while you have an open or holding call.',
   NoWithdrawal: 'Request a withdrawal first.',
   NoBond: 'You have no bond to withdraw.',
-  OpenPaused: 'New calls are paused right now. Open calls can still exit.',
+  OpenPaused: 'New calls are paused right now. Every call already open runs to its end.',
   TransferFailed: 'A transfer failed.',
-  InsufficientOutput: 'The price moved more than your slippage allows. Try again.',
+  InsufficientOutput: 'The price moved more than the slippage allows. Try again.',
 }
 
 export class TxError extends Error {}
@@ -55,7 +69,32 @@ export function explain(err: unknown): string {
 
 const withSlippage = (amount: bigint, bps: number) => (amount * BigInt(10_000 - bps)) / 10_000n
 
-type PoolWrite = 'postBond' | 'openCall' | 'announceExit' | 'executeExit' | 'releaseTokens' | 'requestBondWithdraw' | 'withdrawBond'
+type PoolWrite =
+  | 'postBond'
+  | 'requestBondWithdraw'
+  | 'withdrawBond'
+  | 'openCall'
+  | 'deposit'
+  | 'withdraw'
+  | 'buy'
+  | 'checkpoint'
+  | 'sell'
+  | 'refund'
+  | 'split'
+  | 'claim'
+
+/** The rules a caller picks at open. Times in seconds, shares in basis points. */
+export interface OpenCallParams {
+  token: `0x${string}`
+  /** The caller's own first deposit, in MON. */
+  stake: number
+  windowSeconds: number
+  takeProfitBps: number
+  stopLossBps: number
+  maxHoldSeconds: number
+  shareBps: number
+  thesis: string
+}
 
 /**
  * Every TrustPool write the web app makes. Each one simulates first (so a revert shows its
@@ -82,43 +121,70 @@ export function trustPool(wallet: WalletClient) {
     return receipt
   }
 
-  const currentAdapter = () => publicClient.readContract({ address: pool, abi: trustPoolAbi, functionName: 'adapter' })
+  const id = (n: number) => BigInt(n)
 
   return {
     postBond: (mon: number) => send('postBond', [], parseEther(String(mon))),
     requestBondWithdraw: () => send('requestBondWithdraw', []),
     withdrawBond: () => send('withdrawBond', []),
 
-    /** Quotes the buy, applies slippage, opens the call, and returns its id. */
-    async openCall(p: { token: `0x${string}`; mon: number; lockSeconds: number; noticeSeconds: number; thesis: string; slippageBps?: number }) {
-      const value = parseEther(String(p.mon))
-      const quoted = await publicClient.readContract({ address: await currentAdapter(), abi: swapAdapterAbi, functionName: 'quoteBuy', args: [p.token, value] })
-      const minOut = withSlippage(quoted, p.slippageBps ?? DEFAULT_SLIPPAGE_BPS)
-      const receipt = await send('openCall', [p.token, BigInt(p.lockSeconds), p.noticeSeconds, minOut, p.thesis], value)
+    /** Opens a call with the caller's own stake, and returns its id. */
+    async openCall(p: OpenCallParams) {
+      const receipt = await send(
+        'openCall',
+        [p.token, p.windowSeconds, p.takeProfitBps, p.stopLossBps, p.maxHoldSeconds, p.shareBps, p.thesis],
+        parseEther(String(p.stake)),
+      )
       for (const log of receipt.logs) {
         try {
           const e = decodeEventLog({ abi: trustPoolAbi, ...log })
           if (e.eventName === 'CallOpened') return { id: Number(e.args.id), receipt }
         } catch {
-          // a token Transfer or another contract's log
+          // another contract's log
         }
       }
       return { id: undefined, receipt }
     },
 
-    announceExit: (id: number) => send('announceExit', [BigInt(id)]),
+    deposit: (call: number, mon: number) => send('deposit', [id(call)], parseEther(String(mon))),
+    withdraw: (call: number, mon: number) => send('withdraw', [id(call), parseEther(String(mon))]),
 
-    /** Quotes the sale through the call's own adapter, applies slippage, and settles. */
-    async executeExit(id: number, slippageBps = DEFAULT_SLIPPAGE_BPS) {
-      const c = await publicClient.readContract({ address: pool, abi: trustPoolAbi, functionName: 'getCall', args: [BigInt(id)] })
-      const quoted = await publicClient.readContract({ address: c.adapter, abi: swapAdapterAbi, functionName: 'quoteSell', args: [c.token, c.tokens] })
-      return send('executeExit', [BigInt(id), withSlippage(quoted, slippageBps)])
+    /** The caller's buy for the whole pool, with a least-tokens guard from a fresh quote. */
+    async buy(call: number, slippageBps = DEFAULT_SLIPPAGE_BPS) {
+      const c = await publicClient.readContract({ address: pool, abi: trustPoolAbi, functionName: 'getCall', args: [id(call)] })
+      const quoted = await publicClient.readContract({ address: c.rules.adapter, abi: swapAdapterAbi, functionName: 'quoteBuy', args: [c.token, c.totalIn] })
+      return send('buy', [id(call), withSlippage(quoted, slippageBps)])
     },
 
-    releaseTokens: (id: number) => send('releaseTokens', [BigInt(id)]),
+    // Anyone may send these; the contract decides whether they are allowed.
+    checkpoint: (call: number) => send('checkpoint', [id(call)]),
+    sell: (call: number) => send('sell', [id(call)]),
+    refund: (call: number) => send('refund', [id(call)]),
+    split: (call: number) => send('split', [id(call)]),
+    claim: (call: number) => send('claim', [id(call)]),
   }
 }
 
+/** Reads the impact a pool of `mon` would have, with the contract's own measure. */
+export async function impactBps(adapter: `0x${string}`, token: `0x${string}`, mon: number): Promise<number | undefined> {
+  if (!deployment || mon <= 0) return undefined
+  try {
+    return Number(await publicClient.readContract({ address: deployment.trustPool, abi: trustPoolAbi, functionName: 'impactBps', args: [adapter, token, parseEther(String(mon))] }))
+  } catch {
+    return undefined
+  }
+}
+
+/** Whether `fn` on call `id` would go through right now, by simulation. For the keeper buttons. */
+export async function wouldPass(fn: 'checkpoint' | 'sell' | 'refund' | 'split', callId: number, account?: `0x${string}`): Promise<boolean> {
+  if (!deployment) return false
+  try {
+    await publicClient.simulateContract({ address: deployment.trustPool, abi: trustPoolAbi, functionName: fn, args: [BigInt(callId)], account })
+    return true
+  } catch {
+    return false
+  }
+}
 export type TrustPoolTx = ReturnType<typeof trustPool>
 
 /**

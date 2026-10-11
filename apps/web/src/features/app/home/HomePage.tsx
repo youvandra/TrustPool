@@ -1,4 +1,4 @@
-import { ArrowUpRight, BellRing, Lock, Receipt, Shield } from 'lucide-react'
+import { ArrowUpRight, Lock, Receipt, Shield, Users } from 'lucide-react'
 import { Link } from 'react-router'
 import { averageBps, returnBps, type Call, type Caller } from '@trustpool/core'
 import { useSession } from '@/auth/session'
@@ -23,26 +23,26 @@ function greeting() {
 
 /** Four numbers that describe the whole board right now. */
 function Pulse({ calls, callers }: { calls: Call[]; callers: Caller[] }) {
-  const exiting = calls.filter((c) => c.state === 'Exiting').sort((a, b) => a.exitAt! - b.exitAt!)
-  const locked = calls.filter((c) => c.state === 'Locked')
-  const done = calls.filter((c) => c.state === 'Settled' || c.state === 'Released')
+  const open = calls.filter((c) => c.state === 'Open' && c.rules.windowEnd > Date.now()).sort((a, b) => a.rules.windowEnd - b.rules.windowEnd)
+  const holding = calls.filter((c) => c.state === 'Holding')
+  const done = calls.filter((c) => c.state === 'Settled')
   const losses = done.filter((c) => returnBps(c)! < 0).length
   const bonded = callers.reduce((s, c) => s + c.bond, 0)
   const tiles = [
     {
-      icon: BellRing,
-      label: 'Exits announced',
-      value: exiting.length,
-      foot: exiting[0] ? (
+      icon: Users,
+      label: 'Windows open',
+      value: open.length,
+      foot: open[0] ? (
         <>
-          next in <Countdown at={exiting[0].exitAt!} className="font-medium text-white" />
+          next closes in <Countdown at={open[0].rules.windowEnd} className="font-medium text-white" />
         </>
       ) : (
-        'none pending'
+        'none right now'
       ),
       tone: 'hero' as const,
     },
-    { icon: Lock, label: 'Locked now', value: locked.length, foot: `${mon(locked.reduce((s, c) => s + c.monIn, 0))} of callers' own money`, tone: 'ink' as const },
+    { icon: Lock, label: 'Holding', value: holding.length, foot: `${mon(holding.reduce((s, c) => s + c.totalIn, 0))} pooled`, tone: 'ink' as const },
     { icon: Receipt, label: 'Settled', value: done.length, foot: `${losses} of them at a loss`, tone: 'plain' as const },
     { icon: Shield, label: 'Bonded', value: mon(bonded), foot: `across ${callers.length} callers`, tone: 'plain' as const },
   ]
@@ -81,10 +81,10 @@ function FollowingList({ callers }: { callers: Caller[] }) {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-medium">{c.handle}</p>
                 <p className="text-[12px] text-ink-3">
-                  {c.record.settled + c.record.released} settled · {c.record.losses} at a loss
+                  Tier <span className="num">{c.tier}</span> · {c.record.settled} settled · {c.record.losses} at a loss
                 </p>
               </div>
-              <Signed bps={averageBps(c.record)} pill />
+              {c.record.settled > 0 && <Signed bps={averageBps(c.record)} pill />}
             </Link>
           </li>
         ))}
@@ -98,7 +98,7 @@ function HowCard() {
     <Link to="/docs" className="group flex items-center justify-between gap-4 rounded-2xl bg-ink p-5 text-white shadow-card transition-transform hover:-translate-y-0.5">
       <span>
         <span className="eyebrow block text-accent-lift">New here</span>
-        <span className="mt-1.5 block text-[15px] font-semibold">How a call protects you</span>
+        <span className="mt-1.5 block text-[15px] font-semibold">How a pooled call works</span>
       </span>
       <span className="grid h-9 w-9 place-items-center rounded-full bg-white/10 transition-colors group-hover:bg-white/20">
         <ArrowUpRight size={16} />
@@ -129,8 +129,9 @@ export default function HomePage() {
       </div>
     )
 
-  const exiting = calls.filter((c) => c.state === 'Exiting').sort((a, b) => a.exitAt! - b.exitAt!)
-  const fresh = calls.filter((c) => c.state === 'Locked' || c.state === 'Exiting').slice(0, 4)
+  const now = Date.now()
+  const open = calls.filter((c) => c.state === 'Open' && c.rules.windowEnd > now).sort((a, b) => a.rules.windowEnd - b.rules.windowEnd)
+  const holding = calls.filter((c) => c.state === 'Holding').slice(0, 4)
   const mineFirst = (c: Call) => (watching.includes(c.id) || isFollowing(followed, c.caller) ? 0 : 1)
 
   return (
@@ -146,41 +147,42 @@ export default function HomePage() {
 
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <div className="space-y-6">
+          <div>
+            <SectionHead title="Windows open" sub="Join before they close. Everyone gets the same entry." action={<SeeAll to="/app/calls?tab=open" />} />
+            {open.length === 0 ? (
+              <Card className="mt-4">
+                <Empty
+                  icon={<Users size={18} />}
+                  title="No window open right now"
+                  body="New pools show here the moment a caller opens one."
+                  action={
+                    <ButtonLink to="/app/calls" variant="secondary">
+                      Browse calls
+                    </ButtonLink>
+                  }
+                />
+              </Card>
+            ) : (
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                {[...open].sort((a, b) => mineFirst(a) - mineFirst(b)).slice(0, 4).map((c) => (
+                  <CallCard key={c.id} call={c} caller={by(c.caller)} />
+                ))}
+              </div>
+            )}
+          </div>
+
           <Card className="p-2 sm:p-3">
-            <SectionHead
-              className="px-3 pb-2 pt-3"
-              title="Exiting soon"
-              sub="The clock is your head start."
-              action={<SeeAll to="/app/calls?tab=exiting" />}
-            />
-            {exiting.length === 0 ? (
-              <Empty
-                icon={<BellRing size={18} />}
-                title="No exits announced"
-                body="They show here hours before a sale."
-                action={
-                  <ButtonLink to="/app/calls" variant="secondary">
-                    Browse calls
-                  </ButtonLink>
-                }
-              />
+            <SectionHead className="px-3 pb-2 pt-3" title="Holding" sub="Bought together, waiting for a rule." action={<SeeAll to="/app/calls?tab=holding" />} />
+            {holding.length === 0 ? (
+              <p className="px-3 pb-4 text-[13.5px] text-ink-3">No pool is holding right now.</p>
             ) : (
               <div className="divide-y divide-line">
-                {[...exiting].sort((a, b) => mineFirst(a) - mineFirst(b)).map((c) => (
+                {holding.map((c) => (
                   <CallRow key={c.id} call={c} caller={by(c.caller)} />
                 ))}
               </div>
             )}
           </Card>
-
-          <div>
-            <SectionHead title="New calls" action={<SeeAll to="/app/calls" />} />
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              {fresh.map((c) => (
-                <CallCard key={c.id} call={c} caller={by(c.caller)} />
-              ))}
-            </div>
-          </div>
         </div>
 
         <div className="space-y-6">
@@ -188,8 +190,8 @@ export default function HomePage() {
           <HowCard />
           {!s.authenticated && (
             <Card className="p-5">
-              <p className="text-[15px] font-semibold">Get exit alerts</p>
-              <p className="mt-1 text-[13.5px] text-ink-3">Follow callers, hear exits first.</p>
+              <p className="text-[15px] font-semibold">Get alerts</p>
+              <p className="mt-1 text-[13.5px] text-ink-3">Follow callers, hear when their pools open.</p>
               <Button className="mt-4" onClick={s.login}>
                 Sign in
               </Button>

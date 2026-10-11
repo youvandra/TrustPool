@@ -9,22 +9,41 @@ interface Step {
   active?: boolean
 }
 
-/** Opened → lock ends → exit announced → executes → on the record. Future steps are hollow. */
+const REASON = { take_profit: 'take-profit', stop_loss: 'stop-loss', max_hold: 'max hold' } as const
+
+/** Window opens → closes → one buy → one sale (or a refund, or a split) → on the record. Future steps are hollow. */
 export default function Timeline({ call, now }: { call: Call; now: number }) {
-  const finished = call.state === 'Settled' || call.state === 'Released'
+  const r = call.rules
   const steps: Step[] = [
-    { label: 'Bought and locked', at: call.openedAt, done: true },
-    { label: 'Lock ends', at: call.unlockAt, done: now >= call.unlockAt },
-    {
-      label: 'Exit announced',
-      at: call.announcedAt,
-      done: call.state !== 'Locked',
-      active: call.state === 'Exiting',
-      note: call.state === 'Locked' ? 'Not yet. Watchers get an alert the moment it happens.' : undefined,
-    },
-    { label: 'Exit can execute', at: call.exitAt, done: finished || (call.exitAt !== undefined && now >= call.exitAt) },
-    { label: call.state === 'Released' ? 'Released unsold · recorded −100%' : 'Result on the record', done: finished },
+    { label: 'Window opened', at: call.openedAt, done: true, active: call.state === 'Open' && now < r.windowEnd },
+    { label: 'Window closes', at: r.windowEnd, done: now >= r.windowEnd || call.state !== 'Open' },
   ]
+  if (call.state === 'Refunded') {
+    steps.push({ label: call.negligent ? 'Never bought · refunded, recorded as negligent' : 'Below the minimum · refunded', at: call.closedAt, done: true })
+  } else {
+    steps.push({
+      label: 'Bought together, one price',
+      at: call.boughtAt ?? r.buyDeadline,
+      done: call.boughtAt !== undefined,
+      note: call.boughtAt === undefined ? `The caller must buy before ${date(r.buyDeadline)}, or anyone can refund the pool.` : undefined,
+    })
+    // A sale on take-profit or stop-loss comes before max hold, which then never happens.
+    const soldEarly = call.state === 'Settled' && call.saleReason !== 'max_hold'
+    if (!soldEarly)
+      steps.push({
+        label: 'Max hold: anyone may sell',
+        at: call.holdUntil,
+        done: call.holdUntil !== undefined && now >= call.holdUntil,
+        active: call.state === 'Holding',
+      })
+    if (call.state === 'Split') steps.push({ label: 'Could not be sold · tokens split', at: call.closedAt, done: true })
+    else
+      steps.push({
+        label: call.saleReason ? `Sold together on ${REASON[call.saleReason]} · on the record` : 'Sold together · on the record',
+        at: call.closedAt,
+        done: call.state === 'Settled',
+      })
+  }
   return (
     <ol>
       {steps.map((s, i) => (

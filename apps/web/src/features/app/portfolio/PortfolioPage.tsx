@@ -1,91 +1,89 @@
-import { BellRing, Lock, Plus, Shield, Unlock, Wallet } from 'lucide-react'
+import { Coins, Lock, Plus, Shield, ShoppingCart, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { averageBps, returnBps, type Call } from '@trustpool/core'
+import { averageBps, type Call, type Position } from '@trustpool/core'
 import { useSession } from '@/auth/session'
-import { Button, ButtonLink, Card, Empty, Modal, Row, SectionHead, Signed, Skeleton, SkeletonRows, Stat, StateTag, toast, TokenIcon } from '@/components/ui'
-import { date, duration, mon } from '@/lib/format'
+import { Button, ButtonLink, Card, Empty, Modal, SectionHead, Signed, Skeleton, SkeletonRows, Stat, StateTag, TokenIcon } from '@/components/ui'
+import { date, mon, signedPct, tokens } from '@/lib/format'
 import { source } from '@/lib/data'
-import { useLoad, useTitle } from '@/lib/hooks'
-import { actions } from '@/lib/store'
-import { useTrustPool, type TrustPoolTx } from '@/lib/tx'
-import { useLocalCalls } from '@/lib/view'
-import Countdown from '../components/Countdown'
+import { useLoad, useNow, useTitle } from '@/lib/hooks'
+import { actions, useStore } from '@/lib/store'
+import { applyLocal, applyLocalParticipants } from '@/lib/view'
+import { useAct } from '../components/act'
+import { ClockCell } from '../components/CallCard'
 import RequireAuth from '../shell/RequireAuth'
 
+type Act = ReturnType<typeof useAct>
+
 async function load(address: string) {
-  const [caller, calls] = await Promise.all([source.getCaller(address), source.listCalls({ caller: address })])
-  return { caller, calls }
+  const [caller, mine, positions, all] = await Promise.all([source.getCaller(address), source.listCalls({ caller: address }), source.positions(address), source.listCalls()])
+  return { caller, mine, positions, calls: new Map(all.map((c) => [c.id, c])) }
 }
 
-/** Default release grace from the contract; the contract checks the call's own value. */
-const RELEASE_GRACE = 6 * 3_600_000
+const ended = (c: Call) => c.state === 'Settled' || c.state === 'Refunded' || c.state === 'Split'
+const owed = (c: Call, p: Position) => (c.state === 'Split' ? `${tokens(p.claimTokens ?? 0)} ${c.token.symbol}` : mon(p.claimMon ?? 0))
 
-type Act = (label: string, fn: (t: TrustPoolTx) => Promise<unknown>, done: string) => Promise<boolean>
-
-/** One open position with the only actions a caller has: announce, execute, or release. */
-function OpenPosition({ call, onAnnounce, act, pending }: { call: Call; onAnnounce: (c: Call) => void; act: Act; pending: string | null }) {
-  const busy = !!pending
-  const now = Date.now()
-  const unlocked = now >= call.unlockAt
-  const canRelease = call.state === 'Exiting' && now >= call.exitAt! + RELEASE_GRACE
+/** One position: what is in, where the call stands, and the one thing to do, if any. */
+function PositionRow({ call, p, a }: { call: Call; p: Position; a: Act }) {
+  const claimable = ended(call) && !p.claimed
   return (
-    <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-      <Link to={`/app/calls/${call.id}`} className="flex items-center gap-3">
+    <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <Link to={`/app/calls/${call.id}`} className="flex min-w-0 items-center gap-3">
         <TokenIcon token={call.token} size={40} />
-        <div>
-          <p className="flex items-center gap-2 text-[15px] font-semibold">
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold">
             {call.token.symbol} <span className="num text-[12px] font-normal text-ink-3">#{call.id}</span>
             <StateTag state={call.state} size="sm" />
+            {p.isCaller && <span className="rounded-full bg-ink px-2 py-0.5 text-[11px] font-medium text-white">your call</span>}
           </p>
           <p className="mt-0.5 text-[12.5px] text-ink-3">
-            {mon(call.monIn)} locked ·{' '}
-            {call.state === 'Exiting' ? (
-              <>
-                executable in <Countdown at={call.exitAt!} done="now" className="text-accent-deep" />
-              </>
-            ) : unlocked ? (
-              'lock ended'
-            ) : (
-              <>
-                lock ends in <Countdown at={call.unlockAt} />
-              </>
-            )}
+            <span className="num">{mon(p.deposit)}</span> in · {ended(call) ? (p.claimed ? `claimed ${owed(call, p)}` : `${owed(call, p)} to claim`) : `pool ${mon(call.totalIn)}`}
           </p>
         </div>
       </Link>
-      {call.state === 'Locked' ? (
-        <Button variant="accent" icon={BellRing} onClick={() => onAnnounce(call)}>
-          Announce exit
-        </Button>
-      ) : (
-        <div className="flex gap-2">
-          {canRelease && (
-            <Button
-              variant="secondary"
-              icon={Unlock}
-              disabled={busy}
-              title="Take the tokens unsold. Your record counts this call as -100%."
-              onClick={() => void act('Releasing', (t) => t.releaseTokens(call.id), 'Tokens released to you. The record counts this call as -100%.')}
-            >
-              {pending === 'Releasing' ? 'Releasing…' : 'Release unsold'}
-            </Button>
-          )}
-          <Button
-            disabled={busy || now < call.exitAt!}
-            title="Available once the notice period ends"
-            onClick={() => void act('Selling', (t) => t.executeExit(call.id), 'Sold and settled. The result is on your record.')}
-          >
-            {pending === 'Selling' ? 'Selling…' : 'Sell and settle'}
-          </Button>
+      <div className="flex items-center gap-4 sm:text-right">
+        <div className="min-w-[96px]">
+          <ClockCell call={call} />
         </div>
-      )}
+        {claimable && (
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!!a.pending}
+            onClick={() => void a.act('Claiming', (t) => t.claim(call.id), `Claimed ${owed(call, p)}.`, () => actions.claim(call.id))}
+          >
+            {a.pending === 'Claiming' ? 'Claiming…' : 'Claim'}
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** A pool the caller opened whose window has closed: the buy is theirs to do, before the deadline. */
+function BuyDue({ call, a }: { call: Call; a: Act }) {
+  return (
+    <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <Link to={`/app/calls/${call.id}`} className="flex items-center gap-3">
+        <TokenIcon token={call.token} size={40} />
+        <div>
+          <p className="text-[15px] font-semibold">
+            {call.token.symbol} <span className="num text-[12px] font-normal text-ink-3">#{call.id}</span>
+          </p>
+          <p className="mt-0.5 text-[12.5px] text-ink-3">
+            Window closed with <span className="num">{mon(call.totalIn)}</span>. Buy before <span className="num">{date(call.rules.buyDeadline)}</span>.
+          </p>
+        </div>
+      </Link>
+      <Button variant="accent" icon={ShoppingCart} disabled={!!a.pending} onClick={() => void a.act('Buying', (t) => t.buy(call.id), 'Bought for the whole pool, one price for everyone.')}>
+        {a.pending === 'Buying' ? 'Buying…' : 'Buy for the pool'}
+      </Button>
     </div>
   )
 }
 
 /** Add to the bond, or start and finish a withdrawal. The contract enforces every rule. */
-function BondModal({ open, onClose, act, pending, hasOpen }: { open: boolean; onClose: () => void; act: Act; pending: string | null; hasOpen: boolean }) {
+function BondModal({ open, onClose, act, pending, hasOpen }: { open: boolean; onClose: () => void; act: Act['act']; pending: string | null; hasOpen: boolean }) {
   const busy = !!pending
   const [amount, setAmount] = useState('10')
   const value = Number(amount)
@@ -105,10 +103,10 @@ function BondModal({ open, onClose, act, pending, hasOpen }: { open: boolean; on
       </Button>
       <div className="mt-6 border-t border-line pt-5">
         <p className="text-[13.5px] leading-[1.55] text-ink-2">
-          Withdrawing takes two steps: request it, then withdraw after 7 days. It needs no open calls, and opening a call or adding to the bond cancels a pending request.
+          Withdrawing takes two steps: request it, then withdraw after the cooldown. It needs no open or holding calls, and opening a call or adding to the bond cancels a pending request.
         </p>
         <div className="mt-4 flex gap-2">
-          <Button variant="secondary" block disabled={busy || hasOpen} onClick={() => void act('Requesting withdrawal', (t) => t.requestBondWithdraw(), 'Withdrawal requested. You can withdraw in 7 days.')}>
+          <Button variant="secondary" block disabled={busy || hasOpen} onClick={() => void act('Requesting withdrawal', (t) => t.requestBondWithdraw(), 'Withdrawal requested. You can withdraw after the cooldown.')}>
             {pending === 'Requesting withdrawal' ? 'Requesting…' : 'Request withdrawal'}
           </Button>
           <Button variant="secondary" block disabled={busy || hasOpen} onClick={() => void act('Withdrawing', (t) => t.withdrawBond(), 'Bond withdrawn to your wallet.').then((ok) => ok && onClose())}>
@@ -121,27 +119,14 @@ function BondModal({ open, onClose, act, pending, hasOpen }: { open: boolean; on
 }
 
 function Inner({ address }: { address: string }) {
-  const [version, setVersion] = useState(0)
-  const data = useLoad(() => load(address), [address, version])
-  const calls = useLocalCalls(data?.calls)
-  const [confirm, setConfirm] = useState<Call | null>(null)
+  const a = useAct()
+  const data = useLoad(() => load(address), [address, a.version])
+  const joined = useStore((s) => s.joined)
+  const claimed = useStore((s) => s.claimed)
   const [bondOpen, setBondOpen] = useState(false)
-  const tx = useTrustPool()
+  const now = useNow(10_000)
 
-  /** Sends one transaction, reports the outcome, and reloads once the indexer has seen it. */
-  const act: Act = async (label, fn, done) => {
-    if (!tx.enabled) {
-      toast('Demo: transactions need a Privy wallet and a deployment')
-      return false
-    }
-    toast(`${label}… confirm in your wallet`)
-    const r = await tx.run(label, fn)
-    toast(r.ok ? done : r.error)
-    if (r.ok) setTimeout(() => setVersion((v) => v + 1), 2_500)
-    return r.ok
-  }
-
-  if (!data || !calls)
+  if (!data)
     return (
       <div className="space-y-6">
         <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1.2fr]">
@@ -152,159 +137,157 @@ function Inner({ address }: { address: string }) {
         <SkeletonRows rows={3} />
       </div>
     )
-  const { caller } = data
-  const open = calls.filter((c) => c.state === 'Locked' || c.state === 'Exiting')
-  const done = calls.filter((c) => !open.includes(c))
 
-  if (!caller)
-    return (
-      <Card>
-        <Empty
-          icon={<Wallet size={18} />}
-          title="You have not opened a call yet"
-          body="Post a bond, buy, and it goes public."
-          action={
-            <ButtonLink to="/app/new" icon={Plus}>
-              Open your first call
-            </ButtonLink>
-          }
-        />
-      </Card>
-    )
+  const { caller } = data
+  // Demo-only deposits and claims, laid over the fixed set; with the API they are already on chain.
+  // A demo join on a call the demo set has no position for yet.
+  const fresh: Position[] = Object.entries(joined)
+    .filter(([id, v]) => v > 0 && !data.positions.some((p) => p.callId === Number(id)))
+    .map(([id]) => ({ callId: Number(id), address, deposit: 0, isCaller: false, claimed: false }))
+  const rows = [...fresh, ...data.positions]
+    .map((p) => {
+      const c = data.calls.get(p.callId)
+      if (!c) return undefined
+      const call = applyLocal(c, joined)
+      const [mine] = applyLocalParticipants(call, [p], joined, claimed, address)
+      return mine ? { call, p: { ...p, ...mine } } : undefined
+    })
+    .filter((x): x is { call: Call; p: Position } => !!x)
+  const active = rows.filter((r) => !ended(r.call))
+  const toClaim = rows.filter((r) => ended(r.call) && !r.p.claimed)
+  const history = rows.filter((r) => ended(r.call) && r.p.claimed)
+  const buyDue = data.mine.filter((c) => c.state === 'Open' && now >= c.rules.windowEnd && now < c.rules.buyDeadline && c.totalIn >= c.rules.minPool)
+  const callerActive = data.mine.some((c) => c.state === 'Open' || c.state === 'Holding')
+  const pendingMon = toClaim.filter((r) => r.call.state !== 'Split').reduce((s, r) => s + (r.p.claimMon ?? 0), 0)
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1.2fr]">
+        <Card className="p-5">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-ink text-white">
+            <Lock size={16} />
+          </span>
+          <Stat className="mt-4" label="In pools now" value={mon(active.reduce((s, r) => s + r.p.deposit, 0))} foot={`${active.length} ${active.length === 1 ? 'position' : 'positions'}`} />
+        </Card>
+        <Card className="p-5">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent-fill text-accent-strong">
+            <Coins size={16} />
+          </span>
+          <Stat className="mt-4" label="Waiting to be claimed" value={mon(pendingMon)} foot={`${toClaim.length} ${toClaim.length === 1 ? 'claim' : 'claims'}`} />
+        </Card>
         <Card tone="accent" className="p-5">
           <div className="flex items-center justify-between">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15 text-white">
               <Shield size={16} />
             </span>
-            <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11.5px] font-medium text-white">{open.length ? 'Locked by open calls' : 'Withdrawable after 7 days'}</span>
+            <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11.5px] font-medium text-white">{callerActive ? 'Locked by your calls' : 'Withdrawable after cooldown'}</span>
           </div>
-          <p className="mt-4 text-[13px] text-white/80">Bond</p>
-          <p className="num mt-1.5 text-[28px] font-medium tracking-[-0.03em]">{mon(caller.bond)}</p>
-          <p className="mt-1 text-[12.5px] text-white/75">{caller.record.slashes ? `Slashed ${caller.record.slashes === 1 ? 'once' : `${caller.record.slashes} times`}` : 'Never slashed'}</p>
-          <div className="mt-4 flex gap-2">
+          <p className="mt-4 text-[13px] text-white/80">Bond {caller ? `· tier ${caller.tier}` : ''}</p>
+          <p className="num mt-1.5 text-[28px] font-medium tracking-[-0.03em]">{mon(caller?.bond ?? 0)}</p>
+          <p className="mt-1 text-[12.5px] text-white/75">
+            {caller ? (
+              <>
+                {caller.record.settled} settled · {caller.record.losses} at a loss
+                {caller.record.settled > 0 && (
+                  <>
+                    {' '}
+                    · avg <span className="num">{signedPct(averageBps(caller.record))}</span>
+                  </>
+                )}
+              </>
+            ) : (
+              'Needed only to open calls'
+            )}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => setBondOpen(true)} className="h-8 rounded-lg bg-white px-3 text-[13px] font-medium text-accent-deep hover:bg-white/90">
-              Add
+              {caller ? 'Add or withdraw' : 'Post a bond'}
             </button>
-            <button type="button" disabled={open.length > 0} onClick={() => setBondOpen(true)} className="h-8 rounded-lg px-3 text-[13px] font-medium text-white/90 ring-1 ring-inset ring-white/30 disabled:opacity-40">
-              Withdraw
-            </button>
-          </div>
-        </Card>
-        <Card className="p-5">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-ink text-white">
-            <Lock size={16} />
-          </span>
-          <Stat className="mt-4" label="Locked in open calls" value={mon(open.reduce((s, c) => s + c.monIn, 0))} foot={`${open.length} open`} />
-        </Card>
-        <Card className="p-5">
-          <p className="text-[13px] text-ink-3">Your public record</p>
-          <div className="mt-3 grid grid-cols-3 gap-3">
-            <Stat label="Settled" value={caller.record.settled + caller.record.released} />
-            <Stat label="At a loss" value={caller.record.losses} />
-            <Stat label="Average" value={<Signed bps={averageBps(caller.record)} />} />
-          </div>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
-            <Link to={`/app/callers/${caller.address}`} className="text-[13px] font-medium text-ink-3 hover:text-ink">
-              Your profile →
-            </Link>
+            {caller && (
+              <Link to={`/app/callers/${caller.address}`} className="px-2 text-[13px] font-medium text-white/90 hover:text-white">
+                Your profile →
+              </Link>
+            )}
           </div>
         </Card>
       </div>
 
+      {buyDue.length > 0 && (
+        <Card className="ring-4 ring-accent/[0.08]">
+          <SectionHead className="px-5 pt-5" title="Your buy is due" sub="If you do not buy before the deadline, anyone can refund the pool, and your record counts it as negligent." />
+          <div className="mt-2 divide-y divide-line">
+            {buyDue.map((c) => (
+              <BuyDue key={c.id} call={c} a={a} />
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {toClaim.length > 0 && (
+        <Card>
+          <SectionHead className="px-5 pt-5" title="To claim" />
+          <div className="mt-2 divide-y divide-line">
+            {toClaim.map((r) => (
+              <PositionRow key={r.call.id} call={r.call} p={r.p} a={a} />
+            ))}
+          </div>
+        </Card>
+      )}
+
       <Card>
         <SectionHead
           className="px-5 pt-5"
-          title="Open calls"
-          sub="Announcing starts the notice clock."
+          title="Open positions"
           action={
             <ButtonLink to="/app/new" size="sm" variant="secondary" icon={Plus}>
               New call
             </ButtonLink>
           }
         />
-        {open.length === 0 ? (
+        {active.length === 0 ? (
           <Empty
-            title="No open calls"
+            icon={<Wallet size={18} />}
+            title="Nothing in a pool right now"
             action={
-              <ButtonLink to="/app/new" variant="secondary" icon={Plus}>
-                Open a call
+              <ButtonLink to="/app/calls?tab=open" variant="secondary">
+                See open windows
               </ButtonLink>
             }
           />
         ) : (
           <div className="mt-2 divide-y divide-line">
-            {open.map((c) => (
-              <OpenPosition key={c.id} call={c} onAnnounce={setConfirm} act={act} pending={tx.pending} />
+            {active.map((r) => (
+              <PositionRow key={r.call.id} call={r.call} p={r.p} a={a} />
             ))}
           </div>
         )}
       </Card>
 
-      <Card>
-        <SectionHead className="px-5 pt-5" title="History" />
-        <ul className="mt-2 divide-y divide-line">
-          {done.map((c) => (
-            <li key={c.id}>
-              <Link to={`/app/calls/${c.id}`} className="flex items-center justify-between gap-4 px-5 py-3.5 hover:bg-subtle">
-                <span className="flex items-center gap-3">
-                  <TokenIcon token={c.token} size={32} />
-                  <span>
-                    <span className="block text-[14px] font-semibold">{c.token.symbol}</span>
-                    <span className="num block text-[12px] text-ink-3">{date(c.openedAt)}</span>
+      {history.length > 0 && (
+        <Card>
+          <SectionHead className="px-5 pt-5" title="History" />
+          <ul className="mt-2 divide-y divide-line">
+            {history.map(({ call, p }) => (
+              <li key={call.id}>
+                <Link to={`/app/calls/${call.id}`} className="flex items-center justify-between gap-4 px-5 py-3.5 hover:bg-subtle">
+                  <span className="flex items-center gap-3">
+                    <TokenIcon token={call.token} size={32} />
+                    <span>
+                      <span className="block text-[14px] font-semibold">{call.token.symbol}</span>
+                      <span className="num block text-[12px] text-ink-3">
+                        {mon(p.deposit)} in · {owed(call, p)} out
+                      </span>
+                    </span>
                   </span>
-                </span>
-                <Signed bps={returnBps(c)!} pill />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </Card>
+                  {call.state === 'Settled' ? <Signed bps={call.netReturnBps!} pill /> : <StateTag state={call.state} size="sm" />}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
-
-      <BondModal open={bondOpen} onClose={() => setBondOpen(false)} act={act} pending={tx.pending} hasOpen={open.length > 0} />
-
-      <Modal open={!!confirm} onClose={() => setConfirm(null)} title="Announce your exit?">
-        {confirm && (
-          <>
-            <p className="text-[14px] leading-[1.55] text-ink-2">
-              Everyone watching {confirm.token.symbol} #{confirm.id} is alerted now. You can sell after the notice period, and not before.
-            </p>
-            <div className="mt-5 rounded-xl bg-subtle p-4">
-              <Row label="Notice">
-                <span className="num">{duration(confirm.notice)}</span>
-              </Row>
-              <Row label="Earliest sale">
-                <span className="num">{date(Math.max(confirm.unlockAt, Date.now() + confirm.notice))}</span>
-              </Row>
-            </div>
-            <div className="mt-6 flex gap-2">
-              <Button variant="secondary" block onClick={() => setConfirm(null)}>
-                Keep holding
-              </Button>
-              <Button
-                block
-                variant="accent"
-                disabled={!!tx.pending}
-                onClick={() => {
-                  const c = confirm
-                  setConfirm(null)
-                  if (!tx.enabled) {
-                    actions.announce(c.id) // demo: shown locally only
-                    return toast(`Exit announced. ${c.watchers} watchers alerted.`)
-                  }
-                  void act('Announcing', (t) => t.announceExit(c.id), `Exit announced on chain. ${c.watchers} watchers alerted.`)
-                }}
-              >
-                Announce
-              </Button>
-            </div>
-          </>
-        )}
-      </Modal>
+      <BondModal open={bondOpen} onClose={() => setBondOpen(false)} act={a.act} pending={a.pending} hasOpen={callerActive} />
     </div>
   )
 }
@@ -317,7 +300,7 @@ export default function PortfolioPage() {
       <div>
         <h1 className="text-[26px] font-semibold tracking-[-0.03em] sm:text-[30px]">Portfolio</h1>
       </div>
-      <RequireAuth title="Sign in to see your calls" body="Your bond and open calls live here.">
+      <RequireAuth title="Sign in to see your positions" body="Your deposits, claims and bond live here.">
         {s.address ? <Inner address={s.address} /> : <Skeleton className="h-[320px] rounded-2xl" />}
       </RequireAuth>
     </div>

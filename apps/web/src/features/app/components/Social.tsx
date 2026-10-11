@@ -41,24 +41,24 @@ export function FollowButton({
   )
 }
 
-/** Watch a call: get an alert the moment its exit is announced. */
-export function WatchButton({ id, size = 'md', block }: { id: number; size?: 'sm' | 'md'; block?: boolean }) {
+/** Watch a call: an alert as its window closes, and when it buys and sells. */
+export function WatchButton({ id, size = 'md', block, variant = 'primary' }: { id: number; size?: 'sm' | 'md'; block?: boolean; variant?: 'primary' | 'secondary' }) {
   const { authenticated, login } = useSession()
   const on = useStore((s) => s.watching.includes(id)) && authenticated
   return (
     <Button
       size={size}
       block={block}
-      variant={on ? 'soft' : 'primary'}
+      variant={on ? 'soft' : variant}
       icon={on ? BellRing : Bell}
       onClick={(e) => {
         e.preventDefault()
         if (!authenticated) return login()
         const now = actions.toggleWatch(id)
-        toast(now ? 'You will be alerted when the exit is announced' : 'Stopped watching this call')
+        toast(now ? 'You will get an alert as this call moves: window closing, bought, sold' : 'Stopped watching this call')
       }}
     >
-      {on ? 'Watching for exit' : 'Alert me on exit'}
+      {on ? 'Watching' : 'Alert me'}
     </Button>
   )
 }

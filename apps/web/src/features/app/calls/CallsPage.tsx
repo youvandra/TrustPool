@@ -8,16 +8,19 @@ import { useLoad, useTitle } from '@/lib/hooks'
 import { useLocalCalls } from '@/lib/view'
 import CallCard, { CallRow } from '../components/CallCard'
 
-type Tab = 'all' | 'locked' | 'exiting' | 'done'
-const IN: Record<Tab, CallState[] | null> = { all: null, locked: ['Locked'], exiting: ['Exiting'], done: ['Settled', 'Released'] }
-type Sort = 'new' | 'exit'
+type Tab = 'all' | 'open' | 'holding' | 'done'
+const IN: Record<Tab, CallState[] | null> = { all: null, open: ['Open'], holding: ['Holding'], done: ['Settled', 'Refunded', 'Split'] }
+type Sort = 'open' | 'new' | 'clock'
+
+/** The next moment that matters for a call: its window closing, or its max hold. */
+const clockOf = (c: Call) => (c.state === 'Open' ? c.rules.windowEnd : c.state === 'Holding' ? c.holdUntil! : Number.MAX_SAFE_INTEGER)
 
 async function load() {
   const [calls, callers, tokens] = await Promise.all([source.listCalls(), source.listCallers(), source.listTokens()])
   return { calls, callers, tokens }
 }
 
-/** All calls, newest first by default. No ranking by results, on purpose. */
+/** All calls, open windows first, then newest. No ranking by results, on purpose. */
 export default function CallsPage() {
   useTitle('Calls · trustpool')
   const [params, setParams] = useSearchParams()
@@ -25,7 +28,7 @@ export default function CallsPage() {
   const q = params.get('q') ?? ''
   const token = params.get('token') ?? ''
   const [view, setView] = useState<'grid' | 'list'>('grid')
-  const [sort, setSort] = useState<Sort>('new')
+  const [sort, setSort] = useState<Sort>('open')
   const data = useLoad(load, [])
   const calls = useLocalCalls(data?.calls)
 
@@ -44,7 +47,8 @@ export default function CallsPage() {
   }
   const shown = useMemo(() => {
     let out = (calls ?? []).filter((c) => (!IN[tab] || IN[tab]!.includes(c.state)) && (!token || c.token.symbol === token) && matches(c))
-    if (sort === 'exit') out = [...out].sort((a, b) => (a.exitAt ?? a.unlockAt) - (b.exitAt ?? b.unlockAt))
+    if (sort === 'open') out = [...out].sort((a, b) => Number(b.state === 'Open') - Number(a.state === 'Open') || b.openedAt - a.openedAt)
+    if (sort === 'clock') out = [...out].sort((a, b) => clockOf(a) - clockOf(b))
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calls, tab, token, q, sort])
@@ -63,9 +67,9 @@ export default function CallsPage() {
           onChange={(v) => set('tab', v === 'all' ? '' : v)}
           options={[
             { v: 'all', label: 'All', count: count('all') },
-            { v: 'exiting', label: 'Exit announced', count: count('exiting') },
-            { v: 'locked', label: 'Locked', count: count('locked') },
-            { v: 'done', label: 'Settled', count: count('done') },
+            { v: 'open', label: 'Window open', count: count('open') },
+            { v: 'holding', label: 'Holding', count: count('holding') },
+            { v: 'done', label: 'Ended', count: count('done') },
           ]}
         />
         <div className="flex items-center gap-2">
@@ -79,8 +83,9 @@ export default function CallsPage() {
             className="h-10 cursor-pointer rounded-xl border border-line bg-surface px-3 text-[13.5px] text-ink-2 outline-none focus:border-accent/50 focus:shadow-ring"
             aria-label="Sort"
           >
+            <option value="open">Open windows first</option>
             <option value="new">Newest</option>
-            <option value="exit">Next clock first</option>
+            <option value="clock">Next clock first</option>
           </select>
           <div className="hidden rounded-xl border border-line bg-surface p-1 sm:flex">
             {(['grid', 'list'] as const).map((v) => (

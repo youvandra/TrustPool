@@ -32,8 +32,8 @@ export function duration(ms: number): string {
   const d = Math.floor(m / 1440)
   const h = Math.floor((m % 1440) / 60)
   const mm = m % 60
-  if (d > 0) return `${d}d ${h}h`
-  if (h > 0) return `${h}h ${mm}m`
+  if (d > 0) return h ? `${d}d ${h}h` : `${d}d`
+  if (h > 0) return mm ? `${h}h ${mm}m` : `${h}h`
   return `${mm}m`
 }
 
@@ -62,3 +62,6 @@ export function ago(ms: number, now = Date.now()): string {
 }
 
 export const compact = (n: number) => n.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 1 })
+
+/** An unsigned share or rule in basis points: "10%", "2.5%". */
+export const pct = (bps: number) => `${(bps / 100).toFixed(bps % 100 ? (bps % 10 ? 2 : 1) : 0)}%`

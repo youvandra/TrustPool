@@ -2,26 +2,21 @@ import { motion } from 'motion/react'
 import { ArrowLeft, ArrowRight, Check, Loader2, Lock } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
-import type { Call, Token } from '@trustpool/core'
+import { TIERS, type Call, type Token } from '@trustpool/core'
 import { useSession } from '@/auth/session'
 import { Button, Card, Modal, Row, Skeleton, TokenIcon } from '@/components/ui'
-import { date, duration } from '@/lib/format'
+import { date, duration, mon as monText, pct } from '@/lib/format'
+import { DEFAULT_PARAMS, readParams } from '@/lib/chain'
 import { source } from '@/lib/data'
 import { useLoad, usePageVisible, useTitle } from '@/lib/hooks'
 import { useTrustPool } from '@/lib/tx'
 import CallCard from '../components/CallCard'
 import RequireAuth from '../shell/RequireAuth'
 
-// Mirrors contracts/src/TrustPool.sol defaults.
-const MIN_BOND = 10
-const MIN_LOCK_D = 1
-const MAX_LOCK_D = 30
-const MIN_NOTICE_H = 6
 const MAX_THESIS = 280
-const H = 3_600_000
-const D = 24 * H
+const M = 60
 
-const STEPS = ['Token', 'Size', 'Rules', 'Review'] as const
+const STEPS = ['Token', 'Stake', 'Rules', 'Review'] as const
 
 function Stepper({ step }: { step: number }) {
   return (
@@ -45,15 +40,12 @@ function Stepper({ step }: { step: number }) {
 
 const input = 'w-full rounded-xl border border-line bg-surface px-4 text-ink outline-none transition-shadow focus:border-accent/50 focus:shadow-ring'
 
-function Slider({ label, value, unit, min, max, step = 1, onChange, hint }: { label: string; value: number; unit: string; min: number; max: number; step?: number; onChange: (v: number) => void; hint: string }) {
+function Slider({ label, value, show, min, max, step = 1, onChange, hint }: { label: string; value: number; show: string; min: number; max: number; step?: number; onChange: (v: number) => void; hint: string }) {
   return (
     <div>
       <div className="flex items-baseline justify-between">
         <p className="text-[14px] font-medium">{label}</p>
-        <p className="num text-[20px] font-medium tracking-[-0.02em]">
-          {value}
-          <span className="ml-1 text-[13px] text-ink-3">{unit}</span>
-        </p>
+        <p className="num text-[20px] font-medium tracking-[-0.02em]">{show}</p>
       </div>
       <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className="mt-3 w-full accent-[#1F6E9C]" />
       <p className="mt-1 text-[12.5px] text-ink-3">{hint}</p>
@@ -61,15 +53,25 @@ function Slider({ label, value, unit, min, max, step = 1, onChange, hint }: { la
   )
 }
 
+/** Minutes, rounded to a slider step that suits the range. */
+const stepFor = (maxMinutes: number) => (maxMinutes > 24 * 60 ? 60 : maxMinutes > 6 * 60 ? 30 : maxMinutes > 60 ? 5 : 1)
+
 function Flow({ address }: { address: string }) {
   const navigate = useNavigate()
   const visible = usePageVisible()
-  const data = useLoad(async () => ({ tokens: await source.listTokens(), me: await source.getCaller(address) }), [address])
+  const data = useLoad(
+    async () => ({ tokens: await source.listTokens(), me: await source.getCaller(address), params: source.kind === 'api' ? await readParams().catch(() => DEFAULT_PARAMS) : DEFAULT_PARAMS }),
+    [address],
+  )
+  const p = data?.params ?? DEFAULT_PARAMS
   const [step, setStep] = useState(0)
   const [token, setToken] = useState<Token | null>(null)
   const [amount, setAmount] = useState('')
-  const [lockD, setLockD] = useState(3)
-  const [noticeH, setNoticeH] = useState(12)
+  const [windowM, setWindowM] = useState<number>()
+  const [holdM, setHoldM] = useState<number>()
+  const [tp, setTp] = useState(2500)
+  const [sl, setSl] = useState(2000)
+  const [share, setShare] = useState(0)
   const [thesis, setThesis] = useState('')
   const [agree, setAgree] = useState(false)
   const [signing, setSigning] = useState<'idle' | 'wait' | 'done'>('idle')
@@ -78,41 +80,80 @@ function Flow({ address }: { address: string }) {
   const tx = useTrustPool()
 
   const bond = data?.me?.bond ?? 0
-  const needsBond = bond < MIN_BOND
-  const mon = Number(amount) || 0
-  const ok = [!!token, mon > 0, thesis.trim().length > 0, agree][step]
+  const tier = data?.me?.tier ?? 0
+  const limits = TIERS[tier]!
+  const stake = Number(amount) || 0
+  // The cap is bond x tier multiple, fixed at open: it must cover the stake and the minimum pool,
+  // or the pool could never go ahead. Round up to a whole MON.
+  const bondNeeded = Math.max(p.minBond, Math.ceil(Math.max(stake, p.minPool) / limits.multiple))
+  const needsBond = bond < bondNeeded
+  const bondAfter = Math.max(bond, bondNeeded)
+  const win = windowM ?? Math.min(p.maxWindow / M, Math.max(p.minWindow / M, 60))
+  const hold = holdM ?? Math.min(p.maxHold / M, Math.max(p.minHold / M, 24 * 60))
+  const slv = Math.min(Math.max(sl, p.minStopLossBps), p.maxStopLossBps)
+  const sharev = Math.min(share, limits.maxShareBps)
+  const cap = bondAfter * limits.multiple
+  // Joiners can never take the caller under the least stake: the pool tops out at stake / minCallerBps.
+  const stakeCeiling = (stake * 10_000) / p.minCallerBps
+  const ok = [!!token, stake > 0, thesis.length <= MAX_THESIS, agree][step]
 
   const preview: Call | null = useMemo(() => {
     if (!token) return null
     const now = Date.now()
-    const p = 0.002
+    const s = stake || 1
     return {
       id: 0,
       caller: address,
       token,
-      monIn: mon || 100,
-      tokens: (mon || 100) / p,
-      openedAt: now,
-      unlockAt: now + lockD * D,
-      notice: noticeH * H,
-      state: 'Locked',
+      tier,
+      rules: {
+        windowEnd: now + win * M * 1000,
+        buyDeadline: now + win * M * 1000,
+        maxHold: hold * M * 1000,
+        takeProfitBps: tp,
+        stopLossBps: slv,
+        shareBps: sharev,
+        minCallerBps: p.minCallerBps,
+        maxImpactBps: p.maxImpactBps,
+        sellToleranceBps: 200,
+        keeperBps: 10,
+        checkpointGap: p.checkpointGap * 1000,
+        splitGrace: 0,
+        cap,
+        minPool: p.minPool,
+      },
       thesis: thesis || 'Your thesis appears here, fixed once the call opens.',
-      series: [p, p],
+      openedAt: now,
+      state: 'Open',
+      totalIn: s,
+      callerStake: s,
+      depositors: 1,
+      checkpoints: [],
+      series: [],
       watchers: 0,
     }
-  }, [token, mon, lockD, noticeH, thesis, address])
+  }, [token, stake, win, hold, tp, slv, sharev, thesis, address, tier, cap, p])
 
-  /** Posts the missing bond if needed, then buys and locks in one more transaction. */
+  /** Posts the missing bond if needed, then opens the call with the stake in one more transaction. */
   async function submit() {
     setError(null)
     setSigning('wait')
     if (!tx.enabled || !token) return // demo: the modal offers a simulated signature
     if (needsBond) {
-      const r = await tx.run('Posting your bond', (t) => t.postBond(MIN_BOND - bond))
+      const r = await tx.run('Posting your bond', (t) => t.postBond(bondNeeded - bond))
       if (!r.ok) return setError(r.error)
     }
-    const r = await tx.run('Buying and locking', (t) =>
-      t.openCall({ token: token.address as `0x${string}`, mon, lockSeconds: lockD * 86_400, noticeSeconds: noticeH * 3_600, thesis: thesis.trim() }),
+    const r = await tx.run('Opening the pool', (t) =>
+      t.openCall({
+        token: token.address as `0x${string}`,
+        stake,
+        windowSeconds: win * M,
+        takeProfitBps: tp,
+        stopLossBps: slv,
+        maxHoldSeconds: hold * M,
+        shareBps: sharev,
+        thesis: thesis.trim(),
+      }),
     )
     if (!r.ok) return setError(r.error)
     setOpenedId(r.value.id)
@@ -156,8 +197,8 @@ function Flow({ address }: { address: string }) {
               )}
               {step === 1 && (
                 <>
-                  <h2 className="text-[20px] font-semibold tracking-[-0.02em]">How much of your own MON?</h2>
-                  <p className="mt-1 text-[14px] text-ink-3">Your fill becomes the public entry.</p>
+                  <h2 className="text-[20px] font-semibold tracking-[-0.02em]">How much of your own MON goes in?</h2>
+                  <p className="mt-1 text-[14px] text-ink-3">Your stake goes into the pool like everyone else&apos;s, at the same price.</p>
                   <label className="mt-6 block">
                     <span className="flex h-16 items-center rounded-2xl border border-line bg-surface px-5 focus-within:border-accent/50 focus-within:shadow-ring">
                       <input
@@ -171,17 +212,23 @@ function Flow({ address }: { address: string }) {
                       <span className="text-[15px] font-medium text-ink-3">MON</span>
                     </span>
                   </label>
-                  <div className="mt-3 flex gap-2">
-                    {[50, 100, 250, 500].map((v) => (
-                      <button key={v} type="button" onClick={() => setAmount(String(v))} className="num h-8 rounded-lg bg-subtle px-3 text-[13px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink">
-                        {v}
-                      </button>
-                    ))}
+                  <div className="mt-6 space-y-2 rounded-2xl bg-subtle p-4 text-[13.5px] leading-[1.55] text-ink-2">
+                    <p>
+                      You must hold at least <span className="num">{pct(p.minCallerBps)}</span> of the pool when it buys, so with this stake it can reach{' '}
+                      <span className="num font-medium text-ink">{monText(stakeCeiling)}</span>.
+                    </p>
+                    <p>
+                      Your cap is <span className="num font-medium text-ink">{monText(cap, 0)}</span>: tier <span className="num">{tier}</span> allows{' '}
+                      <span className="num">{limits.multiple}x</span> your bond, and one buy may move the price at most {pct(p.maxImpactBps)}, which can lower it further.
+                    </p>
+                    <p>
+                      The pool needs <span className="num">{monText(p.minPool)}</span> to go ahead; below that every deposit goes back 1:1.
+                    </p>
                   </div>
-                  <div className={`mt-6 rounded-2xl p-4 text-[13.5px] leading-[1.55] ${needsBond ? 'bg-accent-soft text-accent-deep ring-1 ring-inset ring-accent/20' : 'bg-subtle text-ink-2'}`}>
+                  <div className={`mt-3 rounded-2xl p-4 text-[13.5px] leading-[1.55] ${needsBond ? 'bg-accent-soft text-accent-deep ring-1 ring-inset ring-accent/20' : 'bg-subtle text-ink-2'}`}>
                     {needsBond
-                      ? `You need a bond of at least ${MIN_BOND} MON before opening a call. It is added to this transaction, and it stays behind every call you make.`
-                      : `Your bond of ${bond} MON covers this call. It stays locked while any call is open.`}
+                      ? `This call needs a bond of ${bondNeeded} MON: at least ${p.minBond}, and enough that ${limits.multiple}x it covers your stake and the ${p.minPool} MON minimum. You have ${monText(bond)}; the rest is sent first. It stays locked while any of your calls is open or holding.`
+                      : `Your bond of ${monText(bond)} is behind this call. It stays locked while any of your calls is open or holding.`}
                   </div>
                 </>
               )}
@@ -189,10 +236,58 @@ function Flow({ address }: { address: string }) {
                 <div className="space-y-7">
                   <div>
                     <h2 className="text-[20px] font-semibold tracking-[-0.02em]">Set the rules</h2>
-                    <p className="mt-1 text-[14px] text-ink-3">Fixed once the call opens.</p>
+                    <p className="mt-1 text-[14px] text-ink-3">Fixed once the call opens. Nobody can change them, you included.</p>
                   </div>
-                  <Slider label="Lock" value={lockD} unit={lockD === 1 ? 'day' : 'days'} min={MIN_LOCK_D} max={MAX_LOCK_D} onChange={setLockD} hint="No exit can execute before this ends." />
-                  <Slider label="Exit notice" value={noticeH} unit="hours" min={MIN_NOTICE_H} max={72} step={6} onChange={setNoticeH} hint="Between announcing an exit and being able to sell. Followers get this head start." />
+                  <Slider
+                    label="Window"
+                    value={win}
+                    show={duration(win * M * 1000)}
+                    min={p.minWindow / M}
+                    max={p.maxWindow / M}
+                    step={stepFor(p.maxWindow / M)}
+                    onChange={setWindowM}
+                    hint="How long anyone can join, or take their MON back. Then you buy for the whole pool."
+                  />
+                  <Slider
+                    label="Take-profit"
+                    value={tp}
+                    show={tp ? `+${pct(tp)}` : 'None'}
+                    min={0}
+                    max={20_000}
+                    step={500}
+                    onChange={setTp}
+                    hint="Sold for everyone once two price records a gap apart are both this far above entry."
+                  />
+                  <Slider
+                    label="Stop-loss"
+                    value={slv}
+                    show={`−${pct(slv)}`}
+                    min={p.minStopLossBps}
+                    max={p.maxStopLossBps}
+                    step={100}
+                    onChange={setSl}
+                    hint="Sold for everyone once two price records a gap apart are both this far below entry."
+                  />
+                  <Slider
+                    label="Max hold"
+                    value={hold}
+                    show={duration(hold * M * 1000)}
+                    min={p.minHold / M}
+                    max={p.maxHold / M}
+                    step={stepFor(p.maxHold / M)}
+                    onChange={setHoldM}
+                    hint="After this anyone may sell, whatever the price."
+                  />
+                  <Slider
+                    label="Your share of profit"
+                    value={sharev}
+                    show={pct(sharev)}
+                    min={0}
+                    max={limits.maxShareBps}
+                    step={50}
+                    onChange={setShare}
+                    hint={`Of profit only, nothing on a loss. Tier ${tier} allows up to ${pct(limits.maxShareBps)}.`}
+                  />
                   <div>
                     <p className="text-[14px] font-medium">Thesis</p>
                     <textarea
@@ -210,29 +305,41 @@ function Flow({ address }: { address: string }) {
               )}
               {step === 3 && (
                 <>
-                  <h2 className="text-[20px] font-semibold tracking-[-0.02em]">Review and lock</h2>
-                  <p className="mt-1 text-[14px] text-ink-3">{needsBond ? 'Two transactions: one posts your bond, the next buys the token and locks it.' : 'One transaction buys the token and locks it.'} The minimum fill allows 1% slippage.</p>
+                  <h2 className="text-[20px] font-semibold tracking-[-0.02em]">Review and open</h2>
+                  <p className="mt-1 text-[14px] text-ink-3">
+                    {needsBond ? 'Two transactions: one posts your bond, the next opens the pool with your stake.' : 'One transaction opens the pool with your stake.'}
+                  </p>
                   <div className="mt-6 rounded-2xl bg-subtle p-5">
                     <Row label="Token">{token?.symbol}</Row>
-                    <Row label="Your MON">
-                      <span className="num">{mon}</span>
+                    <Row label="Your stake">
+                      <span className="num">{monText(stake)}</span>
                     </Row>
                     {needsBond && (
-                      <Row label="Bond">
-                        <span className="num">{MIN_BOND - bond} MON</span>
+                      <Row label="Added to your bond">
+                        <span className="num">{monText(bondNeeded - bond)}</span>
                       </Row>
                     )}
-                    <Row label="Lock ends">
-                      <span className="num">{date(Date.now() + lockD * D)}</span>
+                    <Row label="Window closes">
+                      <span className="num">{date(Date.now() + win * M * 1000)}</span>
                     </Row>
-                    <Row label="Exit notice">
-                      <span className="num">{duration(noticeH * H)}</span>
+                    <Row label="Take-profit">
+                      <span className="num">{tp ? `+${pct(tp)}` : 'None'}</span>
+                    </Row>
+                    <Row label="Stop-loss">
+                      <span className="num">−{pct(slv)}</span>
+                    </Row>
+                    <Row label="Max hold">
+                      <span className="num">{duration(hold * M * 1000)}</span>
+                    </Row>
+                    <Row label="Your share of profit">
+                      <span className="num">{pct(sharev)}</span>
                     </Row>
                   </div>
                   <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-line p-4">
                     <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#1F6E9C]" />
                     <span className="text-[13.5px] leading-[1.55] text-ink-2">
-                      I understand I cannot sell before the lock ends, every exit is announced {noticeH} hours ahead, and this call stays on my record whatever the result.
+                      I understand I cannot take my stake out, I must buy for the pool when the window closes or the record counts it as negligent, I cannot sell on my own, and the
+                      result goes on my record whatever it is.
                     </span>
                   </label>
                 </>
@@ -249,7 +356,7 @@ function Flow({ address }: { address: string }) {
             </Button>
           ) : (
             <Button variant="accent" icon={Lock} disabled={!ok} onClick={() => void submit()}>
-              Buy and lock
+              Open the pool
             </Button>
           )}
         </div>
@@ -286,7 +393,7 @@ function Flow({ address }: { address: string }) {
             <Loader2 size={28} className="animate-spin text-accent" />
             <p className="mt-4 text-[14px] text-ink-2">{tx.pending ? `${tx.pending}…` : 'Waiting for your signature…'}</p>
             {tx.enabled ? (
-              <p className="mt-1 text-[12.5px] text-ink-3">{needsBond ? 'Two transactions: the bond, then the buy.' : 'One transaction: the buy and the lock.'}</p>
+              <p className="mt-1 text-[12.5px] text-ink-3">{needsBond ? 'Two transactions: the bond, then the pool.' : 'One transaction: the pool and your stake.'}</p>
             ) : (
               <>
                 <p className="mt-1 text-[12.5px] text-ink-3">Demo: no wallet or deployment, so nothing is sent.</p>
@@ -299,7 +406,7 @@ function Flow({ address }: { address: string }) {
         ) : (
           <div>
             <p className="text-[14px] leading-[1.55] text-ink-2">
-              {token?.symbol} is bought and locked. Followers can see your entry now. Your first chance to sell is after {date(Date.now() + lockD * D)}, with {noticeH} hours of notice.
+              The pool on {token?.symbol} is open until {date(Date.now() + win * M * 1000)}. Anyone can join until then. When it closes, come back to buy for the whole pool.
             </p>
             <div className="mt-6 flex gap-2">
               <Button variant="secondary" block onClick={() => navigate('/app/calls')}>
@@ -324,7 +431,7 @@ export default function NewCallPage() {
       <div>
         <h1 className="text-[26px] font-semibold tracking-[-0.03em] sm:text-[30px]">Open a call</h1>
       </div>
-      <RequireAuth title="Sign in to open a call" body="Your MON buys the token and locks it.">
+      <RequireAuth title="Sign in to open a call" body="You set the rules, put in your own stake, and buy for everyone at once.">
         {s.address ? <Flow address={s.address} /> : <Skeleton className="h-[480px] rounded-2xl" />}
       </RequireAuth>
     </div>

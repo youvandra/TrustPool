@@ -4,8 +4,9 @@ import { send, source } from './data'
 import { toast } from '@/components/ui/Toast'
 
 /**
- * Small client store for what the user toggles: callers followed, calls watched
- * for an exit, and demo-only state changes (an exit announced from Portfolio).
+ * Small client store for what the user toggles: callers followed, calls watched for
+ * alerts, and demo-only changes (a deposit, a withdrawal, a claim) that the demo set
+ * cannot hold.
  *
  * With the API source the server owns follows, watches and read alerts (the indexer
  * alerts from them): the store loads them on sign-in, applies toggles at once and
@@ -14,13 +15,16 @@ import { toast } from '@/components/ui/Toast'
 interface State {
   following: string[]
   watching: number[]
-  announced: Record<number, number> // call id -> announcedAt (demo actions)
+  /** Demo only: MON the demo user added to (or, negative, took from) each call. */
+  joined: Record<number, number>
+  /** Demo only: calls whose claim the demo user took. */
+  claimed: number[]
   read: string[] // alert ids marked read
 }
 
 const remote = source.kind === 'api'
-const KEY = `trustpool:v1:${source.kind}`
-const initial: State = remote ? { following: [], watching: [], announced: {}, read: [] } : { following: DEMO_FOLLOWING, watching: [7, 9], announced: {}, read: [] }
+const KEY = `trustpool:v2:${source.kind}`
+const initial: State = remote ? { following: [], watching: [], joined: {}, claimed: [], read: [] } : { following: DEMO_FOLLOWING, watching: [7, 9], joined: {}, claimed: [], read: [] }
 
 function load(): State {
   try {
@@ -98,8 +102,12 @@ export const actions = {
     )
     return !has
   },
-  announce(id: number) {
-    set({ announced: { ...state.announced, [id]: Date.now() } })
+  /** Demo only: the deposit or withdrawal the contract would have taken. */
+  join(id: number, mon: number) {
+    set({ joined: { ...state.joined, [id]: (state.joined[id] ?? 0) + mon } })
+  },
+  claim(id: number) {
+    set({ claimed: [...new Set([...state.claimed, id])] })
   },
   markRead(ids: string[]) {
     writeThrough({ read: [...new Set([...state.read, ...ids])] }, () => send('POST', '/me/alerts/read', { ids }))

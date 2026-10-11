@@ -58,7 +58,7 @@ function Sidebar() {
       <div className="space-y-3 p-3">
         <div className="relative overflow-hidden rounded-2xl bg-accent-soft p-4 ring-1 ring-inset ring-accent/15">
           <p className="relative text-[13.5px] font-semibold text-accent-deep">Have a call?</p>
-          <p className="relative mt-1 text-[12.5px] leading-[1.5] text-ink-2">Buy first, then go public.</p>
+          <p className="relative mt-1 text-[12.5px] leading-[1.5] text-ink-2">Your stake in first, the rules fixed, then anyone joins.</p>
           <ButtonLink to="/app/new" size="sm" variant="accent" icon={Plus} className="relative mt-3" block>
             Open a call
           </ButtonLink>
