@@ -1,7 +1,8 @@
-import { ChevronsUpDown, LogOut } from 'lucide-react'
+import { ChevronsUpDown, Copy, LogOut, UserRound } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router'
 import { useSession } from '@/auth/session'
-import { Button, CallerAvatar } from '@/components/ui'
+import { Button, CallerAvatar, toast } from '@/components/ui'
 import { shortAddress } from '@/lib/format'
 
 /** Sign-in button, or the account chip with a small menu once signed in. */
@@ -56,6 +57,29 @@ export default function Account({ compact = false }: { compact?: boolean }) {
           <p className="px-2.5 py-2 text-[12px] text-ink-3">
             {s.mode === 'demo' ? 'Demo session' : s.mode === 'local' ? 'Local anvil wallet' : 'Signed in with Privy'}
           </p>
+          {s.address && (
+            <>
+              <Link
+                to={`/app/callers/${s.address}`}
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13.5px] text-ink-2 hover:bg-subtle hover:text-ink"
+              >
+                <UserRound size={14} /> Your profile
+              </Link>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  navigator.clipboard?.writeText(s.address!).then(() => toast('Address copied'), () => toast('Could not copy'))
+                  setOpen(false)
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13.5px] text-ink-2 hover:bg-subtle hover:text-ink"
+              >
+                <Copy size={14} /> Copy address
+              </button>
+            </>
+          )}
           <button
             type="button"
             role="menuitem"
