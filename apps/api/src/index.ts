@@ -1,10 +1,11 @@
 import { loadConfig } from './config'
 import { openDatabase } from './db/client'
 import { createApp } from './http/app'
-import { chainClient } from './indexer/chain'
+import { chainClient, walletClient } from './indexer/chain'
 import { EarlyBuyers } from './indexer/earlyBuyers'
 import { Indexer } from './indexer/indexer'
 import { PriceSampler } from './indexer/prices'
+import { Keeper } from './keeper/keeper'
 import { AlertHub } from './live/hub'
 import { TelegramFeed } from './live/telegram'
 import { log } from './log'
@@ -24,10 +25,21 @@ if (cfg.chain) {
   const database = await openDatabase(cfg.databaseUrl)
   const client = chainClient(cfg.chain.chainId, cfg.chain.rpcUrl)
   const indexer = await new Indexer(database, client, cfg.chain).init()
+  const isLeader = () => indexer.status().leader
   const prices = new PriceSampler(database.db, client, cfg.chain.priceSampleMs, {
+    pool: cfg.chain.deployment.trustPool,
     retainMs: cfg.chain.priceRetainMs,
-    isLeader: () => indexer.status().leader,
+    isLeader,
+    now: () => indexer.now(),
   })
+  const keeper =
+    cfg.chain.keeperKey &&
+    new Keeper(database.db, client, walletClient(cfg.chain.chainId, cfg.chain.rpcUrl, cfg.chain.keeperKey), {
+      pool: cfg.chain.deployment.trustPool,
+      everyMs: cfg.chain.keeperMs,
+      isLeader,
+    })
+  if (!keeper) log.info('no KEEPER_PRIVATE_KEY: the keeper is off; anyone can still checkpoint, sell, refund and split')
   const early = new EarlyBuyers(database.db, client, {
     pool: cfg.chain.deployment.trustPool,
     windowBlocks: cfg.chain.earlyBuyerWindow,
@@ -37,10 +49,11 @@ if (cfg.chain) {
   const hub = new AlertHub()
   await hub.start(database)
   const store = postgresStore(database.db)
-  const telegram = cfg.telegram && new TelegramFeed(store, { ...cfg.telegram, appUrl: cfg.publicUrl, isLeader: () => indexer.status().leader })
+  const telegram = cfg.telegram && new TelegramFeed(store, { ...cfg.telegram, appUrl: cfg.publicUrl, isLeader })
   await telegram?.start(database)
   indexer.start()
   prices.start()
+  keeper?.start()
   app = createApp({
     store,
     privy: cfg.privy,
@@ -57,6 +70,7 @@ if (cfg.chain) {
     await telegram?.close()
     indexer.stop()
     prices.stop()
+    keeper?.stop()
     await database.close()
   }
 } else {

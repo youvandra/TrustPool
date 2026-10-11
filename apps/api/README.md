@@ -23,7 +23,7 @@ E2E_RPC_URL=http://127.0.0.1:8545 bun test indexer.e2e   # against anvil, see be
 
 ```
 src/
-  index.ts            wiring: config -> database -> indexer + price sampler -> HTTP
+  index.ts            wiring: config -> database -> indexer + price sampler + keeper -> HTTP
   config.ts           every env var, parsed and checked once
   db/schema.ts        Drizzle schema: every table, with what is rebuildable and what is not
   db/client.ts        Postgres or PGlite, migrations on start, the indexer advisory lock
@@ -31,8 +31,10 @@ drizzle/              generated SQL migrations; never edit one that has shipped
   indexer/
     indexer.ts        block-range loop: getLogs -> one transaction per range with the cursor
     writer.ts         event -> rows; mirrors the contract's record arithmetic exactly
-    prices.ts         quotes each open call through its adapter: sparkline + marked value
+    prices.ts         quotes each holding call through its adapter (sparkline, marked value)
+                      and reads capOf for each open window (live cap)
     units.ts          wei/seconds -> MON/ms. The only place units change.
+  keeper/keeper.ts    checkpoints, sales, refunds and splits that anyone may send
   store/              ReadStore + UserStore, implemented by demo.ts and postgres.ts
   http/               routes, input checks, Privy token verification
 ```
@@ -48,7 +50,8 @@ drizzle/              generated SQL migrations; never edit one that has shipped
   and samples prices; the others serve reads and take over if it dies.
 - **What a backup must keep.** Chain tables can be rebuilt by indexing again. `follows`,
   `watches`, `alerts` and `profiles` cannot.
-- **Record = contract.** The e2e test compares every caller's record with `recordOf` on chain.
+- **Record = contract.** The e2e test compares every caller's record with `recordOf`, and every
+  pool and deposit with `getCall` and `depositOf`, on chain.
 
 ## Limits
 
@@ -61,8 +64,10 @@ behind a proxy you control so the client IP comes from `X-Forwarded-For`.
 Full reference: `GET /api/openapi.json` (OpenAPI 3.1), rendered at `/api/docs`. A test
 fails when a route is served without being documented, or documented without being served.
 
-Public: `GET /api/health`, `/calls?state=&caller=&limit=&offset=`, `/calls/:id`, `/callers`,
-`/callers/:address`, `/tokens`.
+Public: `GET /api/health`, `/calls?state=&caller=&limit=&offset=`, `/calls/:id`,
+`/calls/:id/participants`, `/calls/:id/early-buyers`, `/accounts/:address/positions`,
+`/callers`, `/callers/:address`, `/tokens`. Positions are public on chain, so they need no
+account: a Privy user id is not a wallet address.
 
 Per user (`Authorization: Bearer <Privy access token>`): `GET /me/alerts`,
 `POST /me/alerts/read {ids}`, `GET /me/following`, `PUT|DELETE /me/following/:address`,
@@ -75,16 +80,27 @@ indexer announces each alert with `pg_notify` inside its transaction, and every 
 and never hears one from a range that rolled back.
 
 Alerts are written by the indexer to every follower of the caller and every watcher of the
-call: `call_opened`, `exit_announced`, `exit_executable` (by chain time), `call_settled`,
-`call_released`, `call_stale`.
+call: `window_opened`, `window_closing` (by chain time, once, in the last quarter of the window
+and at most its last 30 minutes), `bought`, `sold`, `refunded`, `split`.
 
 Share: `GET /og/calls/<id>.png` and `/og/callers/<address>.png` are 1200x630 cards drawn
 with resvg (`src/share/cards.ts`). `GET /share/calls/:id` and `/share/callers/:address` are
 small pages with Open Graph tags that forward people to the app; the Share buttons copy them.
 
 Telegram: with `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` set, the indexing instance also
-posts every call event except `exit_executable` to that chat, one line and a link each, at
-most 20 a minute (`src/live/telegram.ts`).
+posts every call event to that chat, one line and a link each, at most 20 a minute
+(`src/live/telegram.ts`). A loss reads exactly like a gain.
+
+## Keeper
+
+With `KEEPER_PRIVATE_KEY` set, the indexing instance also keeps (`src/keeper/keeper.ts`): it
+refunds pools that stayed below their minimum or were never bought, checkpoints holding calls
+and sells them when a rule is met, and splits a position nobody could sell. Every transaction
+is simulated first and sent only if the contract would accept it, so the keeper can never sell
+early or below the floor the checkpoints set. Checkpoints cost gas, so it takes one only when a
+quote already meets take-profit or stop-loss, when the last one did, or from one gap before max
+hold. Use a fresh key with a little MON for gas; it earns the 0.1% keeper reward on sales.
+Without it, anyone (the web app's buttons, a joiner) can do the same.
 
 ## Local chain end to end
 

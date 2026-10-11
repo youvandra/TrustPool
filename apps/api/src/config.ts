@@ -36,6 +36,9 @@ export interface ChainConfig {
   fundingWindow: number
   /** How long price samples are kept. */
   priceRetainMs: number
+  /** The keeper's key: checkpoints, sales, refunds and splits. Off unless set. Needs gas MON. */
+  keeperKey?: `0x${string}`
+  keeperMs: number
 }
 
 type Env = Record<string, string | undefined>
@@ -93,9 +96,18 @@ export function loadConfig(env: Env = process.env): Config {
       earlyBuyerWindow: int(env.EARLY_BUYER_WINDOW_BLOCKS, 4_500),
       fundingWindow: int(env.FUNDING_WINDOW_BLOCKS, 1_500),
       priceRetainMs: int(env.PRICE_RETAIN_DAYS, 90) * 86_400_000,
+      keeperKey: keeperKey(env.KEEPER_PRIVATE_KEY),
+      keeperMs: int(env.KEEPER_INTERVAL_MS, chainId === 31337 ? 2_000 : 30_000),
     }
   }
   return cfg
+}
+
+function keeperKey(v: string | undefined): `0x${string}` | undefined {
+  if (!v) return undefined
+  const key = v.startsWith('0x') ? v : `0x${v}`
+  if (!/^0x[0-9a-fA-F]{64}$/.test(key)) throw new Error('KEEPER_PRIVATE_KEY must be a 32-byte hex key')
+  return key as `0x${string}`
 }
 
 function int(v: string | undefined, fallback: number): number {

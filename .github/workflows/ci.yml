@@ -90,6 +90,8 @@ jobs:
           forge script script/SeedLocal.s.sol --rpc-url http://127.0.0.1:8545 --broadcast
           cd .. && node scripts/sync-contracts.mjs
           cd apps/api && E2E_RPC_URL=http://127.0.0.1:8545 bun test indexer.e2e
+          # moves anvil's clock, so it runs after the indexer check
+          E2E_RPC_URL=http://127.0.0.1:8545 bun test keeper.e2e
       - run: npm run build
 
   api-image:
