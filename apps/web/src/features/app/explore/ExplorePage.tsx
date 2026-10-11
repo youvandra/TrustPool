@@ -1,9 +1,9 @@
-import { ArrowRight, ArrowUpRight, Eye, Search, Users } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Eye, Search, Triangle, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { averageBps, type Call, type Caller } from '@trustpool/core'
-import { Button, CallerAvatar, Card, Empty, Fill, Signed, SkeletonRows, Sparkline, StateTag, Tabs, TokenIcon } from '@/components/ui'
-import { ago, date, duration, mon, pct, shortAddress } from '@/lib/format'
+import { Button, CallerAvatar, Card, Empty, Fill, Signed, SkeletonRows, StateTag, Tabs, TokenIcon } from '@/components/ui'
+import { ago, date, duration, mon, pct, price, shortAddress, signedPct, toneOf } from '@/lib/format'
 import { source } from '@/lib/data'
 import { useLoad, useTitle } from '@/lib/hooks'
 import { useStore } from '@/lib/store'
@@ -63,6 +63,56 @@ function RulesLine({ call }: { call: Call }) {
   )
 }
 
+const TONE = { gain: 'text-gain', loss: 'text-loss', flat: 'text-ink-2' } as const
+
+/** Entry, then the latest price (or the exit), and the move between them. Price only: the result for participants is shown apart. */
+function Ticker({ call }: { call: Call }) {
+  const entry = call.series[0]!
+  const last = call.series[call.series.length - 1]!
+  const bps = Math.round((last / entry - 1) * 10_000)
+  const tone = toneOf(bps)
+  const ended = call.state !== 'Holding'
+  return (
+    <div className="num mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[12.5px]">
+      <span className="text-ink-3">
+        Entry <span className="text-ink">{price(entry)}</span> → {ended ? 'Exit' : 'Last'} <span className="text-ink">{price(last)}</span> MON
+      </span>
+      <span className={`flex items-center gap-1 font-medium ${TONE[tone]}`}>
+        {tone !== 'flat' && <Triangle size={9} fill="currentColor" strokeWidth={0} className={bps < 0 ? 'rotate-180' : ''} />}
+        {signedPct(bps)}
+      </span>
+    </div>
+  )
+}
+
+/** Where the price sits between the stop-loss and the take-profit: one thin bar, the entry marked, a dot for now. */
+function RangeBar({ call }: { call: Call }) {
+  const r = call.rules
+  const entry = call.series[0]!
+  const last = call.series[call.series.length - 1]!
+  const down = r.stopLossBps / 10_000
+  const up = (r.takeProfitBps || r.stopLossBps) / 10_000
+  const lo = entry * (1 - down)
+  const hi = entry * (1 + up)
+  const at = (v: number) => Math.min(100, Math.max(0, ((v - lo) / (hi - lo)) * 100))
+  const tone = toneOf(last - entry)
+  return (
+    <div className="mt-2.5">
+      <div className="relative h-1.5 rounded-full bg-ink/[0.06]">
+        <span className="absolute inset-y-[-3px] w-px bg-ink-3/60" style={{ left: `${at(entry)}%` }} />
+        <span
+          className={`absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-surface ${tone === 'loss' ? 'bg-loss' : tone === 'gain' ? 'bg-gain' : 'bg-ink-2'}`}
+          style={{ left: `${at(last)}%` }}
+        />
+      </div>
+      <div className="num mt-1.5 flex justify-between text-[11px] text-ink-3">
+        <span>SL −{pct(r.stopLossBps)}</span>
+        <span>{r.takeProfitBps ? `TP +${pct(r.takeProfitBps)}` : `no TP · +${pct(r.stopLossBps)}`}</span>
+      </div>
+    </div>
+  )
+}
+
 /** The pool as it stands now, attached under the post like a link preview. */
 function Attachment({ post }: { post: Post }) {
   const { call, kind } = post
@@ -95,10 +145,11 @@ function Attachment({ post }: { post: Post }) {
           </div>
           <Fill value={call.totalIn} max={capOf(call)} className="mt-2" />
         </div>
-      ) : call.series.length > 1 ? (
-        <div className="-mx-1 mt-2">
-          <Sparkline data={call.series} width={520} height={44} />
-        </div>
+      ) : call.series.length > 0 && call.state !== 'Refunded' ? (
+        <>
+          <Ticker call={call} />
+          <RangeBar call={call} />
+        </>
       ) : null}
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
