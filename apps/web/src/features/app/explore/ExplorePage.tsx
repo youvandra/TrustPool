@@ -165,10 +165,10 @@ function Attachment({ post }: { post: Post }) {
           <p className="flex items-center gap-2 text-[13px] text-ink-2">
             <Signed bps={call.netReturnBps} pill /> for every participant, on the record
           </p>
+        ) : kind === 'bought' ? (
+          <span />
         ) : (
-          <p className="num text-[12.5px] text-ink-3">
-            {mon(call.totalIn)} from {people(call.depositors)}
-          </p>
+          <p className="num text-[12.5px] text-ink-3">{mon(call.totalIn)} pooled</p>
         )}
         <span className="flex items-center gap-1 text-[12px] text-ink-3">
           View pool <ArrowUpRight size={13} />
@@ -201,11 +201,13 @@ function PostItem({ post, caller }: { post: Post; caller?: Caller }) {
         <Attachment post={post} />
         <p className="mt-2.5 flex items-center gap-4 text-[12px] text-ink-3">
           <span className="flex items-center gap-1">
-            <Eye size={13} /> <span className="num">{call.watchers}</span> watching
-          </span>
-          <span className="flex items-center gap-1">
             <Users size={13} /> {people(call.depositors)}
           </span>
+          {call.watchers > 0 && (
+            <span className="flex items-center gap-1">
+              <Eye size={13} /> <span className="num">{call.watchers}</span> watching
+            </span>
+          )}
         </p>
       </div>
     </li>
