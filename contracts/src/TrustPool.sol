@@ -119,8 +119,6 @@ contract TrustPool {
     uint256 public constant MAX_KEEPER_BPS = 100;
     /// @dev Impact is measured against the price this amount gets. Small enough to be the spot price.
     uint256 public constant PROBE = 0.001 ether;
-    /// @dev Tiers 0 to 3: settled calls needed, pool cap as a multiple of bond, max profit share.
-    uint256 internal constant TIERS = 4;
 
     // ---------------------------------------------------------------- params
     // Production defaults from docs/pool-spec.md. Admin-settable, for later calls only.
