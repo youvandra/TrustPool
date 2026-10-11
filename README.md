@@ -189,6 +189,11 @@ Swaps are real Uniswap v4 swaps against the live PoolManager. The testnet had no
 pool depth the cap: [`DeepenPools.s.sol`](contracts/script/DeepenPools.s.sol) adds
 full-range liquidity to the demo pools so a pool can reach about 0.1 MON.
 
+The pools in the live app's history were opened and joined by our own testnet wallets with
+[`scripts/seed-demo.ts`](scripts/seed-demo.ts). One wallet trades the demo tokens between a
+pool's buy and its sale, so one pool reaches its take-profit and one its stop-loss; the keeper
+records prices and sells as it would for anyone.
+
 Demo parameters: 0.5 MON bond, 0.05 MON minimum pool, windows of 2 to 10 minutes, max hold of
 5 to 30 minutes, 3 minutes between price records.
 
