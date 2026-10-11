@@ -1,5 +1,5 @@
 import { ArrowLeft, ExternalLink, Eye, Lock } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { formatEther } from 'viem'
 import { averageBps, trustPoolAbi, callerShareBps, entryPrice, markedBps, returnBps, TIERS, type Call, type Caller, type Participant } from '@trustpool/core'
@@ -8,9 +8,10 @@ import { Button, ButtonLink, Card, CallerAvatar, Empty, Fill, Row, Signed, Skele
 import { date, duration, mon, pct, price, shortAddress, tokens } from '@/lib/format'
 import { deployment, dexIsMarket, dexUrl, publicClient } from '@/lib/chain'
 import { source } from '@/lib/data'
-import { useLoad, useNow, useTitle } from '@/lib/hooks'
+import { useLoad, useNow, usePageVisible, useTitle } from '@/lib/hooks'
 import { actions, useStore } from '@/lib/store'
 import { impactBps, wouldPass } from '@/lib/tx'
+import { useLiveVersion } from '@/lib/live'
 import { applyLocal, applyLocalParticipants } from '@/lib/view'
 import { useAct } from '../components/act'
 import { capOf } from '../components/CallCard'
@@ -156,7 +157,13 @@ function Actions({ call, me, mine, reload }: { call: Call; me?: string; mine?: P
   // the caller's least stake also caps what joiners can add
   const stakeRoom = Math.max(0, (call.callerStake * 10_000) / r.minCallerBps - call.totalIn)
   const most = isCaller ? room : Math.min(room, stakeRoom)
-  const done = (fn: Promise<boolean>) => void fn.then((ok) => ok && reload())
+  // The indexer lags the chain by a block or two, so read again once it has caught up.
+  const done = (fn: Promise<boolean>) =>
+    void fn.then((ok) => {
+      if (!ok) return
+      reload()
+      setTimeout(reload, 4_000)
+    })
 
   // Keeper buttons: shown to anyone, enabled when the contract would accept them right now.
   const [allowed, setAllowed] = useState<Record<string, boolean>>({})
@@ -275,7 +282,11 @@ function Actions({ call, me, mine, reload }: { call: Call; me?: string; mine?: P
                 (t) => t.claim(call.id),
                 call.state === 'Split' ? 'Claimed your tokens.' : 'Claimed. The MON is in your wallet.',
                 () => actions.claim(call.id),
-              ),
+              ).then((ok) => {
+                // A claim cannot be undone, so show it at once instead of waiting for the indexer.
+                if (ok) actions.claim(call.id)
+                return ok
+              }),
             )
           }
         >
@@ -507,7 +518,20 @@ function CallerCard({ caller }: { caller: Caller }) {
 export default function CallPage() {
   const id = Number(useParams().id)
   const [version, setVersion] = useState(0)
-  const data = useLoad(() => load(id), [id, version])
+  const live = useLiveVersion()
+  const last = useRef<{ id: number; data: Awaited<ReturnType<typeof load>> | null }>()
+  // A failed refresh keeps the last view; only a failed first load shows the error.
+  const loaded = useLoad(() => load(id).catch((e) => (last.current?.id === id ? (last.current.data ?? undefined) : Promise.reject(e))), [id, version, live])
+  // A refresh keeps the last view on screen instead of flashing the skeleton.
+  if (loaded !== undefined) last.current = { id, data: loaded }
+  const data = loaded === undefined && last.current?.id === id ? last.current.data : loaded
+  const visible = usePageVisible()
+  const moving = data?.call.state === 'Open' || data?.call.state === 'Holding'
+  useEffect(() => {
+    if (!moving || !visible || source.kind !== 'api') return
+    const t = setInterval(() => setVersion((v) => v + 1), 6_000)
+    return () => clearInterval(t)
+  }, [moving, visible])
   const joined = useStore((s) => s.joined)
   const claimed = useStore((s) => s.claimed)
   const { address: me } = useSession()
