@@ -1,23 +1,26 @@
 # Product
 
-trustpool is a record of callers who put their own money in first.
+trustpool runs pooled calls and keeps every caller's record.
 
-A **caller** opens a call by buying a token through the trustpool contract. The
-position is locked on chain for a fixed time. To sell, the caller announces the
-exit publicly and waits a notice period before the sale can execute. The sale
-goes through the same contract, so the result on the caller's record comes from
-the real fill. Followers read the record and buy on their own, whenever they
-choose. Nothing is pooled.
+A **caller** opens a call on one token, fixes every rule up front and puts their own MON
+in first. For a short window anyone (**participants**) can deposit MON into that call's pool
+and take it back 1:1. When the window closes the caller runs one buy for the whole pool, so
+everyone, caller included, gets the same entry. When a rule fixed at open is met (take-profit,
+stop-loss or max hold), anyone (a **keeper**) triggers one sale for the whole pool. Everyone
+gets the same exit and claims pro rata. The caller earns a share of profit only, loses the
+same percentage as everyone else, and the net result goes on their permanent record, which
+sets how much they may raise next time.
 
-> The caller buys first, and cannot leave without telling you.
+> One buy. One sale. The same price for everyone.
+
+The build spec, with every decision and departure, is [`pool-spec.md`](pool-spec.md).
 
 ## The problem
 
-The pattern is documented and repeats: the person giving a signal buys early,
-then sells into the people who followed it. Telegram and Discord call groups
-already distribute signals well. What they lack is consequence: callers put in
-no money, have no exit discipline, can drop losing calls from their history, and
-lose nothing when followers lose.
+The pattern is documented and repeats: the person giving a signal buys early, then sells
+into the people who followed it. Telegram and Discord call groups distribute signals well.
+What they lack is consequence: callers put in no money, buy before their followers, sell
+into them, drop losing calls from their history, and lose nothing when followers lose.
 
 Examples worth citing in the write-up (verify links before submission):
 
@@ -25,10 +28,24 @@ Examples worth citing in the write-up (verify links before submission):
 - ZREAL: one wallet turned $285 into $627,000 in a day with sniper-style entries (CoinDesk, 19 Jan 2026).
 - ZachXBT's documentation of influencer pump-and-dump patterns (DEXTools, 2026).
 
-## Why this shape (the pivot from pooling)
+A pooled call removes the head start instead of trying to police it: there is one buy and
+one sale, the caller is inside the pool on the same terms, and nobody can leave alone.
 
-The first design pooled followers' money and bought and sold for everyone at
-once. Measured on Monad on 7 Oct 2026 (DexScreener, 37 non-major tokens):
+## Why pooled, and what the first pooled design got wrong
+
+The first design, early October, pooled followers' money too. It was dropped for locked
+calls (the caller alone buys and locks, followers buy on their own), then the owner chose to
+return to pooling on 11 October following the PM's capability document. The objections that
+sank the first attempt, and how this version answers them:
+
+| Objection to the first pooled design | This version |
+| --- | --- |
+| A cap of 3% of liquidity moves a constant-product price about 12%, so a 2% slippage check always fails at the cap | The cap is measured, not assumed: the largest pool whose buy has at most 2% price impact, checked at every deposit and again at the buy |
+| A public pool buy invites front-running | The buy is one transaction by the caller with a least-tokens guard; the impact check applies on top. Early buyers before the pool's buy are listed on every call |
+| Pools on Monad are small | Still true, and shown: see below. The cap exists to keep impact small, and it is honest about how small that makes a pool |
+| The contract holds other people's money | Still true. Every path out is fixed in code (claim, refund, split); the admin has none. See the legal note |
+
+Measured on Monad on 7 Oct 2026 (DexScreener, 37 non-major tokens):
 
 | Metric | Value |
 | --- | --- |
@@ -37,116 +54,137 @@ once. Measured on Monad on 7 Oct 2026 (DexScreener, 37 non-major tokens):
 | Deepest pair quoted in MON | 30 of 37 |
 | DEX of deepest pair | nad.fun 21, Uniswap 8, PancakeSwap 6 |
 
-A pool capped to keep slippage near 2% could raise about **$530 per call** on
-the median token. The pooled design also had a built-in contradiction (a 3%
-liquidity cap moves a constant-product price about 12%, so a 2% slippage check
-always fails at the cap), exposed a public pool buy to front-running, and
-carried most of the collective-investment-scheme concern.
-
-The locked-call shape keeps the accountability and drops all of that:
-
-- No liquidity cap: the caller sizes their own position.
-- No public pool buy to front-run: the caller's buy lands before the call exists.
-- No custody of followers' money.
-
-What it gives up: followers enter after the caller and at market. The product
-shows that gap openly instead of hiding it.
+At 2% price impact a pool on the median token holds a few hundred dollars. That is the size
+the product should run at on Monad today, and the cap enforces it.
 
 ## Actors
 
 | Actor | Can | Cannot |
 | --- | --- | --- |
-| Caller | Post a bond, open a call, announce an exit, execute it after notice, release tokens if the sale keeps failing, move their own call to the current adapter | Change any rule after open, sell before the lock ends, sell without notice, remove a call from their record, withdraw the bond while a call is open |
-| Follower | Read every call and record, buy on their own | (nothing to restrict; the contract never holds follower funds) |
-| Anyone | Mark a call stale once it has sat open past its max hold | Close, sell or move anyone's call |
-| Admin | Keep the token allow list, slash bonds with a written reason, set params for later calls, pause new calls, hand over admin in two steps | Touch any locked position: the adapter, grace and max hold of a call are fixed when it opens |
+| Caller | Open a call with all rules, deposit into their own pool, run the buy, claim their part and fee, withdraw the bond after cooldown with nothing active | Change any rule after open, take their stake out early, sell alone, raise above the cap, set a profit share above their tier |
+| Participant | Deposit and withdraw while the window is open, claim after the end, act as keeper | Exit alone after the buy, get a different price |
+| Keeper (anyone, caller included) | Record a price checkpoint, sell when a rule allows, refund and split after their deadlines | Choose the sale's minimum output, sell before a rule is met, change rules |
+| Admin | Keep the token allow list, slash bonds with a public reason, set parameters for later calls, pause new calls, hand over admin in two steps | Touch MON or tokens held for any call, change a call's rules or adapter |
+
+The bond (one per caller, across calls) and the caller's stake (one per call, in at the same
+price as everyone) are separate everywhere: contract, API and UI.
 
 ## Lifecycle of one call
 
 ```
-postBond ──> openCall ──(lock)──> announceExit ──(notice)──> executeExit ──> Settled
-                │                                       └──(grace, sale failing)──> releaseTokens ──> Released (-100%)
-                └──(unlock + maxHold, or exitAt + maxHold, still open)──> markStale (anyone; flag stays on the record)
+Open ──deposit/withdraw──▶ (window ends) ──caller buy──▶ Holding ──keeper sell──▶ Settled ──claims
+  │                                    │                    │
+  │                                    └─deadline passed, no buy──▶ Refunded (caller negligent)
+  └─window ends below minimum──▶ Refunded (no fault)        └─no sale by max hold + grace──▶ Split
 ```
 
-1. **Bond.** `postBond()` before the first call. Withdrawal needs no open calls
-   and a cooldown (7 days default). Opening a call cancels a pending withdrawal.
-2. **Open.** `openCall(token, lockSeconds, notice, minOut, thesis)` with MON
-   attached. The contract buys through the swap adapter and records the tokens
-   that actually arrived (fee-on-transfer safe). Token, lock, notice and thesis
-   are fixed in this transaction, and so are the rules for leaving: the adapter the call
-   sells through, the release grace and the max hold. Admin changes reach later calls only.
-3. **Announce.** `announceExit(id)`. The exit can execute at
-   `max(unlockAt, now + notice)`. A caller can announce early so the exit lands
-   right at unlock, but the notice always applies in full.
-4. **Settle.** `executeExit(id, minOut)` sells everything through the call's adapter.
-   The contract measures the MON that actually arrived (it never trusts the adapter's
-   report), checks `minOut` against it, and pays the caller. Return in basis points is
-   computed from MON in and that measured MON out.
-5. **Release.** If selling keeps failing (liquidity gone), after `exitAt +
-   releaseGrace` the caller can `releaseTokens(id)` and take the tokens unsold.
-   The record counts this as **-100%**, so the hatch can never hide a loss.
-6. **Stale.** A call still open `maxHold` after its unlock (or after its exit time, if
-   announced and never executed) can be marked stale by anyone with `markStale(id)`.
-   Nothing is sold and no price is needed. The call stays open and can still exit
-   normally, but the `stale` count on the record never goes back down.
-7. **Moving DEX.** If the DEX a call opened on loses its liquidity, the caller (only the
-   caller) can `moveToCurrentAdapter(id)` before selling.
+1. **Bond.** `postBond()`. Withdrawal needs no open or holding calls and a cooldown; opening a
+   call cancels a pending withdrawal.
+2. **Open.** `openCall(token, window, takeProfitBps, stopLossBps, maxHold, shareBps, thesis)`
+   with the caller's stake attached. Every rule, the adapter, all timing parameters and the cap
+   (bond × tier multiple) are copied into the call. Nothing about a call changes after this.
+3. **Window.** `deposit(id)` and `withdraw(id, amount)`. A deposit reverts if it takes the pool
+   over the cap, makes the buy's price impact exceed the limit, or puts the caller under their
+   least stake (5%). The caller cannot withdraw.
+4. **Buy.** `buy(id, minTokens)`, caller only, after the window and before the buy deadline. It
+   checks the token is still allowed, the pool is at its minimum, under the cap, the caller's
+   stake, and the impact, then swaps the whole pool and records the tokens that arrived.
+5. **Checkpoints.** `checkpoint(id)`, anyone, at most once per gap: stores what selling the whole
+   position would return now.
+6. **Sale.** `sell(id)`, anyone, when the last two checkpoints (a gap apart, the latest at most a
+   gap old) both meet take-profit or both meet stop-loss, or at max hold when the two agree
+   within the sale tolerance. The minimum the sale must return is the lower checkpoint less the
+   tolerance, computed by the contract. The keeper earns 0.1% of gross.
+7. **Claims.** `claim(id)`, once per participant: MON after a sale (plus the fee for the caller)
+   or a refund, tokens after a split. The last claimer takes the remainder.
+8. **Refund.** `refund(id)`, anyone: at window end if the pool is below its minimum (no fault),
+   or after the buy deadline (the caller is recorded negligent, unless the token was delisted).
+9. **Split.** `split(id)`, anyone, once max hold plus the split grace has passed with no sale.
 
-## Record
+## Settlement
 
-Per caller, on chain (`recordOf`): `settled`, `losses`, `released`, `open`, `slashes`,
-`stale`, `sumReturnBps`, `lastActive`. Average return is `sumReturnBps / (settled +
-released)`. The record is written by the contract only; nobody can edit it.
+```
+net     = gross − keeper reward
+profit  = max(net − totalIn, 0)
+fee     = profit × shareBps
+payout  = net − fee            shared pro rata by deposit, caller included
+caller  = their pro-rata part + fee
+```
 
-Open calls also show an **unrealised** value: what selling the whole position through
-its adapter would return now (`quoteSell`), sampled by the API every few minutes and
-labelled as a quote, never as a result.
+Worked example (a contract test): 1,000 in (caller 100, A 300, B 400, C 200), 10% share,
+1,300 gross. Caller 156.75, A 380.65, B 507.53, C 253.77; every participant +26.88%; record
++26.88%. At 700 gross: no fee, everyone −30.07%, record −30.07%.
+
+## Record and tiers
+
+Per caller, on chain (`recordOf`): `settled`, `losses`, `negligent`, `refunded`, `split`,
+`slashes`, `active`, `lastActive`, `sumNetBps`. What is recorded is the **net return to
+participants** (`payout / totalIn − 1`), never the gross pool return. Average = `sumNetBps /
+settled`.
+
+| Tier | Requirement | Cap | Max profit share |
+| --- | --- | --- | --- |
+| 0 | < 3 settled, a non-positive average, or ever slashed | 2× bond | 5% |
+| 1 | ≥ 3 settled, average net > 0 | 5× bond | 10% |
+| 2 | ≥ 10 settled, average net > 0 | 10× bond | 15% |
+| 3 | ≥ 25 settled, average net > 0 | 20× bond | 20% |
+
+Holding calls also show an **unrealised** value: what selling the whole position would return
+now (`quoteSell`), sampled by the API every few minutes and labelled as a quote, never a result.
 
 ## Slashing
 
-The admin (a multisig before any real use) can slash a bond with a reason that
-is emitted on chain. The typical case: evidence that a wallet funded by the
-caller bought the token just before the call. This is a manual, centralised
-judgment in this version and is stated openly.
+The admin (one key in this version, stated openly) can slash a bond with a reason emitted on
+chain. The typical case: evidence that a wallet funded by the caller bought the token just
+before the pool did. Each call lists the wallets that received the token in the blocks before
+the pool's buy, and marks any that received MON straight from the caller shortly before. A
+slash drops the caller to tier 0 for good.
 
 ## Parameters
 
-| Param | Default | Note |
+| Param | Production default | Demo (testnet) |
 | --- | --- | --- |
-| `minBond` | 10 MON | |
-| `minLock` / `maxLock` | 1 day / 30 days | |
-| `minNotice` | 6 hours | |
-| `bondCooldown` | 7 days | |
-| `releaseGrace` | 6 hours | Copied into each call at open |
-| `maxHold` | 30 days | Copied into each call at open |
-| thesis length | 280 bytes | |
-| slippage (web app) | 1% | Applied to the adapter's quote for `minOut` |
+| `minBond` | 10 MON | 0.5 MON |
+| `minPool` | 50 MON | 0.05 MON |
+| window | 30 min to 6 h | 2 to 10 min |
+| buy deadline | window + 2 h | window + 10 min |
+| max hold | 1 h to 72 h | 5 to 30 min |
+| `checkpointGap` | 15 min | 3 min |
+| `splitGrace` | 6 h | 10 min |
+| `bondCooldown` | 7 d | 10 min |
+| stop-loss | 1% to 90% | 1% to 90% |
+| `minCallerBps` | 500 | 500 |
+| `maxImpactBps` | 200 | 200 |
+| `sellToleranceBps` | 200 | 200 |
+| `keeperBps` | 10 | 10 |
 
-All defaults are placeholders, chosen without research. Change them freely.
+With the production defaults a tier-0 caller needs a bond of at least 25 MON for a cap that
+covers the 50 MON minimum; the new call form posts that much. Lower `minPool` to at most twice
+`minBond` before a production deploy.
 
 ## Known limits (say these out loud)
 
 | Risk | What the design does | What remains |
 | --- | --- | --- |
-| Caller buys from a second wallet | Bond at stake, own money locked, slash on evidence | Not closed. Exchange transfers break the trail. The claim is "costly and visible", never "prevented". |
-| Caller never announces an exit on a losing call | Open calls show their age and a marked-to-market value; after `maxHold` anyone can mark the call stale, permanently, on the record | The loss itself is not realised: there is no forced sale without a price oracle (v2). |
-| Caller abandons the account | Every call stays on that address | Starting over costs a fresh bond and an empty record. |
-| Admin-kept token list | Admin cannot reach positions (adapter, grace and max hold are fixed per call); slashes carry reasons | Centralised in this version. |
-| A token that rebases down or blocks transfers | The admin allow list should hold plain ERC-20s and fee-on-transfer tokens only | A negative rebase or a blocklist can leave a call that neither sells nor releases, and its bond stays locked. |
-| A swap gets sandwiched | `minOut` from a fresh quote with 1% slippage, checked against measured amounts | A public mempool still sees the trade. |
-| Followers enter after the caller | Entry is public, so the gap is visible | Followers pay market. trustpool shows records, never recommendations. |
+| Caller buys from a second wallet before the pool | Their own stake rides the pool's price, the bond is at stake, early buyers are listed per call, slash on evidence | Not closed. Exchange transfers break the trail. The claim is "costly and visible", never "prevented". |
+| A pushed price triggers or floors a sale | Two checkpoints a gap apart must both meet the rule, or agree at max hold; the contract sets the sale minimum | A price held down across a whole gap still counts. Uniswap v4 has no built-in average price; spot it is, and we say so. |
+| The price falls fast at max hold | The sale waits for two checkpoints that agree | Joiners hold longer in a crash; the split after the grace period is the backstop. |
+| The caller never buys | Anyone refunds after the deadline; the record counts it as negligent | A market move can make the impact check fail at the buy; the caller is then still marked negligent. |
+| A token that cannot be sold | Split after max hold plus grace, no fee | Participants hold the token. |
+| Fee-on-transfer tokens | Balances measured on every swap | A fee above the 2% tolerance makes the sale fail and the call split. Keep such tokens off the allow list. |
+| The admin key | No path to pooled funds or rules; slashes carry reasons | One key, also the treasury. |
+| One bond, many calls | Each call gets the cap from the bond at open | A caller can run several pools at once on one bond. |
 
 The one answer to memorise, for "what stops a caller using another wallet?":
 
-> Nothing stops it completely, and any platform that claims otherwise is
-> overselling. We make the caller put their own money in first, lock it, announce
-> every exit, and keep every result visible.
+> Nothing stops it completely, and any platform that claims otherwise is overselling. We put
+> the caller's own money in the pool on the same terms as everyone's, give them no way to sell
+> before the others, and keep every result visible.
 
 ## Non-goals
 
-- Driving token prices. The phrase "move the market" and its equivalents never
-  appear anywhere: code, comments, commits, UI, submission.
+- Driving token prices. The phrase "move the market" and its equivalents never appear
+  anywhere: code, comments, commits, UI, submission. The cap exists to keep impact small.
 - Leverage, perps, liquidation. Spot only.
 - Advice. No recommendations, price targets, projections or "potential returns".
 - Tracking trades outside trustpool.
@@ -154,38 +192,39 @@ The one answer to memorise, for "what stops a caller using another wallet?":
 
 ## Hackathon
 
-Monad **Metropolis**. Submission deadline **13 Oct 2026, 23:59 ET**. Judging 14 to
-27 Oct, results 3 Nov. Required: a working product with a public project
-profile, a demo, a short write-up and a link to the code.
+Monad **Metropolis**. Submission deadline **13 Oct 2026, 23:59 ET**. Judging 14 to 27 Oct,
+results 3 Nov. Required: a working product with a public project profile, a demo, a short
+write-up and a link to the code.
 
-Suggested track: **Trust, Identity & AI Infrastructure** (reputation systems).
-Alternative: Social, Attention & Culture. Avoid Onchain Finance & Trading.
+Suggested track: **Trust, Identity & AI Infrastructure** (reputation systems). Alternative:
+Social, Attention & Culture. Pooled calls sit closer to Onchain Finance & Trading than locked
+calls did; the record and the tiers are what keep this a reputation product.
 
 ## Legal note
 
-This is no legal advice. Mechanics do not decide legal classification; behaviour
-and intent do. Never claim the design is "legal" or "compliant". In Indonesia
-crypto supervision moved from Bappebti to OJK (transition ended 20 Jan 2026) and
-crypto is now a financial asset. Talk to a lawyer before taking this past the
-hackathon.
+This is no legal advice. Pooling other people's money into one trade, with a manager paid a
+share of profit, is the shape regulators look at for collective investment schemes, whatever
+the code says. Mechanics do not decide legal classification; behaviour and intent do. Never
+claim the design is "legal" or "compliant". In Indonesia crypto supervision moved from
+Bappebti to OJK (transition ended 20 Jan 2026) and crypto is now a financial asset. Talk to a
+lawyer before taking this past the hackathon or onto mainnet.
 
-## Decision: losing calls that never close (was NEXT.md task 6)
+## Security review
 
-Chosen 10 Oct: **(b) `maxHold` + `markStale`, plus (a) a marked value in the UI.**
+**10 Oct (locked calls).** Slither (102 detectors) plus a manual pass over the contract, the
+adapters, the API and the web transaction layer. Fixed then and kept since: every
+state-changing entry point is `nonReentrant`, indexed admin events, explicit ES256 on access
+tokens, demo auth refused in production, request body limits, caps on follows and watches,
+profiles limited to bonded callers, and a build that refuses a dev wallet key outside anvil.
 
-- (b) is cheap and honest on chain: no sale, no price, just a permanent count on the
-  record that anyone can trigger. The caller cannot pre-empt it by changing a rule,
-  because `maxHold` is copied into the call at open.
-- (a) puts a number on the open loss in the meantime, clearly labelled unrealised.
-- (c), a forced sale with a TWAP floor, needs a price oracle and stays on the v2 list.
-
-## Security review, 10 Oct
-
-Slither (102 detectors) plus a manual pass over the contract, both adapters, the API and the
-web transaction layer. Fixed: every state-changing entry point is `nonReentrant` (an allowed
-token or adapter can call back mid-swap; a test proves each door is shut), indexed admin
-events, explicit ES256 on access tokens, demo auth refused in production, request body
-limits, caps on follows and watches, profiles limited to bonded callers, and a build that
-refuses a dev wallet key outside anvil. Accepted as designed: timestamps drive the lock and
-notice, adapter return values are ignored because the pool measures balances, and MON only
-goes to the caller, the bonder or the treasury. This is not an audit; get one before real money.
+**11 Oct (pooled calls).** Slither rerun on the rewrite. Fixed: an unused constant. Fixed
+during the build: a max-hold sale could take its floor from one fresh checkpoint, so one
+transaction could dump the price, checkpoint and sell at its own floor; max hold now needs two
+checkpoints a gap apart that agree within the tolerance (tested with that exact attack).
+Accepted as designed: timestamps drive windows and holds; adapter return values are ignored
+because the contract measures balances; MON goes only to the claimer, the withdrawer, the
+keeper or the treasury; reentrancy-shaped findings around the swaps are covered by the global
+lock, which a test proves shut on every entry point during a swap; the exponent and
+divide-before-multiply findings sit in the vendored Uniswap `FullMath`. Invariant tests check
+that the contract's MON and tokens always equal what it owes. This is not an audit; get one
+before real money.
