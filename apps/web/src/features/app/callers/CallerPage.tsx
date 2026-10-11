@@ -7,6 +7,7 @@ import { compact, date, mon, price, shortAddress } from '@/lib/format'
 import { entryPrice } from '@trustpool/core'
 import { source } from '@/lib/data'
 import { useLoad, useTitle } from '@/lib/hooks'
+import { useSession } from '@/auth/session'
 import { useLocalCalls } from '@/lib/view'
 import { ClockCell } from '../components/CallCard'
 import { EmbedBadgeButton, FollowButton, ShareButton } from '../components/Social'
@@ -21,6 +22,7 @@ async function load(address: string) {
 /** A caller's whole record. Every call sits in one table, whatever its result. */
 export default function CallerPage() {
   const address = useParams().address ?? ''
+  const me = useSession().address
   const [version, setVersion] = useState(0)
   const data = useLoad(() => load(address), [address, version])
   const calls = useLocalCalls(data?.calls)
@@ -38,7 +40,15 @@ export default function CallerPage() {
   if (data === null)
     return (
       <Card>
-        <Empty title="This address has no calls on trustpool" action={<ButtonLink to="/app/callers">All callers</ButtonLink>} />
+        {me && me.toLowerCase() === address.toLowerCase() ? (
+          <Empty
+            title="Your profile starts with your first call"
+            body="Post a bond and open a call. Your name, record and tier show here."
+            action={<ButtonLink to="/app/new">Open a call</ButtonLink>}
+          />
+        ) : (
+          <Empty title="This address has no calls on trustpool" action={<ButtonLink to="/app/callers">All callers</ButtonLink>} />
+        )}
       </Card>
     )
   const { caller } = data
