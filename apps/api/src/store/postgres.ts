@@ -1,8 +1,8 @@
-import type { Alert, AlertKind, Call, Caller, Token } from '@trustpool/core'
+import { tierOf, type Alert, type AlertKind, type Call, type Caller, type CallerRecord, type Participant, type Position, type Token } from '@trustpool/core'
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { getAddress } from 'viem'
 import type { Db } from '../db/client'
-import { alerts, callers, calls, follows, prices, profiles, slashes, tokens, watches } from '../db/schema'
+import { alerts, callers, calls, claims, deposits, follows, prices, profiles, slashes, tokens, watches } from '../db/schema'
 import type { CallFilter, Store } from './types'
 
 /** Longest sparkline served; older samples are thinned evenly. */
@@ -46,30 +46,64 @@ export function postgresStore(db: Db): Store {
     for (const s of samples) byCall.set(s.callId, [...(byCall.get(s.callId) ?? []), s.price])
 
     return rows.map((r) => {
-      const entry = r.monIn / r.tokens
-      const series = [entry, ...thin(byCall.get(r.id) ?? [], MAX_SERIES - 2)]
-      if (r.state === 'Settled' && r.monOut !== null) series.push(r.monOut / r.tokens)
-      if (series.length === 1) series.push(entry) // a sparkline needs two points
-      const open = r.state === 'Locked' || r.state === 'Exiting'
-      return {
+      const entry = r.tokens ? r.totalIn / r.tokens : undefined
+      const series = entry === undefined ? [] : [entry, ...thin(byCall.get(r.id) ?? [], MAX_SERIES - 2)]
+      if (entry !== undefined && r.state === 'Settled' && r.gross !== null) series.push(r.gross / r.tokens!)
+      if (series.length === 1) series.push(entry!) // a sparkline needs two points
+      const checkpoints = [
+        ...(r.prevAt !== null && r.prevValue !== null ? [{ value: r.prevValue, at: r.prevAt }] : []),
+        ...(r.lastAt !== null && r.lastValue !== null ? [{ value: r.lastValue, at: r.lastAt }] : []),
+      ]
+      const call: Call = {
         id: r.id,
         caller: r.caller,
         token: tokenMap.get(r.token) ?? { address: r.token, symbol: '?', name: 'Unknown token', hue: 0 },
-        monIn: r.monIn,
-        tokens: r.tokens,
-        openedAt: r.openedAt,
-        unlockAt: r.unlockAt,
-        notice: r.notice,
-        announcedAt: r.announcedAt ?? undefined,
-        exitAt: r.exitAt ?? undefined,
-        monOut: r.monOut ?? undefined,
-        state: r.state,
+        tier: r.tier,
+        rules: {
+          windowEnd: r.windowEnd,
+          buyDeadline: r.buyDeadline,
+          maxHold: r.maxHold,
+          takeProfitBps: r.takeProfitBps,
+          stopLossBps: r.stopLossBps,
+          shareBps: r.shareBps,
+          minCallerBps: r.minCallerBps,
+          maxImpactBps: r.maxImpactBps,
+          sellToleranceBps: r.sellToleranceBps,
+          keeperBps: r.keeperBps,
+          checkpointGap: r.checkpointGap,
+          splitGrace: r.splitGrace,
+          cap: r.cap,
+          minPool: r.minPool,
+        },
         thesis: r.thesis,
+        openedAt: r.openedAt,
+        state: r.state,
+        totalIn: r.totalIn,
+        callerStake: r.callerStake,
+        depositors: r.depositors,
+        checkpoints,
         series,
         watchers: r.watchers,
-        stale: r.stale,
-        markedValue: open ? (r.markedValue ?? undefined) : undefined,
-        markedAt: open ? (r.markedAt ?? undefined) : undefined,
+      }
+      return {
+        ...call,
+        ...defined({
+          liveCap: r.state === 'Open' ? r.liveCap : null,
+          tokens: r.tokens,
+          boughtAt: r.boughtAt,
+          holdUntil: r.holdUntil,
+          saleReason: r.saleReason,
+          keeper: r.keeper,
+          gross: r.gross,
+          keeperReward: r.keeperReward,
+          fee: r.fee,
+          payout: r.payout,
+          netReturnBps: r.netReturnBps,
+          negligent: r.state === 'Refunded' ? r.negligent : null,
+          closedAt: r.closedAt,
+          markedValue: r.state === 'Holding' ? r.markedValue : null,
+          markedAt: r.state === 'Holding' ? r.markedAt : null,
+        }),
       }
     })
   }
@@ -88,18 +122,39 @@ export function postgresStore(db: Db): Store {
       followers: r.followers,
       joinedAt: r.firstSeen,
       bond: r.bond,
-      record: {
-        settled: r.settled,
-        losses: r.losses,
-        released: r.released,
-        open: r.open,
-        slashes: r.slashes,
-        stale: r.stale,
-        sumReturnBps: r.sumReturnBps,
-        lastActive: r.lastActive,
-      },
+      record: recordOf(r),
+      tier: tierOf(recordOf(r)),
       slashHistory: history.filter((s) => s.caller === r.address).map(({ amount, reason, at }) => ({ amount, reason, at })),
     }))
+  }
+
+  /** Who is in a call and what their claim pays: the paid amount once claimed, else the contract's arithmetic. */
+  async function participantsOf(ids: number[]): Promise<Map<number, Participant[]>> {
+    const out = new Map<number, Participant[]>()
+    if (!ids.length) return out
+    const rows = await db
+      .select({ d: deposits, c: calls, claimMon: claims.mon, claimTokens: claims.tokens })
+      .from(deposits)
+      .innerJoin(calls, eq(calls.id, deposits.callId))
+      .leftJoin(claims, and(eq(claims.callId, deposits.callId), eq(claims.account, deposits.account)))
+      .where(and(inArray(deposits.callId, ids), sql`${deposits.depositWei} > 0`))
+      .orderBy(desc(deposits.deposit), asc(deposits.firstAt))
+    for (const { d, c, claimMon, claimTokens } of rows) {
+      const isCaller = d.account === c.caller
+      const p: Participant = { address: d.account, deposit: d.deposit, isCaller, claimed: claimMon !== null }
+      const share = c.totalIn ? d.deposit / c.totalIn : 0
+      if (claimMon !== null) {
+        if (c.state === 'Split') p.claimTokens = claimTokens!
+        else p.claimMon = claimMon
+      } else if (c.state === 'Settled') p.claimMon = (c.payout ?? 0) * share + (isCaller ? (c.fee ?? 0) : 0)
+      else if (c.state === 'Refunded') p.claimMon = d.deposit
+      else if (c.state === 'Split') p.claimTokens = (c.tokens ?? 0) * share
+      const list = out.get(c.id) ?? []
+      if (isCaller) list.unshift(p)
+      else list.push(p)
+      out.set(c.id, list)
+    }
+    return out
   }
 
   const flatCalls = (rows: { c: typeof calls.$inferSelect; watchers: number }[]) => rows.map((r) => ({ ...r.c, watchers: r.watchers }))
@@ -132,6 +187,26 @@ export function postgresStore(db: Db): Store {
     },
 
     listTokens,
+
+    async participants(id) {
+      const [call] = await db.select({ id: calls.id }).from(calls).where(eq(calls.id, id))
+      if (!call) return undefined
+      return (await participantsOf([id])).get(id) ?? []
+    },
+
+    async positions(address) {
+      const account = getAddress(address)
+      const mine = await db
+        .select({ callId: deposits.callId })
+        .from(deposits)
+        .innerJoin(calls, eq(calls.id, deposits.callId))
+        .where(and(eq(deposits.account, account), sql`${deposits.depositWei} > 0`))
+        .orderBy(desc(calls.openedAt), desc(calls.id))
+      const parts = await participantsOf(mine.map((m) => m.callId))
+      return mine.flatMap(({ callId }): Position[] =>
+        (parts.get(callId) ?? []).filter((p) => p.address === account).map((p) => ({ ...p, callId })),
+      )
+    },
 
     async setProfile(claim) {
       const address = getAddress(claim.address)
@@ -186,6 +261,25 @@ export function postgresStore(db: Db): Store {
       if (!numeric.length) return
       await db.update(alerts).set({ read: true }).where(and(eq(alerts.userId, user), inArray(alerts.id, numeric)))
     },
+  }
+}
+
+/** Drops null columns, so optional fields are absent rather than null in the JSON. */
+function defined<T extends Record<string, unknown>>(o: T): { [K in keyof T]?: Exclude<T[K], null> } {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null && v !== undefined)) as { [K in keyof T]?: Exclude<T[K], null> }
+}
+
+function recordOf(r: typeof callers.$inferSelect): CallerRecord {
+  return {
+    settled: r.settled,
+    losses: r.losses,
+    negligent: r.negligent,
+    refunded: r.refunded,
+    split: r.split,
+    slashes: r.slashes,
+    active: r.active,
+    sumNetBps: r.sumNetBps,
+    lastActive: r.lastActive,
   }
 }
 

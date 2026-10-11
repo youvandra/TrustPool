@@ -29,8 +29,8 @@ describe('share cards', () => {
   })
 
   test('a settled loss is drawn like a gain: signed, same place, own colour', () => {
-    const loss = CALLS.find((c) => c.state === 'Settled' && c.monOut! < c.monIn)!
-    const gain = CALLS.find((c) => c.state === 'Settled' && c.monOut! > c.monIn)!
+    const loss = CALLS.find((c) => c.state === 'Settled' && c.netReturnBps! < 0)!
+    const gain = CALLS.find((c) => c.state === 'Settled' && c.netReturnBps! > 0)!
     const at = (svg: string) => svg.match(/<text x="1088" y="250" font-size="84"[^>]*fill="(#\w+)"[^>]*>([^<]+)</)!
     expect(at(callCardSvg(loss))[2]).toStartWith('−')
     expect(at(callCardSvg(gain))[2]).toStartWith('+')
@@ -57,14 +57,14 @@ describe('share cards', () => {
     const v = async () => (await (await get('/share/calls/1')).text()).match(/\?v=(\w+)/)![1]
     const first = await v()
     expect(await v()).toBe(first)
-    const other = createApp({ store: { ...demoStore(), getCall: async (id: number) => ({ ...CALLS.find((c) => c.id === id)!, stale: true }) }, requestLog: false })
+    const other = createApp({ store: { ...demoStore(), getCall: async (id: number) => ({ ...CALLS.find((c) => c.id === id)!, totalIn: 999 }) }, requestLog: false })
     const changed = (await (await other.request('/api/share/calls/1')).text()).match(/\?v=(\w+)/)![1]
     expect(changed).not.toBe(first)
   })
 })
 
 describe('badge', () => {
-  test("reads the caller's record, losses and stale calls included", async () => {
+  test("reads the caller's record, losses and unbought pools included", async () => {
     const caller = CALLERS[0]!
     const res = await get(`/callers/${caller.address}/badge.svg`)
     expect(res.status).toBe(200)
@@ -73,9 +73,9 @@ describe('badge', () => {
     expect(res.headers.get('cross-origin-resource-policy')).toBe('cross-origin')
     const r = caller.record
     const svg = await res.text()
-    expect(svg).toContain(`${r.settled + r.released} settled · ${r.losses} loss`)
-    expect(badgeText({ ...caller, bond: 10, record: { ...r, settled: 6, released: 1, losses: 4, sumReturnBps: -2170, stale: 2 } })).toBe(
-      '7 settled · 4 losses · avg −3.1% · 10 MON bond · 2 stale',
+    expect(svg).toContain(`${r.settled} settled · ${r.losses} loss`)
+    expect(badgeText({ ...caller, bond: 10, tier: 0, record: { ...r, settled: 7, losses: 4, sumNetBps: -2170, negligent: 2 } })).toBe(
+      '7 settled · 4 losses · avg −3.1% · 2 not bought · tier 0 · 10 MON bond',
     )
   })
 

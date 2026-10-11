@@ -31,7 +31,7 @@ export interface EarlyBuyerReport {
 }
 
 const NOTE =
-  'Wallets that received this token in the blocks before the call opened. Input for a manual review, never proof: ' +
+  'Wallets that received this token in the blocks before the pool bought it. Input for a manual review, never proof: ' +
   'anyone can buy a token, and a link to the caller has to be shown separately. "Funded by the caller" only sees MON ' +
   'sent directly from the caller\'s address, not through another wallet or a contract.'
 
@@ -41,8 +41,9 @@ const NONCE_BUDGET = 200
 const BLOCK_BUDGET = 1500
 
 /**
- * Lists wallets that received a call's token in the `windowBlocks` before the call opened.
- * Scanned once per call on first request and cached; a call's past cannot change.
+ * Lists wallets that received a call's token in the `windowBlocks` before the pool's buy: the
+ * moment worth front-running. Scanned once per call on first request and cached; a call's past
+ * cannot change. Undefined until the pool has bought.
  */
 export class EarlyBuyers {
   private readonly inFlight = new Map<number, Promise<EarlyBuyerReport | undefined>>()
@@ -82,15 +83,15 @@ export class EarlyBuyers {
 
   private async scan(callId: number): Promise<EarlyBuyerReport | undefined> {
     const [call] = await this.db
-      .select({ token: calls.token, openBlock: calls.openBlock, adapter: calls.adapter, caller: calls.caller })
+      .select({ token: calls.token, buyBlock: calls.buyBlock, adapter: calls.adapter, caller: calls.caller })
       .from(calls)
       .where(eq(calls.id, callId))
-    if (!call || call.openBlock === null) return undefined
+    if (!call || call.buyBlock === null) return undefined
     const [token] = await this.db.select({ decimals: tokens.decimals }).from(tokens).where(eq(tokens.address, call.token))
     const decimals = token?.decimals ?? 18
 
-    // The window ends one block before the open, so the call's own buy is never listed.
-    const toBlock = BigInt(call.openBlock) - 1n
+    // The window ends one block before the buy, so the pool's own buy is never listed.
+    const toBlock = BigInt(call.buyBlock) - 1n
     const fromBlock = toBlock - BigInt(this.opts.windowBlocks) + 1n > 0n ? toBlock - BigInt(this.opts.windowBlocks) + 1n : 0n
     const skip = new Set([ZERO, this.opts.pool.toLowerCase(), call.adapter.toLowerCase()])
     const totals = new Map<string, { raw: bigint; first: bigint; n: number }>()

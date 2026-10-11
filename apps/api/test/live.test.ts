@@ -6,6 +6,7 @@ import { createApp } from '../src/http/app'
 import { EventWriter } from '../src/indexer/writer'
 import { AlertHub } from '../src/live/hub'
 import { postgresStore } from '../src/store/postgres'
+import { rulesArgs } from './fixtures'
 
 const CALLER = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'
 const TOKEN = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0'
@@ -30,7 +31,7 @@ afterAll(async () => {
 })
 
 const open = (id: number) =>
-  w.callOpened({ id: BigInt(id), caller: CALLER, token: TOKEN, adapter: TOKEN, monIn: 1n, tokens: 1n, unlockAt: 1n, notice: 1, thesis: '' }, at)
+  w.callOpened({ id: BigInt(id), caller: CALLER, token: TOKEN, tier: 0, rules: rulesArgs(at.at / 1000), thesis: '' }, at)
 
 const until = async (cond: () => boolean, ms = 3000) => {
   for (let t = 0; t < ms && !cond(); t += 20) await new Promise((r) => setTimeout(r, 20))
@@ -43,9 +44,9 @@ describe('live alerts', () => {
     const stop = hub.subscribe('live-alice', (a) => mine.push(a))
     hub.subscribe('live-bob', (a) => theirs.push(a))
     await store().setFollow('live-alice', CALLER, true)
-    await database.db.transaction(async (tx) => w.in(tx).callOpened({ id: 100n, caller: CALLER, token: TOKEN, adapter: TOKEN, monIn: 1n, tokens: 1n, unlockAt: 1n, notice: 1, thesis: '' }, at))
+    await database.db.transaction(async (tx) => w.in(tx).callOpened({ id: 100n, caller: CALLER, token: TOKEN, tier: 0, rules: rulesArgs(at.at / 1000), thesis: '' }, at))
     await until(() => mine.length > 0)
-    expect(mine).toMatchObject([{ kind: 'call_opened', callId: 100, read: false }])
+    expect(mine).toMatchObject([{ kind: 'window_opened', callId: 100, read: false }])
     expect(theirs).toEqual([])
     stop()
   })
@@ -56,7 +57,7 @@ describe('live alerts', () => {
     await store().setFollow('live-carol', CALLER, true)
     await database.db
       .transaction(async (tx) => {
-        await w.in(tx).callOpened({ id: 101n, caller: CALLER, token: TOKEN, adapter: TOKEN, monIn: 1n, tokens: 1n, unlockAt: 1n, notice: 1, thesis: '' }, at)
+        await w.in(tx).callOpened({ id: 101n, caller: CALLER, token: TOKEN, tier: 0, rules: rulesArgs(at.at / 1000), thesis: '' }, at)
         throw new Error('rpc failed mid-range')
       })
       .catch(() => {})
@@ -74,9 +75,9 @@ describe('live alerts', () => {
 
     await store().setWatch('live-dave', 102, true)
     await open(102)
-    await w.exitAnnounced(102n, 2n, at)
+    await w.bought(102n, parseEther('1'), 2n, at)
     let text = ''
-    while (!text.includes('exit_announced')) text += await read()
+    while (!text.includes('"bought"')) text += await read()
     // One SSE message per blank-line-separated block: `event:`, `data:` and `id:` lines.
     const alerts = text
       .split('\n\n')
@@ -85,8 +86,8 @@ describe('live alerts', () => {
       .map((m) => JSON.parse(m.data!) as Alert)
     // The watch came before the open, so this user hears both, in order.
     expect(alerts.map((a) => [a.kind, a.callId])).toEqual([
-      ['call_opened', 102],
-      ['exit_announced', 102],
+      ['window_opened', 102],
+      ['bought', 102],
     ])
     await reader.cancel()
   })

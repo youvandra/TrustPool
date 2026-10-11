@@ -3,6 +3,7 @@ import { getAddress, parseEther, type PublicClient } from 'viem'
 import { openDatabase, type Database } from '../src/db/client'
 import { EarlyBuyers } from '../src/indexer/earlyBuyers'
 import { EventWriter } from '../src/indexer/writer'
+import { rulesArgs } from './fixtures'
 
 const POOL = getAddress('0x5FbDB2315678afecb367f032d93F642f64180aa3')
 const CALLER = getAddress('0x90F79bf6EB2c4f870365E785982E1f101E93b906')
@@ -63,10 +64,8 @@ afterAll(() => database.close())
 
 async function openCall() {
   const id = nextId++
-  await w.callOpened(
-    { id: BigInt(id), caller: CALLER, token: TOKEN, adapter: POOL, monIn: 1n, tokens: 1n, unlockAt: 1n, notice: 1, thesis: '' },
-    { at: 1, tx: '0x2', block: 200n },
-  )
+  await w.callOpened({ id: BigInt(id), caller: CALLER, token: TOKEN, tier: 0, rules: rulesArgs(0, { adapter: POOL }), thesis: '' }, { at: 1, tx: '0x2', block: 190n })
+  await w.bought(BigInt(id), 1n, 1n, { at: 2, tx: '0x3', block: 200n }) // the window ends the block before the buy
   return id
 }
 

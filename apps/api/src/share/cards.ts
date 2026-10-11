@@ -1,5 +1,5 @@
 import { Resvg } from '@resvg/resvg-js'
-import { averageBps, entryPrice, returnBps, type Call, type Caller, type CallState } from '@trustpool/core'
+import { averageBps, callerShareBps, entryPrice, returnBps, type Call, type Caller, type CallState } from '@trustpool/core'
 import { fileURLToPath } from 'node:url'
 import { duration, mon, shortAddress, signedPct } from '../format'
 
@@ -30,15 +30,17 @@ const C = {
 const FONTS = ['Regular', 'Medium', 'SemiBold'].map((w) => fileURLToPath(new URL(`../../assets/fonts/Geist-${w}.ttf`, import.meta.url)))
 
 const STATE: Record<CallState, { label: string; fg: string; bg: string }> = {
-  Locked: { label: 'Locked', fg: C.ink, bg: '#E7EBEE' },
-  Exiting: { label: 'Exit announced', fg: '#FFFFFF', bg: C.accent },
-  Settled: { label: 'Settled', fg: C.ink2, bg: C.subtle },
-  Released: { label: 'Released unsold', fg: C.loss, bg: C.lossFill },
+  Open: { label: 'Window open', fg: '#FFFFFF', bg: C.accent },
+  Holding: { label: 'Bought together', fg: C.ink, bg: '#E7EBEE' },
+  Settled: { label: 'On the record', fg: C.ink2, bg: C.subtle },
+  Refunded: { label: 'Refunded', fg: C.ink2, bg: C.subtle },
+  Split: { label: 'Split, unsold', fg: C.loss, bg: C.lossFill },
 }
 
 export const esc = (s: string) => s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`)
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 const tone = (bps: number) => (bps > 0 ? C.gain : bps < 0 ? C.loss : C.ink)
+const pctOf = (bps: number) => `${(bps / 100).toFixed(bps % 100 ? 1 : 0)}%`
 const price = (x: number) => (x < 0.01 ? x.toPrecision(3) : x.toFixed(4))
 
 /** Rough Geist advance widths, enough to size a pill around its label. */
@@ -67,7 +69,7 @@ function frame(body: string, pills: { label: string; fg: string; bg: string }[])
 <text x="112" y="131" font-size="30" font-weight="600" fill="${C.accent}" letter-spacing="-0.5">trustpool</text>
 ${drawn.join('\n')}
 ${body}
-<text x="112" y="540" font-size="21" fill="${C.ink3}">The caller buys first, and announces every exit before it happens.</text>
+<text x="112" y="540" font-size="21" fill="${C.ink3}">One buy and one sale for everyone. Every call goes on the caller's record.</text>
 </svg>`
 }
 
@@ -90,7 +92,7 @@ const rule = `<line x1="112" y1="340" x2="1088" y2="340" stroke="${C.line}" stro
 export function callCardSvg(call: Call, caller?: Caller): string {
   const who = caller?.handle ?? shortAddress(call.caller)
   const pills = [STATE[call.state]]
-  if (call.stale) pills.push({ label: 'Stale', fg: C.loss, bg: C.lossFill })
+  if (call.negligent) pills.push({ label: 'Never bought', fg: C.loss, bg: C.lossFill })
   const bps = returnBps(call)
   const result =
     bps === undefined
@@ -102,10 +104,12 @@ export function callCardSvg(call: Call, caller?: Caller): string {
 ${result}
 ${rule}
 ${facts([
-  { label: 'Caller put in', value: mon(call.monIn), w: 1.2 },
-  { label: 'Entry price', value: `${price(entryPrice(call))} MON`, w: 1.3 },
-  { label: 'Lock', value: duration(call.unlockAt - call.openedAt), w: 0.8 },
-  { label: 'Exit notice', value: duration(call.notice), w: 0.7 },
+  { label: 'Pool', value: mon(call.totalIn), w: 1.2 },
+  { label: "Caller's share", value: pctOf(callerShareBps(call)), w: 0.9 },
+  entryPrice(call) === undefined
+    ? { label: 'Window', value: duration(call.rules.windowEnd - call.openedAt), w: 1.1 }
+    : { label: 'Entry price', value: `${price(entryPrice(call)!)} MON`, w: 1.1 },
+  { label: 'Profit share', value: pctOf(call.rules.shareBps), w: 0.8 },
 ])}`
   return frame(body, pills)
 }
@@ -113,16 +117,16 @@ ${facts([
 export function callerCardSvg(caller: Caller): string {
   const r = caller.record
   const avg = averageBps(r)
-  const closed = r.settled + r.released
+  const closed = r.settled
   const body = `<text x="112" y="250" font-size="84" font-weight="600" fill="${C.ink}" letter-spacing="-3">${esc(clip(caller.handle ?? shortAddress(caller.address), 20))}</text>
-<text x="112" y="296" font-size="26" fill="${C.ink2}">${esc(shortAddress(caller.address))} · ${r.open} open</text>
+<text x="112" y="296" font-size="26" fill="${C.ink2}">${esc(shortAddress(caller.address))} · tier ${caller.tier} · ${r.active} active</text>
 ${rule}
 ${facts([
   { label: 'Settled', value: String(closed), w: 0.8 },
   { label: 'At a loss', value: String(r.losses), w: 0.8 },
   { label: 'Average result', value: closed ? signedPct(avg, 2) : '—', fill: closed ? tone(avg) : C.ink3, w: 1.1 },
   { label: 'Bond', value: mon(caller.bond), w: 1.3 },
-  { label: 'Stale', value: String(r.stale), w: 0.6 },
+  { label: 'Not bought', value: String(r.negligent), w: 0.7 },
 ])}`
   return frame(body, [{ label: 'Caller', fg: C.accentDeep, bg: C.accentFill }])
 }
@@ -177,14 +181,15 @@ export function sharePage(p: { title: string; description: string; image: string
 /** One sentence for the share description. */
 export function callSummary(call: Call): string {
   const bps = returnBps(call)
-  const base = `The caller put in ${mon(call.monIn)}, locked for ${duration(call.unlockAt - call.openedAt)} with ${duration(call.notice)} exit notice.`
-  if (bps !== undefined) return `${base} ${signedPct(bps)} on the record.`
-  if (call.state === 'Exiting') return `${base} Exit announced.`
-  return base
+  const base = `${mon(call.totalIn)} pooled by ${call.depositors} ${call.depositors === 1 ? 'participant' : 'participants'}, the caller ${pctOf(callerShareBps(call))} of it, ${pctOf(call.rules.shareBps)} of profit to the caller.`
+  if (bps !== undefined) return `${base} ${signedPct(bps)} for every participant, on the record.`
+  if (call.state === 'Open') return `${base} Window open.`
+  if (call.state === 'Holding') return `${base} Bought together, one price for all.`
+  if (call.state === 'Refunded') return `${base} Refunded.`
+  return `${base} Could not be sold; split.`
 }
 
 export function callerSummary(caller: Caller): string {
   const r = caller.record
-  const closed = r.settled + r.released
-  return `${closed} settled, ${r.losses} at a loss, average ${closed ? signedPct(averageBps(r)) : '—'}. ${mon(caller.bond)} bond.`
+  return `${r.settled} settled, ${r.losses} at a loss, average ${r.settled ? signedPct(averageBps(r)) : '—'}. Tier ${caller.tier}, ${mon(caller.bond)} bond.`
 }

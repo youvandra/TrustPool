@@ -1,7 +1,7 @@
 import type { AlertKind } from '@trustpool/core'
-import { and, eq, lte, sql } from 'drizzle-orm'
+import { and, eq, gt, sql } from 'drizzle-orm'
 import type { Executor } from '../db/client'
-import { callers, calls, slashes, tokens } from '../db/schema'
+import { callers, calls, claims, deposits, prices, slashes, tokens } from '../db/schema'
 import { amount, mon, ms } from './units'
 
 /**
@@ -10,6 +10,9 @@ import { amount, mon, ms } from './units'
  * follows the caller, for channel-wide feeds such as Telegram.
  */
 export const ALERT_CHANNEL = 'trustpool_alerts'
+
+/** A window counts as closing in its last quarter, and at most its last 30 minutes. */
+export const closingLead = (windowMs: number) => Math.min(30 * 60_000, Math.floor(windowMs / 4))
 
 export interface TokenInfo {
   address: string
@@ -26,11 +29,33 @@ export interface At {
   block?: bigint
 }
 
+/** The `Rules` tuple of CallOpened, as viem decodes it. */
+export interface RulesArgs {
+  adapter: string
+  windowEnd: number
+  buyDeadline: number
+  maxHold: number
+  takeProfitBps: number
+  stopLossBps: number
+  shareBps: number
+  minCallerBps: number
+  maxImpactBps: number
+  sellToleranceBps: number
+  keeperBps: number
+  checkpointGap: number
+  splitGrace: number
+  cap: bigint
+  minPool: bigint
+}
+
+const REASONS = ['take_profit', 'stop_loss', 'max_hold'] as const
+
 /**
  * Turns TrustPool events into rows. Each method mirrors the contract function that emitted
  * the event, including the record arithmetic, so the database tracks `recordOf` exactly.
- * The indexer runs these inside one transaction per block range, so a batch lands whole or
- * not at all. Addresses arrive checksummed.
+ * Amounts that events carry as totals (deposit, pool total) are written as totals, so a
+ * replayed event lands on the same row. The indexer runs these inside one transaction per
+ * block range, so a batch lands whole or not at all. Addresses arrive checksummed.
  */
 export class EventWriter {
   constructor(private readonly db: Executor) {}
@@ -84,11 +109,8 @@ export class EventWriter {
 
   // ------------------------------------------------------------ calls
 
-  async callOpened(
-    c: { id: bigint; caller: string; token: string; adapter: string; monIn: bigint; tokens: bigint; unlockAt: bigint; notice: number; thesis: string },
-    e: At,
-  ) {
-    const [token] = await this.db.select({ decimals: tokens.decimals }).from(tokens).where(eq(tokens.address, c.token))
+  async callOpened(c: { id: bigint; caller: string; token: string; tier: number; rules: RulesArgs; thesis: string }, e: At) {
+    const r = c.rules
     await this.ensureCaller(c.caller, e.at)
     const id = Number(c.id)
     await this.db
@@ -97,86 +119,204 @@ export class EventWriter {
         id,
         caller: c.caller,
         token: c.token,
-        adapter: c.adapter,
-        monInWei: c.monIn.toString(),
-        tokensWei: c.tokens.toString(),
-        monIn: mon(c.monIn),
-        tokens: amount(c.tokens, token?.decimals ?? 18),
-        openedAt: e.at,
-        unlockAt: ms(c.unlockAt),
-        notice: ms(c.notice),
-        state: 'Locked',
+        adapter: r.adapter,
+        tier: c.tier,
         thesis: c.thesis,
+        openedAt: e.at,
+        state: 'Open',
+        windowEnd: ms(r.windowEnd),
+        buyDeadline: ms(r.buyDeadline),
+        maxHold: ms(r.maxHold),
+        takeProfitBps: r.takeProfitBps,
+        stopLossBps: r.stopLossBps,
+        shareBps: r.shareBps,
+        minCallerBps: r.minCallerBps,
+        maxImpactBps: r.maxImpactBps,
+        sellToleranceBps: r.sellToleranceBps,
+        keeperBps: r.keeperBps,
+        checkpointGap: ms(r.checkpointGap),
+        splitGrace: ms(r.splitGrace),
+        capWei: r.cap.toString(),
+        cap: mon(r.cap),
+        minPoolWei: r.minPool.toString(),
+        minPool: mon(r.minPool),
         openTx: e.tx,
         openBlock: e.block === undefined ? null : Number(e.block),
       })
       .onConflictDoNothing()
     await this.db
       .update(callers)
-      .set({ open: sql`${callers.open} + 1`, lastActive: e.at, withdrawReadyAt: null })
+      .set({ active: sql`${callers.active} + 1`, lastActive: e.at, withdrawReadyAt: null })
       .where(eq(callers.address, c.caller))
-    await this.alert('call_opened', id, e.at)
+    await this.alert('window_opened', id, e.at)
   }
 
-  async exitAnnounced(id: bigint, exitAt: bigint, e: At) {
-    await this.db.update(calls).set({ state: 'Exiting', announcedAt: e.at, exitAt: ms(exitAt) }).where(eq(calls.id, Number(id)))
-    await this.alert('exit_announced', Number(id), e.at)
-  }
-
-  async callSettled(id: bigint, caller: string, monOut: bigint, returnBps: bigint, e: At) {
-    const bps = Number(returnBps)
+  /** Deposited and Withdrawn both carry the account's new deposit and the pool's new total. */
+  async depositChanged(id: bigint, account: string, depositWei: bigint, totalWei: bigint, e: At) {
+    const callId = Number(id)
+    await this.db
+      .insert(deposits)
+      .values({ callId, account, depositWei: depositWei.toString(), deposit: mon(depositWei), firstAt: e.at, lastAt: e.at })
+      .onConflictDoUpdate({
+        target: [deposits.callId, deposits.account],
+        set: { depositWei: depositWei.toString(), deposit: mon(depositWei), lastAt: e.at },
+      })
+    const [call] = await this.db.select({ caller: calls.caller }).from(calls).where(eq(calls.id, callId))
+    const stake = call?.caller === account ? { callerStakeWei: depositWei.toString(), callerStake: mon(depositWei) } : {}
     await this.db
       .update(calls)
-      .set({ state: 'Settled', monOutWei: monOut.toString(), monOut: mon(monOut), returnBps: bps, closedAt: e.at })
-      .where(eq(calls.id, Number(id)))
+      .set({
+        ...stake,
+        totalInWei: totalWei.toString(),
+        totalIn: mon(totalWei),
+        depositors: sql`(SELECT COUNT(*)::int FROM ${deposits} WHERE ${deposits.callId} = ${callId} AND ${deposits.depositWei} > 0)`,
+      })
+      .where(eq(calls.id, callId))
+  }
+
+  async bought(id: bigint, tokensWei: bigint, holdUntil: bigint, e: At) {
+    const callId = Number(id)
+    const [row] = await this.db
+      .select({ caller: calls.caller, decimals: tokens.decimals, totalIn: calls.totalIn })
+      .from(calls)
+      .leftJoin(tokens, eq(tokens.address, calls.token))
+      .where(eq(calls.id, callId))
+    if (!row) return
+    const t = amount(tokensWei, row.decimals ?? 18)
+    await this.db
+      .update(calls)
+      .set({
+        state: 'Holding',
+        tokensWei: tokensWei.toString(),
+        tokens: t,
+        boughtAt: e.at,
+        holdUntil: ms(holdUntil),
+        buyBlock: e.block === undefined ? null : Number(e.block),
+        liveCap: null,
+      })
+      .where(eq(calls.id, callId))
+    await this.db.update(callers).set({ lastActive: e.at }).where(eq(callers.address, row.caller))
+    await this.alert('bought', callId, e.at)
+  }
+
+  async checkpointed(id: bigint, valueWei: bigint, atSec: bigint) {
+    const callId = Number(id)
+    const at = ms(atSec)
+    const value = mon(valueWei)
+    await this.db
+      .update(calls)
+      .set({ prevValue: sql`${calls.lastValue}`, prevAt: sql`${calls.lastAt}`, lastValueWei: valueWei.toString(), lastValue: value, lastAt: at })
+      .where(and(eq(calls.id, callId), sql`${calls.lastAt} IS DISTINCT FROM ${at}`))
+    const [row] = await this.db.select({ tokens: calls.tokens }).from(calls).where(eq(calls.id, callId))
+    if (row?.tokens) await this.db.insert(prices).values({ callId, at, price: value / row.tokens }).onConflictDoNothing()
+  }
+
+  async sold(
+    s: { id: bigint; keeper: string; reason: number; gross: bigint; keeperReward: bigint; fee: bigint; payout: bigint; netReturnBps: bigint },
+    e: At,
+  ) {
+    const callId = Number(s.id)
+    const bps = Number(s.netReturnBps)
+    const [row] = await this.db.select({ caller: calls.caller }).from(calls).where(eq(calls.id, callId))
+    if (!row) return
+    await this.db
+      .update(calls)
+      .set({
+        state: 'Settled',
+        saleReason: REASONS[s.reason - 1] ?? 'max_hold',
+        keeper: s.keeper,
+        grossWei: s.gross.toString(),
+        gross: mon(s.gross),
+        keeperReward: mon(s.keeperReward),
+        feeWei: s.fee.toString(),
+        fee: mon(s.fee),
+        payoutWei: s.payout.toString(),
+        payout: mon(s.payout),
+        netReturnBps: bps,
+        closedAt: e.at,
+        markedValue: null,
+        markedAt: null,
+      })
+      .where(eq(calls.id, callId))
     await this.db
       .update(callers)
       .set({
-        open: sql`${callers.open} - 1`,
+        active: sql`${callers.active} - 1`,
         settled: sql`${callers.settled} + 1`,
         losses: sql`${callers.losses} + ${bps < 0 ? 1 : 0}`,
-        sumReturnBps: sql`${callers.sumReturnBps} + ${bps}`,
+        sumNetBps: sql`${callers.sumNetBps} + ${bps}`,
         lastActive: e.at,
       })
-      .where(eq(callers.address, caller))
-    await this.alert('call_settled', Number(id), e.at)
+      .where(eq(callers.address, row.caller))
+    await this.alert('sold', callId, e.at)
   }
 
-  async callReleased(id: bigint, caller: string, e: At) {
-    await this.db.update(calls).set({ state: 'Released', returnBps: -10_000, closedAt: e.at }).where(eq(calls.id, Number(id)))
+  async refunded(id: bigint, negligent: boolean, e: At) {
+    const callId = Number(id)
+    const [row] = await this.db.select({ caller: calls.caller }).from(calls).where(eq(calls.id, callId))
+    if (!row) return
+    await this.db.update(calls).set({ state: 'Refunded', negligent, closedAt: e.at, liveCap: null }).where(eq(calls.id, callId))
     await this.db
       .update(callers)
       .set({
-        open: sql`${callers.open} - 1`,
-        released: sql`${callers.released} + 1`,
-        losses: sql`${callers.losses} + 1`,
-        sumReturnBps: sql`${callers.sumReturnBps} - 10000`,
-        lastActive: e.at,
+        active: sql`${callers.active} - 1`,
+        negligent: sql`${callers.negligent} + ${negligent ? 1 : 0}`,
+        refunded: sql`${callers.refunded} + ${negligent ? 0 : 1}`,
       })
-      .where(eq(callers.address, caller))
-    await this.alert('call_released', Number(id), e.at)
+      .where(eq(callers.address, row.caller))
+    await this.alert('refunded', callId, e.at)
   }
 
-  async callMarkedStale(id: bigint, caller: string, e: At) {
-    await this.db.update(calls).set({ stale: true }).where(eq(calls.id, Number(id)))
-    await this.db.update(callers).set({ stale: sql`${callers.stale} + 1` }).where(eq(callers.address, caller))
-    await this.alert('call_stale', Number(id), e.at)
+  async splitStarted(id: bigint, e: At) {
+    const callId = Number(id)
+    const [row] = await this.db.select({ caller: calls.caller }).from(calls).where(eq(calls.id, callId))
+    if (!row) return
+    await this.db.update(calls).set({ state: 'Split', closedAt: e.at, markedValue: null, markedAt: null }).where(eq(calls.id, callId))
+    await this.db
+      .update(callers)
+      .set({ active: sql`${callers.active} - 1`, split: sql`${callers.split} + 1`, lastActive: e.at })
+      .where(eq(callers.address, row.caller))
+    await this.alert('split', callId, e.at)
   }
 
-  async callAdapterMoved(id: bigint, adapter: string) {
-    await this.db.update(calls).set({ adapter }).where(eq(calls.id, Number(id)))
+  async claimed(id: bigint, account: string, monWei: bigint, tokensWei: bigint, e: At) {
+    const callId = Number(id)
+    const [row] = await this.db
+      .select({ decimals: tokens.decimals })
+      .from(calls)
+      .leftJoin(tokens, eq(tokens.address, calls.token))
+      .where(eq(calls.id, callId))
+    await this.db
+      .insert(claims)
+      .values({
+        callId,
+        account,
+        monWei: monWei.toString(),
+        mon: mon(monWei),
+        tokensWei: tokensWei.toString(),
+        tokens: amount(tokensWei, row?.decimals ?? 18),
+        at: e.at,
+        tx: e.tx,
+      })
+      .onConflictDoNothing()
   }
 
   // ------------------------------------------------------------ time-based alerts
 
-  /** Alerts for exits whose notice has run out. Idempotent: one per user and call. */
-  async exitsNowExecutable(now: number): Promise<number> {
+  /** "Window closing" for open windows in their last stretch. Sent once per call, by flag. */
+  async windowsClosing(now: number): Promise<number> {
     const due = await this.db
-      .select({ id: calls.id, exitAt: calls.exitAt })
+      .select({ id: calls.id, openedAt: calls.openedAt, windowEnd: calls.windowEnd })
       .from(calls)
-      .where(and(eq(calls.state, 'Exiting'), lte(calls.exitAt, now)))
-    for (const c of due) await this.alert('exit_executable', c.id, c.exitAt!)
-    return due.length
+      .where(and(eq(calls.state, 'Open'), eq(calls.closingAlerted, false), gt(calls.windowEnd, now)))
+    let n = 0
+    for (const c of due) {
+      if (c.windowEnd - now > closingLead(c.windowEnd - c.openedAt)) continue
+      await this.db.update(calls).set({ closingAlerted: true }).where(eq(calls.id, c.id))
+      await this.alert('window_closing', c.id, now)
+      n++
+    }
+    return n
   }
 
   // ------------------------------------------------------------ internal
@@ -186,6 +326,7 @@ export class EventWriter {
    * follows and watches gets one. The unique key makes a replayed event harmless.
    * Each new alert is announced on ALERT_CHANNEL; Postgres delivers it only if the
    * surrounding transaction commits, so a rolled-back range never reaches a browser.
+   * Every kind also goes out once as a broadcast, for channel feeds.
    */
   private async alert(kind: AlertKind, callId: number, at: number) {
     await this.db.execute(sql`
@@ -201,12 +342,9 @@ export class EventWriter {
       )
       SELECT pg_notify(${ALERT_CHANNEL}, json_build_object('id', id::text, 'userId', user_id, 'kind', kind, 'callId', call_id, 'at', at)::text)
       FROM inserted`)
-    // exit_executable is re-checked every poll, so only one-off events are broadcast.
-    if (kind !== 'exit_executable') {
-      await this.db.execute(
-        sql`SELECT pg_notify(${ALERT_CHANNEL}, json_build_object('id', NULL, 'userId', NULL, 'kind', ${kind}::text, 'callId', ${callId}::int, 'at', ${at}::bigint)::text)`,
-      )
-    }
+    await this.db.execute(
+      sql`SELECT pg_notify(${ALERT_CHANNEL}, json_build_object('id', NULL, 'userId', NULL, 'kind', ${kind}::text, 'callId', ${callId}::int, 'at', ${at}::bigint)::text)`,
+    )
   }
 
   private async ensureCaller(address: string, at: number) {

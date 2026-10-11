@@ -5,11 +5,10 @@ import { esc } from './cards'
 /** The badge text, read from the same record as the caller page. */
 export function badgeText(caller: Caller): string {
   const r = caller.record
-  const closed = r.settled + r.released
-  const parts = [`${closed} settled`, `${r.losses} ${r.losses === 1 ? 'loss' : 'losses'}`]
-  if (closed) parts.push(`avg ${signedPct(averageBps(caller.record))}`)
-  parts.push(`${mon(caller.bond, 0)} bond`)
-  if (r.stale) parts.push(`${r.stale} stale`)
+  const parts = [`${r.settled} settled`, `${r.losses} ${r.losses === 1 ? 'loss' : 'losses'}`]
+  if (r.settled) parts.push(`avg ${signedPct(averageBps(r))}`)
+  if (r.negligent) parts.push(`${r.negligent} not bought`)
+  parts.push(`tier ${caller.tier}`, `${mon(caller.bond, 0)} bond`)
   return parts.join(' · ')
 }
 

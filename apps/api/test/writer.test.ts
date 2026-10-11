@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:tes
 import { sql } from 'drizzle-orm'
 import { parseEther } from 'viem'
 import { openDatabase, type Database } from '../src/db/client'
-import { EventWriter } from '../src/indexer/writer'
+import { closingLead, EventWriter, type RulesArgs } from '../src/indexer/writer'
 import { postgresStore } from '../src/store/postgres'
 
 const CALLER = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'
@@ -23,7 +23,7 @@ let w: EventWriter
 let store: ReturnType<typeof postgresStore>
 beforeEach(async () => {
   await database.db.execute(
-    sql`TRUNCATE alerts, follows, watches, profiles, early_buyers, early_buyer_scans, prices, slashes, calls, callers, tokens, meta RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE alerts, follows, watches, profiles, early_buyers, early_buyer_scans, prices, claims, deposits, slashes, calls, callers, tokens, meta RESTART IDENTITY CASCADE`,
   )
   w = new EventWriter(database.db)
   store = postgresStore(database.db)
@@ -31,45 +31,142 @@ beforeEach(async () => {
   await w.bondPosted(CALLER, parseEther('10'), at())
 })
 
-function open(id: number, mon = '100') {
-  return w.callOpened(
-    {
-      id: BigInt(id),
-      caller: CALLER,
-      token: TOKEN,
-      adapter: ADAPTER,
-      monIn: parseEther(mon),
-      tokens: parseEther('50000'),
-      unlockAt: BigInt(T0 / 1000 + 3 * 86400),
-      notice: 43200,
-      thesis: 'CHOG holds',
-    },
-    { ...at(), block: 42n },
+const J1 = '0x90F79bf6EB2c4f870365E785982E1f101E93b906'
+const J2 = '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65'
+const S = T0 / 1000 // the chain's seconds
+const H = 3600
+const HM = H * 1000
+const rules = (o: Partial<RulesArgs> = {}): RulesArgs => ({
+  adapter: ADAPTER,
+  windowEnd: S + H,
+  buyDeadline: S + 3 * H,
+  maxHold: 24 * H,
+  takeProfitBps: 2500,
+  stopLossBps: 2000,
+  shareBps: 1000,
+  minCallerBps: 500,
+  maxImpactBps: 200,
+  sellToleranceBps: 200,
+  keeperBps: 10,
+  checkpointGap: 900,
+  splitGrace: 6 * H,
+  cap: parseEther('1000'),
+  minPool: parseEther('50'),
+  ...o,
+})
+
+/** Opens with the caller's stake and the joiners' deposits, as the contract emits them. */
+async function open(id: number, stake = '100', joins: [string, string][] = [], o: Partial<RulesArgs> = {}) {
+  await w.callOpened({ id: BigInt(id), caller: CALLER, token: TOKEN, tier: 1, rules: rules(o), thesis: 'CHOG holds' }, { ...at(), block: 42n })
+  let total = parseEther(stake)
+  await w.depositChanged(BigInt(id), CALLER, total, total, at())
+  for (const [who, mon] of joins) {
+    total += parseEther(mon)
+    await w.depositChanged(BigInt(id), who, parseEther(mon), total, at(1))
+  }
+}
+
+async function buyAndSell(id: number, tokens: string, gross: string, netReturnBps: bigint, payout: string, fee = '0', reason = 1) {
+  await w.bought(BigInt(id), parseEther(tokens), BigInt(S + 2 * H + 24 * H), { ...at(2 * HM), block: 50n })
+  await w.sold(
+    { id: BigInt(id), keeper: OTHER, reason, gross: parseEther(gross), keeperReward: parseEther(gross) / 1000n, fee: parseEther(fee), payout: parseEther(payout), netReturnBps },
+    at(3 * HM),
   )
 }
 
 describe('EventWriter on Postgres', () => {
-  test('converts units once: wei to MON, seconds to ms', async () => {
-    await open(0)
+  test('converts units once: wei to MON, seconds to ms, rules fixed at open', async () => {
+    await open(0, '100', [[J1, '300']])
     const c = (await store.getCall(0))!
-    expect(c).toMatchObject({ monIn: 100, tokens: 50_000, notice: 43_200_000, unlockAt: T0 + 3 * 86_400_000, state: 'Locked' })
-    expect(c.series).toEqual([0.002, 0.002])
+    expect(c).toMatchObject({ state: 'Open', tier: 1, totalIn: 400, callerStake: 100, depositors: 2, checkpoints: [], series: [] })
+    expect(c.rules).toEqual({
+      windowEnd: T0 + 3_600_000,
+      buyDeadline: T0 + 3 * 3_600_000,
+      maxHold: 24 * 3_600_000,
+      takeProfitBps: 2500,
+      stopLossBps: 2000,
+      shareBps: 1000,
+      minCallerBps: 500,
+      maxImpactBps: 200,
+      sellToleranceBps: 200,
+      keeperBps: 10,
+      checkpointGap: 900_000,
+      splitGrace: 6 * 3_600_000,
+      cap: 1000,
+      minPool: 50,
+    })
+    expect(c.tokens).toBeUndefined()
   })
 
-  test('record mirrors the contract across gain, loss, release and stale', async () => {
-    for (const id of [0, 1, 2]) await open(id)
-    await w.callSettled(0n, CALLER, parseEther('130'), 3000n, at(1))
-    await w.callSettled(1n, CALLER, parseEther('70'), -3000n, at(2))
-    await w.exitAnnounced(2n, BigInt(T0 / 1000 + 4 * 86400), at(3))
-    await w.callMarkedStale(2n, CALLER, at(4))
-    await w.callReleased(2n, CALLER, at(5))
+  test('deposits and withdrawals track each wallet and the pool', async () => {
+    await open(0, '100', [[J1, '300'], [J2, '50']])
+    await w.depositChanged(0n, J2, 0n, parseEther('400'), at(5)) // J2 leaves
+    await w.depositChanged(0n, J1, parseEther('350'), parseEther('450'), at(6)) // J1 adds 50
+    const c = (await store.getCall(0))!
+    expect(c).toMatchObject({ totalIn: 450, depositors: 2, callerStake: 100 })
+    expect((await store.participants(0))!.map((p) => [p.address, p.deposit, p.isCaller])).toEqual([
+      [CALLER, 100, true],
+      [J1, 350, false],
+    ])
+    expect(await store.participants(9)).toBeUndefined()
+  })
 
-    const r = (await store.getCaller(CALLER))!.record
-    expect(r).toEqual({ settled: 2, losses: 2, released: 1, open: 0, slashes: 0, stale: 1, sumReturnBps: -10_000, lastActive: T0 + 5 })
-    expect((await store.getCall(0))!.series.at(-1)).toBeCloseTo(130 / 50_000)
-    expect((await store.getCall(2))!.stale).toBe(true)
+  test("the PM's worked example lands as the contract emits it, claims included", async () => {
+    await open(0, '100', [[J1, '300'], [J2, '400'], [OTHER, '200']])
+    await w.bought(0n, parseEther('1000'), BigInt(S + 2 * H + 24 * H), { ...at(2 * HM), block: 50n })
+    await w.checkpointed(0n, parseEther('1290'), BigInt(S + 3 * H))
+    await w.checkpointed(0n, parseEther('1300'), BigInt(S + 3 * H + 900))
+    const holding = (await store.getCall(0))!
+    expect(holding).toMatchObject({ state: 'Holding', tokens: 1000, boughtAt: T0 + 2 * 3_600_000 })
+    expect(holding.checkpoints).toEqual([
+      { value: 1290, at: T0 + 3 * 3_600_000 },
+      { value: 1300, at: T0 + 3 * 3_600_000 + 900_000 },
+    ])
+    expect(holding.series).toEqual([1, 1.29, 1.3])
+
+    await w.sold(
+      { id: 0n, keeper: OTHER, reason: 1, gross: parseEther('1300'), keeperReward: parseEther('1.3'), fee: parseEther('29.87'), payout: parseEther('1268.83'), netReturnBps: 2688n },
+      at(4 * HM),
+    )
+    const c = (await store.getCall(0))!
+    expect(c).toMatchObject({ state: 'Settled', saleReason: 'take_profit', keeper: OTHER, gross: 1300, fee: 29.87, payout: 1268.83, netReturnBps: 2688 })
+    const owed = Object.fromEntries((await store.participants(0))!.map((p) => [p.address, Math.round(p.claimMon! * 100) / 100]))
+    expect(owed).toEqual({ [CALLER]: 156.75, [J1]: 380.65, [J2]: 507.53, [OTHER]: 253.77 })
+
+    await w.claimed(0n, J1, parseEther('380.649'), 0n, at(5 * HM))
+    const [mine] = await store.positions(J1)
+    expect(mine).toMatchObject({ callId: 0, deposit: 300, claimed: true, claimMon: 380.649 })
+    expect(await store.positions(J1.toLowerCase())).toHaveLength(1)
+  })
+
+  test('record mirrors the contract across gain, loss, refunds and split', async () => {
+    for (const id of [0, 1, 2, 3, 4]) await open(id, '100')
+    await buyAndSell(0, '100', '130', 2987n, '129.87')
+    await buyAndSell(1, '100', '70', -3007n, '69.93', '0', 2)
+    await w.refunded(2n, true, at(4 * HM))
+    await w.refunded(3n, false, at(4 * HM))
+    await w.bought(4n, parseEther('100'), BigInt(S + 26 * H), at(2 * HM))
+    await w.splitStarted(4n, at(40 * HM))
+    await w.claimed(4n, CALLER, 0n, parseEther('100'), at(41 * HM))
+
+    const r = (await store.getCaller(CALLER))!
+    expect(r.record).toEqual({ settled: 2, losses: 1, negligent: 1, refunded: 1, split: 1, slashes: 0, active: 0, sumNetBps: -20, lastActive: T0 + 40 * HM })
+    expect(r.tier).toBe(0)
+    expect((await store.getCall(2))!.negligent).toBe(true)
+    expect((await store.getCall(3))!.negligent).toBe(false)
+    expect((await store.participants(4))![0]).toMatchObject({ claimed: true, claimTokens: 100 })
     expect((await store.listCalls({ state: ['Settled'] })).map((c) => c.id).sort()).toEqual([0, 1])
     expect((await store.listCalls({ caller: CALLER.toLowerCase(), limit: 2 })).length).toBe(2)
+  })
+
+  test('three settled calls with a positive average reach tier 1; a slash drops it', async () => {
+    for (const id of [0, 1, 2]) {
+      await open(id, '100')
+      await buyAndSell(id, '100', '120', 1988n, '119.88')
+    }
+    expect((await store.getCaller(CALLER))!.tier).toBe(1)
+    await w.slashed(CALLER, parseEther('1'), 'test', at(9))
+    expect((await store.getCaller(CALLER))!.tier).toBe(0)
   })
 
   test('slash takes from the bond and keeps the reason', async () => {
@@ -91,23 +188,29 @@ describe('EventWriter on Postgres', () => {
     await open(0)
     await store.setWatch('bob', 0, true)
     await store.setWatch('alice', 0, true) // follows and watches: still one alert per event
-    await w.exitAnnounced(0n, BigInt(T0 / 1000 + 3 * 86400), at(1))
-    await w.exitAnnounced(0n, BigInt(T0 / 1000 + 3 * 86400), at(1)) // replayed range
+    await w.bought(0n, parseEther('100'), BigInt(S + 26 * H), at(2 * HM))
+    await w.bought(0n, parseEther('100'), BigInt(S + 26 * H), at(2 * HM)) // replayed range
 
-    expect((await store.alerts('alice')).map((a) => a.kind)).toEqual(['exit_announced', 'call_opened'])
-    expect((await store.alerts('bob')).map((a) => a.kind)).toEqual(['exit_announced'])
+    expect((await store.alerts('alice')).map((a) => a.kind)).toEqual(['bought', 'window_opened'])
+    expect((await store.alerts('bob')).map((a) => a.kind)).toEqual(['bought'])
     expect(await store.alerts('carol')).toEqual([])
 
-    expect(await w.exitsNowExecutable(T0)).toBe(0)
-    expect(await w.exitsNowExecutable(T0 + 3 * 86_400_000)).toBe(1)
-    await w.exitsNowExecutable(T0 + 4 * 86_400_000)
-    expect((await store.alerts('bob')).map((a) => a.kind)).toEqual(['exit_executable', 'exit_announced'])
+    const [first] = await store.alerts('alice')
+    await store.markRead('alice', [first!.id, 'not-a-number'])
+    expect((await store.alerts('alice'))[0]!.read).toBe(true)
+    await store.markRead('bob', [(await store.alerts('alice'))[1]!.id]) // someone else's alert: untouched
+    expect((await store.alerts('alice'))[1]!.read).toBe(false)
+  })
 
-    const [first, second] = await store.alerts('bob')
-    await store.markRead('bob', [first!.id, 'not-a-number'])
-    expect((await store.alerts('bob'))[0]!.read).toBe(true)
-    await store.markRead('alice', [second!.id]) // someone else's alert: untouched
-    expect((await store.alerts('bob'))[1]!.read).toBe(false)
+  test('"window closing" goes out once, in the last stretch of an open window', async () => {
+    await store.setWatch('bob', 0, true)
+    await open(0) // a one-hour window: the last 15 minutes count as closing
+    expect(closingLead(3_600_000)).toBe(900_000)
+    expect(await w.windowsClosing(T0 + 40 * 60_000)).toBe(0)
+    expect(await w.windowsClosing(T0 + 50 * 60_000)).toBe(1)
+    expect(await w.windowsClosing(T0 + 55 * 60_000)).toBe(0)
+    expect((await store.alerts('bob')).map((a) => a.kind)).toEqual(['window_closing', 'window_opened'])
+    expect(await w.windowsClosing(T0 + 70 * 60_000)).toBe(0) // closed: nothing more
   })
 
   test('watchers and followers are counted, addresses in any case', async () => {
@@ -135,7 +238,7 @@ describe('EventWriter on Postgres', () => {
   test('callers page newest-active first', async () => {
     await w.bondPosted(OTHER, parseEther('20'), at(50))
     await open(0) // CALLER active at T0
-    await w.callOpened({ id: 1n, caller: OTHER, token: TOKEN, adapter: ADAPTER, monIn: 1n, tokens: 1n, unlockAt: 1n, notice: 1, thesis: '' }, at(99))
+    await w.callOpened({ id: 1n, caller: OTHER, token: TOKEN, tier: 0, rules: rules(), thesis: '' }, at(99))
     expect((await store.listCallers()).map((c) => c.address)).toEqual([OTHER, CALLER])
     expect((await store.listCallers({ limit: 1, offset: 1 })).map((c) => c.address)).toEqual([CALLER])
   })

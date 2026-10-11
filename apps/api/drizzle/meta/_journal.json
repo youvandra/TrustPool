@@ -22,6 +22,20 @@
       "when": 1791664144224,
       "tag": "0002_early_buyer_funding",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791693655398,
+      "tag": "0003_drop_locked_calls",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791693700353,
+      "tag": "0004_pooled_calls",
+      "breakpoints": true
     }
   ]
 }

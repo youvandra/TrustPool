@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from 'bun:test'
-import { CALLS, DEMO_FOLLOWING } from '@trustpool/core'
+import { CALLS, DEMO_FOLLOWING, DEMO_ME, type Participant, type Position } from '@trustpool/core'
 import { exportSPKI, generateKeyPair, SignJWT } from 'jose'
 import { createApp } from '../src/http/app'
 import { demoStore } from '../src/store/demo'
@@ -16,13 +16,28 @@ describe('public routes', () => {
     const all = (await (await get('/calls')).json()) as { id: number; openedAt: number }[]
     expect(all.length).toBe(CALLS.length)
     expect(all[0]!.openedAt).toBeGreaterThanOrEqual(all[1]!.openedAt)
-    const open = (await (await get('/calls?state=Locked,Exiting')).json()) as { state: string }[]
-    expect(open.every((c) => c.state === 'Locked' || c.state === 'Exiting')).toBe(true)
+    const open = (await (await get('/calls?state=Open,Holding')).json()) as { state: string }[]
+    expect(open.length).toBeGreaterThan(0)
+    expect(open.every((c) => c.state === 'Open' || c.state === 'Holding')).toBe(true)
     const caller = CALLS[0]!.caller
     const mine = (await (await get(`/calls?caller=${caller.toLowerCase()}`)).json()) as { caller: string }[]
     expect(mine.length).toBeGreaterThan(0)
     expect(mine.every((c) => c.caller === caller)).toBe(true)
     expect(((await (await get('/calls?limit=2&offset=1')).json()) as unknown[]).length).toBe(2)
+  })
+
+  test('participants list the caller first, and positions need no account', async () => {
+    const settled = CALLS.find((c) => c.state === 'Settled')!
+    const ps = (await (await get(`/calls/${settled.id}/participants`)).json()) as Participant[]
+    expect(ps[0]).toMatchObject({ address: settled.caller, isCaller: true })
+    expect(ps.reduce((n, p) => n + p.deposit, 0)).toBeCloseTo(settled.totalIn)
+    expect(ps.reduce((n, p) => n + p.claimMon!, 0)).toBeCloseTo(settled.payout! + settled.fee!)
+    expect((await get('/calls/9999/participants')).status).toBe(404)
+
+    const mine = (await (await get(`/accounts/${DEMO_ME.toLowerCase()}/positions`)).json()) as Position[]
+    expect(mine.length).toBeGreaterThan(0)
+    expect(mine.every((p) => p.address === DEMO_ME)).toBe(true)
+    expect((await get('/accounts/bob/positions')).status).toBe(400)
   })
 
   test('bad input is a 400, missing is a 404', async () => {

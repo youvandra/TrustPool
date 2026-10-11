@@ -1,4 +1,4 @@
-import { ALERTS, CALLERS, CALLS, DEMO_FOLLOWING, TOKENS, type Alert, type Caller } from '@trustpool/core'
+import { ALERTS, CALLERS, CALLS, DEMO_FOLLOWING, participantsOf, positionsOf, TOKENS, type Alert, type Caller } from '@trustpool/core'
 import type { CallFilter, Store } from './types'
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
@@ -26,6 +26,8 @@ export function demoStore(): Store {
       return out.slice(f.offset ?? 0, (f.offset ?? 0) + (f.limit ?? out.length))
     },
     getCall: async (id) => CALLS.find((c) => c.id === id),
+    participants: async (id) => (CALLS.some((c) => c.id === id) ? participantsOf(id) : undefined),
+    positions: async (address) => positionsOf(address),
     async listCallers(page = {}) {
       return CALLERS.map(withProfile).slice(page.offset ?? 0, (page.offset ?? 0) + (page.limit ?? CALLERS.length))
     },

@@ -1,11 +1,12 @@
-import { returnBps, type AlertKind, type Call, type Caller } from '@trustpool/core'
+import type { AlertKind, Call, Caller, SaleReason } from '@trustpool/core'
 import type { Database } from '../db/client'
 import { duration, mon, shortAddress, signedPct } from '../format'
 import { ALERT_CHANNEL } from '../indexer/writer'
 import { log } from '../log'
 import type { ReadStore } from '../store/types'
 
-const KINDS: readonly AlertKind[] = ['call_opened', 'exit_announced', 'call_settled', 'call_released', 'call_stale']
+const KINDS: readonly AlertKind[] = ['window_opened', 'window_closing', 'bought', 'sold', 'refunded', 'split']
+const REASON: Record<SaleReason, string> = { take_profit: 'take-profit', stop_loss: 'stop-loss', max_hold: 'max hold' }
 const APP_URL = 'https://trustpool.web.id'
 
 export interface TelegramOptions {
@@ -21,26 +22,39 @@ export interface TelegramOptions {
   sleep?: (ms: number) => Promise<void>
 }
 
+const pct = (bps: number) => `${(bps / 100).toFixed(bps % 100 ? 1 : 0)}%`
+
 /** One line per call event, then the call's link. A loss reads exactly like a gain. */
-export function telegramText(kind: AlertKind, call: Call, caller: Caller | undefined, appUrl = APP_URL): string | undefined {
+export function telegramText(kind: AlertKind, call: Call, caller: Caller | undefined, appUrl = APP_URL, at = Date.now()): string | undefined {
   const who = caller?.handle ?? shortAddress(call.caller)
   const sym = call.token.symbol
+  const r = call.rules
+  const people = `${call.depositors} ${call.depositors === 1 ? 'participant' : 'participants'}`
   let line: string
   switch (kind) {
-    case 'call_opened':
-      line = `${who} opened a call on ${sym} with ${mon(call.monIn)}. Locked for ${duration(call.unlockAt - call.openedAt)}.`
+    case 'window_opened': {
+      const tp = r.takeProfitBps ? `take-profit +${pct(r.takeProfitBps)}, ` : ''
+      line =
+        `${who} opened a pool on ${sym} with ${mon(call.callerStake)} of their own. Window closes in ${duration(r.windowEnd - call.openedAt)}. ` +
+        `Rules: ${tp}stop-loss −${pct(r.stopLossBps)}, max hold ${duration(r.maxHold)}, ${pct(r.shareBps)} of profit to the caller.`
       break
-    case 'exit_announced':
-      line = `${who} announced an exit on ${sym}. Can sell in ${duration((call.exitAt ?? 0) - (call.announcedAt ?? 0))}.`
+    }
+    case 'window_closing':
+      line = `The pool on ${sym} by ${who} closes in ${duration(r.windowEnd - at)}. ${mon(call.totalIn)} in from ${people}.`
       break
-    case 'call_settled':
-      line = `${who} sold ${sym}. ${signedPct(returnBps(call) ?? 0)} on the record.`
+    case 'bought':
+      line = `${who}'s pool bought ${sym} with ${mon(call.totalIn)} from ${people}, one price for all.`
       break
-    case 'call_released':
-      line = `${who} took ${sym} unsold. ${signedPct(-10_000)} on the record.`
+    case 'sold':
+      line = `${who}'s pool on ${sym} sold on ${REASON[call.saleReason ?? 'max_hold']}. ${signedPct(call.netReturnBps ?? 0)} for every participant, on the record.`
       break
-    case 'call_stale':
-      line = `${who}'s call on ${sym} is past its max hold and marked stale.`
+    case 'refunded':
+      line = call.negligent
+        ? `${who} did not buy for the pool on ${sym}. Every deposit is refunded, and the record counts it as negligent.`
+        : `The pool on ${sym} by ${who} did not go ahead. Every deposit is refunded.`
+      break
+    case 'split':
+      line = `The pool on ${sym} by ${who} could not be sold. Each participant takes their share of the tokens.`
       break
     default:
       return undefined
@@ -86,7 +100,7 @@ export class TelegramFeed {
   }
 
   async receive(payload: string) {
-    let a: { userId: string | null; kind: AlertKind; callId: number }
+    let a: { userId: string | null; kind: AlertKind; callId: number; at?: number }
     try {
       a = JSON.parse(payload)
     } catch {
@@ -101,7 +115,7 @@ export class TelegramFeed {
     try {
       const call = await this.store.getCall(a.callId)
       if (!call) return log.warn('telegram: call not found', { callId: a.callId })
-      const text = telegramText(a.kind, call, await this.store.getCaller(call.caller), this.opts.appUrl)
+      const text = telegramText(a.kind, call, await this.store.getCaller(call.caller), this.opts.appUrl, a.at === undefined ? this.now() : Number(a.at))
       if (!text) return
       this.queue.push(text)
       this.kick()

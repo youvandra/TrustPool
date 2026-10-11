@@ -44,10 +44,10 @@ export class Indexer {
   private running = false
   private leader = false
   private head = 0n
+  /** ms, the latest block's timestamp: the clock the contract checks windows and holds against. */
+  private chainNow = 0
   private indexed = -1n
   private lastError?: string
-  /** The adapter new calls use, tracked from AdapterSet so CallOpened needs no extra read. */
-  private currentAdapter: string
 
   constructor(
     private readonly database: Database,
@@ -58,7 +58,6 @@ export class Indexer {
     this.writer = new EventWriter(this.db)
     this.pool = getAddress(cfg.deployment.trustPool)
     this.range = cfg.maxBlockRange
-    this.currentAdapter = cfg.deployment.adapter
   }
 
   /** Binds the database to this deployment and loads the saved state. Call once before ticking. */
@@ -67,7 +66,6 @@ export class Indexer {
     const bound = await metaKv.get(this.db, 'deployment')
     if (bound && bound !== key) throw new Error(`this database belongs to ${bound}, not ${key}: use another DATABASE_URL`)
     if (!bound) await metaKv.set(this.db, 'deployment', key)
-    this.currentAdapter = (await metaKv.get(this.db, 'adapter')) ?? this.currentAdapter
     this.indexed = await this.cursor()
     return this
   }
@@ -87,6 +85,11 @@ export class Indexer {
       caughtUp: this.head > 0n && indexed >= Number(this.head) - this.cfg.confirmations,
       leader: this.leader,
     }
+  }
+
+  /** The latest block's time (ms), or wall time before the first tick. */
+  now(): number {
+    return this.chainNow || Date.now()
   }
 
   start() {
@@ -127,14 +130,15 @@ export class Indexer {
 
   /** Applies at most one block range. Returns true while there is more to catch up on. */
   async tick(): Promise<boolean> {
-    // Chain time, not wall time: exits become executable by block timestamp.
+    // Chain time, not wall time: windows close by block timestamp.
     const latest = await this.client.getBlock({ blockTag: 'latest' })
     this.head = latest.number
     const chainNow = Number(latest.timestamp) * 1000
     const target = this.head - BigInt(this.cfg.confirmations)
     const from = this.indexed + 1n
+    this.chainNow = chainNow
     if (from > target) {
-      await this.writer.exitsNowExecutable(chainNow)
+      await this.writer.windowsClosing(chainNow)
       return false
     }
     const to = from + BigInt(this.range) - 1n < target ? from + BigInt(this.range) - 1n : target
@@ -153,7 +157,7 @@ export class Indexer {
     await this.apply(logs, to)
     if (this.range < this.cfg.maxBlockRange) this.range = Math.min(this.cfg.maxBlockRange, this.range * 2)
     if (logs.length) log.info('indexed', { from, to, events: logs.length })
-    await this.writer.exitsNowExecutable(chainNow)
+    await this.writer.windowsClosing(chainNow)
     return to < target
   }
 
@@ -185,26 +189,17 @@ export class Indexer {
     const known = await Promise.all(opened.map((t) => this.writer.hasToken(t)))
     const tokens = await Promise.all(opened.filter((_, i) => !known[i]).map((t) => readToken(this.client, t)))
 
-    let adapter = this.currentAdapter
     await this.db.transaction(async (tx) => {
       const w = this.writer.in(tx)
       for (const t of tokens) await w.upsertToken(t)
-      for (const l of sorted) {
-        if (l.eventName === 'AdapterSet') {
-          adapter = getAddress(l.args.adapter)
-          await metaKv.set(tx, 'adapter', adapter)
-          continue
-        }
-        await this.applyOne(w, l, { at: times.get(l.blockNumber)!, tx: l.transactionHash, block: l.blockNumber }, adapter)
-      }
+      for (const l of sorted) await this.applyOne(w, l, { at: times.get(l.blockNumber)!, tx: l.transactionHash, block: l.blockNumber })
       await metaKv.set(tx, 'cursor', to)
     })
     // Only after the commit: a rolled-back range must not move the in-memory state.
-    this.currentAdapter = adapter
     this.indexed = to
   }
 
-  private async applyOne(w: EventWriter, l: PoolLog, at: At, adapter: string): Promise<void> {
+  private async applyOne(w: EventWriter, l: PoolLog, at: At): Promise<void> {
     switch (l.eventName) {
       case 'BondPosted':
         return w.bondPosted(getAddress(l.args.caller), l.args.total, at)
@@ -220,30 +215,32 @@ export class Indexer {
             id: l.args.id,
             caller: getAddress(l.args.caller),
             token: getAddress(l.args.token),
-            adapter,
-            monIn: l.args.monIn,
-            tokens: l.args.tokens,
-            unlockAt: BigInt(l.args.unlockAt),
-            notice: l.args.notice,
+            tier: l.args.tier,
+            rules: { ...l.args.rules, adapter: getAddress(l.args.rules.adapter) },
             thesis: l.args.thesis,
           },
           at,
         )
-      case 'ExitAnnounced':
-        return w.exitAnnounced(l.args.id, BigInt(l.args.exitAt), at)
-      case 'CallSettled':
-        return w.callSettled(l.args.id, getAddress(l.args.caller), l.args.monOut, l.args.returnBps, at)
-      case 'CallReleased':
-        return w.callReleased(l.args.id, getAddress(l.args.caller), at)
-      case 'CallMarkedStale':
-        return w.callMarkedStale(l.args.id, getAddress(l.args.caller), at)
-      case 'CallAdapterMoved':
-        return w.callAdapterMoved(l.args.id, getAddress(l.args.adapter))
+      case 'Deposited':
+      case 'Withdrawn':
+        return w.depositChanged(l.args.id, getAddress(l.args.account), l.args.deposit, l.args.total, at)
+      case 'Bought':
+        return w.bought(l.args.id, l.args.tokens, BigInt(l.args.holdUntil), at)
+      case 'Checkpointed':
+        return w.checkpointed(l.args.id, l.args.value, BigInt(l.args.at))
+      case 'Sold':
+        return w.sold({ ...l.args, keeper: getAddress(l.args.keeper) }, at)
+      case 'Refunded':
+        return w.refunded(l.args.id, l.args.negligent, at)
+      case 'SplitStarted':
+        return w.splitStarted(l.args.id, at)
+      case 'Claimed':
+        return w.claimed(l.args.id, getAddress(l.args.account), l.args.mon, l.args.tokens, at)
       case 'TokenAllowed':
         // The open-a-call form offers exactly the tokens the contract would accept.
         return w.tokenAllowed(getAddress(l.args.token), l.args.allowed)
       default:
-        // admin bookkeeping (params, admin handover) is not served by the API
+        // admin bookkeeping (adapter, params, admin handover, pause) is not served by the API
         log.debug('event not indexed', { event: l.eventName })
     }
   }

@@ -41,7 +41,7 @@ export interface AppDeps {
   publicUrl?: string
 }
 
-const STATES: CallState[] = ['Locked', 'Exiting', 'Settled', 'Released']
+const STATES: CallState[] = ['Open', 'Holding', 'Settled', 'Refunded', 'Split']
 const MAX_PAGE = 500
 /** Per user; enough for anyone reading records, small enough to stop a script filling the table. */
 const MAX_FOLLOWS = 500
@@ -108,13 +108,21 @@ export function createApp({ store, privy, corsOrigins = ['*'], indexer, earlyBuy
     return call ? c.json(call) : c.json({ error: 'not found' }, 404)
   })
 
+  app.get('/calls/:id/participants', async (c) => {
+    const list = await store.participants(intParam(c.req.param('id')))
+    return list ? c.json(list) : c.json({ error: 'not found' }, 404)
+  })
+
   app.get('/calls/:id/early-buyers', async (c) => {
     const id = intParam(c.req.param('id'))
     if (!earlyBuyers) throw new HTTPException(501, { message: 'early buyers need chain mode' })
     if (!(await store.getCall(id))) return c.json({ error: 'not found' }, 404)
     const report = await earlyBuyers(id)
-    return report ? c.json(report) : c.json({ error: 'this call was indexed before block numbers were kept' }, 404)
+    return report ? c.json(report) : c.json({ error: 'the pool has not bought yet' }, 404)
   })
+
+  // A wallet's positions are public on chain, so reading them needs no account.
+  app.get('/accounts/:address/positions', async (c) => c.json(await store.positions(addressParam(c.req.param('address')))))
 
   app.get('/callers', async (c) =>
     c.json(await store.listCallers({ limit: intQuery(c.req.query('limit'), MAX_PAGE, MAX_PAGE), offset: intQuery(c.req.query('offset'), 0) })),

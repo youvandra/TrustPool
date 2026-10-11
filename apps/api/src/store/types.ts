@@ -1,4 +1,4 @@
-import type { Alert, Call, Caller, CallState, ProfileClaim, Token } from '@trustpool/core'
+import type { Alert, Call, Caller, CallState, Participant, Position, ProfileClaim, Token } from '@trustpool/core'
 
 export interface CallFilter {
   state?: CallState[]
@@ -12,6 +12,10 @@ export interface ReadStore {
   readonly source: 'demo' | 'chain'
   listCalls(filter?: CallFilter): Promise<Call[]>
   getCall(id: number): Promise<Call | undefined>
+  /** Everyone who has money in a call, caller first, then by deposit. Undefined: no such call. */
+  participants(id: number): Promise<Participant[] | undefined>
+  /** A wallet's part in every call it joined, newest call first. Public, like the chain. */
+  positions(address: string): Promise<Position[]>
   listCallers(page?: { limit?: number; offset?: number }): Promise<Caller[]>
   getCaller(address: string): Promise<Caller | undefined>
   listTokens(): Promise<Token[]>
