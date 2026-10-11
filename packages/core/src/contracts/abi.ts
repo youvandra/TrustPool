@@ -28,7 +28,46 @@ export const trustPoolAbi = [
   },
   {
     "type": "function",
+    "name": "MAX_KEEPER_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_TAKE_PROFIT_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MAX_THESIS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "PROBE",
     "inputs": [],
     "outputs": [
       {
@@ -93,32 +132,6 @@ export const trustPoolAbi = [
   },
   {
     "type": "function",
-    "name": "announceExit",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "bondCooldown",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "bonds",
     "inputs": [
       {
@@ -140,6 +153,24 @@ export const trustPoolAbi = [
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "buy",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minTokens",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -175,21 +206,85 @@ export const trustPoolAbi = [
   },
   {
     "type": "function",
-    "name": "executeExit",
+    "name": "capOf",
     "inputs": [
       {
         "name": "id",
         "type": "uint256",
         "internalType": "uint256"
-      },
+      }
+    ],
+    "outputs": [
       {
-        "name": "minOut",
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "checkpoint",
+    "inputs": [
+      {
+        "name": "id",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claim",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "deposit",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "depositOf",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -218,9 +313,9 @@ export const trustPoolAbi = [
             "internalType": "uint40"
           },
           {
-            "name": "notice",
-            "type": "uint32",
-            "internalType": "uint32"
+            "name": "state",
+            "type": "uint8",
+            "internalType": "enum TrustPool.State"
           },
           {
             "name": "token",
@@ -228,47 +323,99 @@ export const trustPoolAbi = [
             "internalType": "address"
           },
           {
-            "name": "unlockAt",
-            "type": "uint40",
-            "internalType": "uint40"
+            "name": "rules",
+            "type": "tuple",
+            "internalType": "struct TrustPool.Rules",
+            "components": [
+              {
+                "name": "adapter",
+                "type": "address",
+                "internalType": "contract ISwapAdapter"
+              },
+              {
+                "name": "windowEnd",
+                "type": "uint40",
+                "internalType": "uint40"
+              },
+              {
+                "name": "buyDeadline",
+                "type": "uint40",
+                "internalType": "uint40"
+              },
+              {
+                "name": "maxHold",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "takeProfitBps",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "stopLossBps",
+                "type": "uint16",
+                "internalType": "uint16"
+              },
+              {
+                "name": "shareBps",
+                "type": "uint16",
+                "internalType": "uint16"
+              },
+              {
+                "name": "minCallerBps",
+                "type": "uint16",
+                "internalType": "uint16"
+              },
+              {
+                "name": "maxImpactBps",
+                "type": "uint16",
+                "internalType": "uint16"
+              },
+              {
+                "name": "sellToleranceBps",
+                "type": "uint16",
+                "internalType": "uint16"
+              },
+              {
+                "name": "keeperBps",
+                "type": "uint16",
+                "internalType": "uint16"
+              },
+              {
+                "name": "checkpointGap",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "splitGrace",
+                "type": "uint32",
+                "internalType": "uint32"
+              },
+              {
+                "name": "cap",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "minPool",
+                "type": "uint128",
+                "internalType": "uint128"
+              }
+            ]
           },
           {
-            "name": "state",
-            "type": "uint8",
-            "internalType": "enum TrustPool.State"
+            "name": "totalIn",
+            "type": "uint128",
+            "internalType": "uint128"
           },
           {
-            "name": "stale",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "releaseGrace",
+            "name": "depositors",
             "type": "uint32",
             "internalType": "uint32"
           },
           {
-            "name": "adapter",
-            "type": "address",
-            "internalType": "contract ISwapAdapter"
-          },
-          {
-            "name": "announcedAt",
-            "type": "uint40",
-            "internalType": "uint40"
-          },
-          {
-            "name": "exitAt",
-            "type": "uint40",
-            "internalType": "uint40"
-          },
-          {
-            "name": "monIn",
-            "type": "uint96",
-            "internalType": "uint96"
-          },
-          {
-            "name": "maxHold",
+            "name": "claims",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -278,9 +425,73 @@ export const trustPoolAbi = [
             "internalType": "uint128"
           },
           {
-            "name": "monOut",
+            "name": "boughtAt",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "holdUntil",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "prev",
+            "type": "tuple",
+            "internalType": "struct TrustPool.Checkpoint",
+            "components": [
+              {
+                "name": "value",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "at",
+                "type": "uint40",
+                "internalType": "uint40"
+              }
+            ]
+          },
+          {
+            "name": "last",
+            "type": "tuple",
+            "internalType": "struct TrustPool.Checkpoint",
+            "components": [
+              {
+                "name": "value",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "at",
+                "type": "uint40",
+                "internalType": "uint40"
+              }
+            ]
+          },
+          {
+            "name": "gross",
             "type": "uint128",
             "internalType": "uint128"
+          },
+          {
+            "name": "payout",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "fee",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "claimed",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "netReturnBps",
+            "type": "int256",
+            "internalType": "int256"
           },
           {
             "name": "thesis",
@@ -294,94 +505,56 @@ export const trustPoolAbi = [
   },
   {
     "type": "function",
-    "name": "markStale",
+    "name": "hasClaimed",
     "inputs": [
       {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "maxHold",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint32",
-        "internalType": "uint32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "maxLock",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "minBond",
-    "inputs": [],
-    "outputs": [
-      {
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "minLock",
-    "inputs": [],
     "outputs": [
       {
         "name": "",
-        "type": "uint64",
-        "internalType": "uint64"
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "minNotice",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint32",
-        "internalType": "uint32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "moveToCurrentAdapter",
+    "name": "impactBps",
     "inputs": [
       {
-        "name": "id",
+        "name": "a",
+        "type": "address",
+        "internalType": "contract ISwapAdapter"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "monIn",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -393,19 +566,29 @@ export const trustPoolAbi = [
         "internalType": "address"
       },
       {
-        "name": "lockSeconds",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "notice",
+        "name": "window",
         "type": "uint32",
         "internalType": "uint32"
       },
       {
-        "name": "minOut",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "takeProfitBps",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "stopLossBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "maxHold",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "shareBps",
+        "type": "uint16",
+        "internalType": "uint16"
       },
       {
         "name": "thesis",
@@ -447,31 +630,31 @@ export const trustPoolAbi = [
         "components": [
           {
             "name": "minBond",
-            "type": "uint256",
-            "internalType": "uint256"
+            "type": "uint128",
+            "internalType": "uint128"
           },
           {
-            "name": "minLock",
-            "type": "uint64",
-            "internalType": "uint64"
+            "name": "minPool",
+            "type": "uint128",
+            "internalType": "uint128"
           },
           {
-            "name": "maxLock",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "minNotice",
+            "name": "minWindow",
             "type": "uint32",
             "internalType": "uint32"
           },
           {
-            "name": "bondCooldown",
-            "type": "uint64",
-            "internalType": "uint64"
+            "name": "maxWindow",
+            "type": "uint32",
+            "internalType": "uint32"
           },
           {
-            "name": "releaseGrace",
+            "name": "buyGrace",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minHold",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -479,8 +662,72 @@ export const trustPoolAbi = [
             "name": "maxHold",
             "type": "uint32",
             "internalType": "uint32"
+          },
+          {
+            "name": "checkpointGap",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "splitGrace",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "bondCooldown",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minStopLossBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "maxStopLossBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "minCallerBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "maxImpactBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "sellToleranceBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "keeperBps",
+            "type": "uint16",
+            "internalType": "uint16"
           }
         ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "participantsOf",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address[]",
+        "internalType": "address[]"
       }
     ],
     "stateMutability": "view"
@@ -532,12 +779,17 @@ export const trustPoolAbi = [
             "internalType": "uint32"
           },
           {
-            "name": "released",
+            "name": "negligent",
             "type": "uint32",
             "internalType": "uint32"
           },
           {
-            "name": "open",
+            "name": "refunded",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "split",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -547,7 +799,7 @@ export const trustPoolAbi = [
             "internalType": "uint32"
           },
           {
-            "name": "stale",
+            "name": "active",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -557,7 +809,7 @@ export const trustPoolAbi = [
             "internalType": "uint64"
           },
           {
-            "name": "sumReturnBps",
+            "name": "sumNetBps",
             "type": "int256",
             "internalType": "int256"
           }
@@ -568,20 +820,7 @@ export const trustPoolAbi = [
   },
   {
     "type": "function",
-    "name": "releaseGrace",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint32",
-        "internalType": "uint32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "releaseTokens",
+    "name": "refund",
     "inputs": [
       {
         "name": "id",
@@ -596,6 +835,19 @@ export const trustPoolAbi = [
     "type": "function",
     "name": "requestBondWithdraw",
     "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "sell",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -654,31 +906,31 @@ export const trustPoolAbi = [
         "components": [
           {
             "name": "minBond",
-            "type": "uint256",
-            "internalType": "uint256"
+            "type": "uint128",
+            "internalType": "uint128"
           },
           {
-            "name": "minLock",
-            "type": "uint64",
-            "internalType": "uint64"
+            "name": "minPool",
+            "type": "uint128",
+            "internalType": "uint128"
           },
           {
-            "name": "maxLock",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "minNotice",
+            "name": "minWindow",
             "type": "uint32",
             "internalType": "uint32"
           },
           {
-            "name": "bondCooldown",
-            "type": "uint64",
-            "internalType": "uint64"
+            "name": "maxWindow",
+            "type": "uint32",
+            "internalType": "uint32"
           },
           {
-            "name": "releaseGrace",
+            "name": "buyGrace",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minHold",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -686,6 +938,51 @@ export const trustPoolAbi = [
             "name": "maxHold",
             "type": "uint32",
             "internalType": "uint32"
+          },
+          {
+            "name": "checkpointGap",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "splitGrace",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "bondCooldown",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minStopLossBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "maxStopLossBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "minCallerBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "maxImpactBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "sellToleranceBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "keeperBps",
+            "type": "uint16",
+            "internalType": "uint16"
           }
         ]
       }
@@ -731,6 +1028,62 @@ export const trustPoolAbi = [
   },
   {
     "type": "function",
+    "name": "split",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "tierLimits",
+    "inputs": [
+      {
+        "name": "tier",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "multiple",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxShareBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "tierOf",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "transferAdmin",
     "inputs": [
       {
@@ -754,6 +1107,24 @@ export const trustPoolAbi = [
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "withdraw",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -878,7 +1249,7 @@ export const trustPoolAbi = [
   },
   {
     "type": "event",
-    "name": "CallAdapterMoved",
+    "name": "Bought",
     "inputs": [
       {
         "name": "id",
@@ -887,29 +1258,22 @@ export const trustPoolAbi = [
         "internalType": "uint256"
       },
       {
-        "name": "adapter",
-        "type": "address",
+        "name": "monIn",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "CallMarkedStale",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "indexed": true,
         "internalType": "uint256"
       },
       {
-        "name": "caller",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
+        "name": "tokens",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "holdUntil",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
       }
     ],
     "anonymous": false
@@ -937,28 +1301,93 @@ export const trustPoolAbi = [
         "internalType": "address"
       },
       {
-        "name": "monIn",
-        "type": "uint256",
+        "name": "tier",
+        "type": "uint8",
         "indexed": false,
-        "internalType": "uint256"
+        "internalType": "uint8"
       },
       {
-        "name": "tokens",
-        "type": "uint256",
+        "name": "rules",
+        "type": "tuple",
         "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "unlockAt",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
-      },
-      {
-        "name": "notice",
-        "type": "uint32",
-        "indexed": false,
-        "internalType": "uint32"
+        "internalType": "struct TrustPool.Rules",
+        "components": [
+          {
+            "name": "adapter",
+            "type": "address",
+            "internalType": "contract ISwapAdapter"
+          },
+          {
+            "name": "windowEnd",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "buyDeadline",
+            "type": "uint40",
+            "internalType": "uint40"
+          },
+          {
+            "name": "maxHold",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "takeProfitBps",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "stopLossBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "shareBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "minCallerBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "maxImpactBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "sellToleranceBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "keeperBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "checkpointGap",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "splitGrace",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "cap",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "minPool",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
       },
       {
         "name": "thesis",
@@ -971,7 +1400,7 @@ export const trustPoolAbi = [
   },
   {
     "type": "event",
-    "name": "CallReleased",
+    "name": "Checkpointed",
     "inputs": [
       {
         "name": "id",
@@ -980,10 +1409,41 @@ export const trustPoolAbi = [
         "internalType": "uint256"
       },
       {
-        "name": "caller",
+        "name": "value",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "at",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Claimed",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "account",
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "mon",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       },
       {
         "name": "tokens",
@@ -996,7 +1456,7 @@ export const trustPoolAbi = [
   },
   {
     "type": "event",
-    "name": "CallSettled",
+    "name": "Deposited",
     "inputs": [
       {
         "name": "id",
@@ -1005,53 +1465,28 @@ export const trustPoolAbi = [
         "internalType": "uint256"
       },
       {
-        "name": "caller",
+        "name": "account",
         "type": "address",
         "indexed": true,
         "internalType": "address"
       },
       {
-        "name": "monIn",
+        "name": "amount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "monOut",
+        "name": "deposit",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "returnBps",
-        "type": "int256",
-        "indexed": false,
-        "internalType": "int256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "ExitAnnounced",
-    "inputs": [
-      {
-        "name": "id",
+        "name": "total",
         "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "caller",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "exitAt",
-        "type": "uint64",
         "indexed": false,
-        "internalType": "uint64"
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1081,31 +1516,31 @@ export const trustPoolAbi = [
         "components": [
           {
             "name": "minBond",
-            "type": "uint256",
-            "internalType": "uint256"
+            "type": "uint128",
+            "internalType": "uint128"
           },
           {
-            "name": "minLock",
-            "type": "uint64",
-            "internalType": "uint64"
+            "name": "minPool",
+            "type": "uint128",
+            "internalType": "uint128"
           },
           {
-            "name": "maxLock",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "minNotice",
+            "name": "minWindow",
             "type": "uint32",
             "internalType": "uint32"
           },
           {
-            "name": "bondCooldown",
-            "type": "uint64",
-            "internalType": "uint64"
+            "name": "maxWindow",
+            "type": "uint32",
+            "internalType": "uint32"
           },
           {
-            "name": "releaseGrace",
+            "name": "buyGrace",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minHold",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -1113,8 +1548,72 @@ export const trustPoolAbi = [
             "name": "maxHold",
             "type": "uint32",
             "internalType": "uint32"
+          },
+          {
+            "name": "checkpointGap",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "splitGrace",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "bondCooldown",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "minStopLossBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "maxStopLossBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "minCallerBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "maxImpactBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "sellToleranceBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "keeperBps",
+            "type": "uint16",
+            "internalType": "uint16"
           }
         ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Refunded",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "negligent",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
       }
     ],
     "anonymous": false
@@ -1140,6 +1639,80 @@ export const trustPoolAbi = [
         "type": "string",
         "indexed": false,
         "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Sold",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "keeper",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "reason",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "gross",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "keeperReward",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "fee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "payout",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "netReturnBps",
+        "type": "int256",
+        "indexed": false,
+        "internalType": "int256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SplitStarted",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "tokens",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1177,8 +1750,55 @@ export const trustPoolAbi = [
     "anonymous": false
   },
   {
+    "type": "event",
+    "name": "Withdrawn",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "deposit",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "total",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
     "type": "error",
-    "name": "AlreadyStale",
+    "name": "ActiveCalls",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AlreadyClaimed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BadAmount",
     "inputs": []
   },
   {
@@ -1188,7 +1808,42 @@ export const trustPoolAbi = [
   },
   {
     "type": "error",
+    "name": "BadRules",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "BondTooSmall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CallerCannotWithdraw",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CallerStakeTooSmall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CheckpointStale",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CheckpointTooSoon",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CheckpointsDisagree",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ConditionNotMet",
     "inputs": []
   },
   {
@@ -1203,12 +1858,17 @@ export const trustPoolAbi = [
   },
   {
     "type": "error",
-    "name": "LockOutOfRange",
+    "name": "ImpactTooHigh",
     "inputs": []
   },
   {
     "type": "error",
     "name": "NoBond",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoLiquidity",
     "inputs": []
   },
   {
@@ -1228,6 +1888,11 @@ export const trustPoolAbi = [
   },
   {
     "type": "error",
+    "name": "NotParticipant",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotPendingAdmin",
     "inputs": []
   },
@@ -1238,17 +1903,12 @@ export const trustPoolAbi = [
   },
   {
     "type": "error",
-    "name": "NoticeTooShort",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "OpenCalls",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "OpenPaused",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OverCap",
     "inputs": []
   },
   {
@@ -1258,7 +1918,17 @@ export const trustPoolAbi = [
   },
   {
     "type": "error",
+    "name": "PoolTooSmall",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "Reentrant",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ShareAboveTier",
     "inputs": []
   },
   {
@@ -1279,6 +1949,11 @@ export const trustPoolAbi = [
   {
     "type": "error",
     "name": "TooEarly",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TooLate",
     "inputs": []
   },
   {
