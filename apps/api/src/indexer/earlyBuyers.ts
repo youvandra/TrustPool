@@ -2,11 +2,14 @@ import { desc, eq } from 'drizzle-orm'
 import { getAddress, parseAbiItem, type PublicClient } from 'viem'
 import type { Db } from '../db/client'
 import { calls, earlyBuyerScans, earlyBuyers, tokens } from '../db/schema'
+import { UNISWAP_V4 } from '@trustpool/core'
 import { log } from '../log'
 import { amount } from './units'
 
 const TRANSFER = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)')
 const ZERO = '0x0000000000000000000000000000000000000000'
+/** DEX contracts that hold tokens mid-swap; a transfer to them is never a buyer. */
+const DEX = Object.values(UNISWAP_V4).flatMap((v) => [v.poolManager, v.universalRouter].map((a) => a.toLowerCase()))
 
 export interface EarlyBuyer {
   wallet: string
@@ -93,7 +96,7 @@ export class EarlyBuyers {
     // The window ends one block before the buy, so the pool's own buy is never listed.
     const toBlock = BigInt(call.buyBlock) - 1n
     const fromBlock = toBlock - BigInt(this.opts.windowBlocks) + 1n > 0n ? toBlock - BigInt(this.opts.windowBlocks) + 1n : 0n
-    const skip = new Set([ZERO, this.opts.pool.toLowerCase(), call.adapter.toLowerCase()])
+    const skip = new Set([ZERO, this.opts.pool.toLowerCase(), call.adapter.toLowerCase(), ...DEX])
     const totals = new Map<string, { raw: bigint; first: bigint; n: number }>()
 
     for (let from = fromBlock; from <= toBlock; from += BigInt(this.opts.maxBlockRange)) {
