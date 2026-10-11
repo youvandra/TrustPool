@@ -6,6 +6,7 @@ import {TrustPool} from "../../src/TrustPool.sol";
 
 /// @notice Runs a pooled call with the caller as its only participant, to drive an adapter
 /// through a whole buy and sale. The sale happens at max hold, so no price rule is involved.
+/// Prank before `_checkpointPair` if the checkpoints should come from a given address.
 abstract contract SoloCall is Test {
     /// Lets small pools through, so adapter tests can use small amounts.
     function _smallPools(TrustPool pool, address admin) internal {
@@ -37,12 +38,20 @@ abstract contract SoloCall is Test {
     /// Waits out max hold, checkpoints and sells as the caller, then claims.
     /// @return gross MON the sale returned, as the contract measured it
     function _soloSell(TrustPool pool, address caller, uint256 id) internal returns (uint256 gross) {
-        vm.warp(pool.getCall(id).holdUntil);
         vm.startPrank(caller);
-        pool.checkpoint(id);
+        _checkpointPair(pool, id);
         pool.sell(id);
         pool.claim(id);
         vm.stopPrank();
         gross = pool.getCall(id).gross;
+    }
+
+    /// Two checkpoints one gap apart, the second at max hold: what a max-hold sale needs.
+    function _checkpointPair(TrustPool pool, uint256 id) internal {
+        TrustPool.Call memory c = pool.getCall(id);
+        vm.warp(uint256(c.holdUntil) - c.rules.checkpointGap);
+        pool.checkpoint(id);
+        vm.warp(c.holdUntil);
+        pool.checkpoint(id);
     }
 }

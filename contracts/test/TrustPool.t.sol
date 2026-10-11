@@ -54,6 +54,27 @@ contract CurveAdapter is ISwapAdapter {
     }
 }
 
+/// Dumps tokens into the pool's DEX, checkpoints and sells, all in one transaction.
+contract MaxHoldDumper {
+    TrustPool immutable pool;
+    CurveAdapter immutable curve;
+    MockToken immutable token;
+
+    constructor(TrustPool pool_, CurveAdapter curve_, MockToken token_) {
+        pool = pool_;
+        curve = curve_;
+        token = token_;
+    }
+
+    receive() external payable {}
+
+    function attack(uint256 id, uint256 dump) external {
+        curve.sell(address(token), dump, 0, address(this));
+        pool.checkpoint(id);
+        pool.sell(id);
+    }
+}
+
 contract TrustPoolTest is Test {
     TrustPool pool;
     MockSwapAdapter dex;
@@ -129,6 +150,15 @@ contract TrustPoolTest is Test {
         _checkpoint(id);
         vm.prank(keeper);
         pool.sell(id);
+    }
+
+    /// Two checkpoints one gap apart, the second at max hold.
+    function _checkpointsAtMaxHold(uint256 id) internal {
+        TrustPool.Call memory c = pool.getCall(id);
+        vm.warp(uint256(c.holdUntil) - GAP);
+        _checkpoint(id);
+        vm.warp(c.holdUntil);
+        _checkpoint(id);
     }
 
     function _claim(address who, uint256 id) internal returns (uint256 got) {
@@ -224,8 +254,7 @@ contract TrustPoolTest is Test {
         uint256 id = _open(chog, 50 ether, 0, 2000, 500);
         _join(alice, id, 50 ether);
         _buy(id);
-        vm.warp(pool.getCall(id).holdUntil);
-        _checkpoint(id);
+        _checkpointsAtMaxHold(id);
         vm.prank(keeper);
         pool.sell(id);
         TrustPool.Call memory c = pool.getCall(id);
@@ -329,8 +358,7 @@ contract TrustPoolTest is Test {
         _buy(id);
         assertEq(pool.getCall(id).tokens, 97 ether, "tokens recorded as received, not as quoted");
 
-        vm.warp(pool.getCall(id).holdUntil);
-        _checkpoint(id);
+        _checkpointsAtMaxHold(id);
         vm.prank(keeper);
         pool.sell(id);
         TrustPool.Call memory c = pool.getCall(id);
@@ -366,8 +394,7 @@ contract TrustPoolTest is Test {
         dex.setFrozen(address(chog), true);
 
         TrustPool.Call memory c = pool.getCall(id);
-        vm.warp(c.holdUntil);
-        _checkpoint(id);
+        _checkpointsAtMaxHold(id);
         vm.prank(keeper);
         vm.expectRevert(MockSwapAdapter.Frozen.selector);
         pool.sell(id);
@@ -589,6 +616,70 @@ contract TrustPoolTest is Test {
         assertEq(_claim(alice, id), 87.912 ether); // (110 - 0.11 keeper) x 0.8, no share set
     }
 
+    /// One transaction dumps the price, checkpoints and sells at max hold: it must not set its own floor.
+    function test_maxHold_dumpCheckpointSellInOneBlockReverts() public {
+        (CurveAdapter curve, MockToken t, uint256 id) = _curveCall();
+        MaxHoldDumper dumper = new MaxHoldDumper(pool, curve, t);
+        t.mint(address(dumper), 3_000_000 ether);
+
+        // no earlier checkpoint: one is not enough
+        vm.warp(pool.getCall(id).holdUntil);
+        vm.expectRevert(TrustPool.ConditionNotMet.selector);
+        dumper.attack(id, 3_000_000 ether);
+
+        // an honest checkpoint a gap earlier does not help: the two must agree
+        vm.warp(pool.getCall(id).holdUntil - GAP);
+        _checkpoint(id);
+        vm.warp(pool.getCall(id).holdUntil);
+        vm.expectRevert(TrustPool.CheckpointsDisagree.selector);
+        dumper.attack(id, 3_000_000 ether);
+
+        // the price as it is, checkpointed and sold honestly, goes through
+        _checkpoint(id);
+        vm.prank(keeper);
+        pool.sell(id);
+        assertApproxEqRel(pool.getCall(id).gross, 100 ether, 0.02e18);
+    }
+
+    /// A fall that holds across two checkpoints is real, and the call sells at it.
+    function test_maxHold_sellsAfterARealFall() public {
+        _bond(100 ether);
+        uint256 id = _open(chog, 20 ether, 0, 9000, 0);
+        _join(alice, id, 80 ether);
+        _buy(id);
+        dex.setPrice(address(chog), 1 ether);
+        vm.warp(pool.getCall(id).holdUntil - GAP);
+        _checkpoint(id);
+        dex.setPrice(address(chog), 0.6 ether);
+        vm.warp(pool.getCall(id).holdUntil);
+        _checkpoint(id);
+        vm.prank(keeper);
+        vm.expectRevert(TrustPool.CheckpointsDisagree.selector);
+        pool.sell(id);
+        vm.warp(block.timestamp + GAP);
+        _checkpoint(id);
+        vm.prank(keeper);
+        pool.sell(id);
+        assertEq(pool.getCall(id).gross, 60 ether);
+    }
+
+    function _curveCall() internal returns (CurveAdapter curve, MockToken t, uint256 id) {
+        curve = new CurveAdapter(10_000 ether, 10_000_000 ether);
+        vm.deal(address(curve), 100_000 ether);
+        t = new MockToken("Deep", "DEEP", 0);
+        vm.startPrank(admin);
+        pool.setAdapter(curve);
+        pool.setAllowed(address(t), true);
+        vm.stopPrank();
+        _bond(100 ether);
+        vm.prank(caller);
+        id = pool.openCall{value: 20 ether}(address(t), WINDOW, 0, 9000, HOLD, 0, "");
+        _join(alice, id, 80 ether);
+        vm.warp(pool.getCall(id).rules.windowEnd);
+        vm.prank(caller);
+        pool.buy(id, 0);
+    }
+
     function test_checkpointAndSell_onlyWhileHolding() public {
         _bond(100 ether);
         uint256 id = _open(chog, 20 ether, 0, 2000, 0);
@@ -804,8 +895,7 @@ contract TrustPoolTest is Test {
         }
         _buy(id);
         dex.setPrice(address(chog), exitPrice);
-        vm.warp(pool.getCall(id).holdUntil);
-        _checkpoint(id);
+        _checkpointsAtMaxHold(id);
         vm.prank(keeper);
         pool.sell(id);
 

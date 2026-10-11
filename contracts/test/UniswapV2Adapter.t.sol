@@ -106,9 +106,8 @@ contract UniswapV2AdapterTest is SoloCall {
         assertEq(tokens, gross - (gross * 300) / 10_000);
         // and 3% more on the way out, to the adapter and again to the router: about 6% under
         // the checkpoint quote, beyond the 2% the sale may lose, so the sale cannot happen
-        vm.warp(pool.getCall(id).holdUntil);
         vm.startPrank(caller);
-        pool.checkpoint(id);
+        _checkpointPair(pool, id);
         vm.expectRevert(MockUniswapV2Router.InsufficientOutput.selector);
         pool.sell(id);
         // and the call ends in a split: everyone takes their tokens, nothing is stranded

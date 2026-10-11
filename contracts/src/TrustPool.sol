@@ -228,6 +228,7 @@ contract TrustPool {
     error CheckpointTooSoon();
     error CheckpointStale();
     error ConditionNotMet();
+    error CheckpointsDisagree();
     error NotParticipant();
     error AlreadyClaimed();
     error ActiveCalls();
@@ -464,8 +465,9 @@ contract TrustPool {
     }
 
     /// @notice Sells the whole position. Anyone may, when the last two checkpoints both meet
-    /// take-profit or both meet stop-loss, or once max hold has passed. The latest checkpoint
-    /// must be at most one gap old. The least MON the sale must return is computed here from
+    /// take-profit or both meet stop-loss, or once max hold has passed and the last two
+    /// checkpoints agree within the sale tolerance. The latest checkpoint must be at most one
+    /// gap old. The least MON the sale must return is computed here from
     /// the checkpoints, never passed in. The keeper is paid a small share of gross proceeds.
     function sell(uint256 id) external nonReentrant {
         Call storage c = _callOf(id);
@@ -474,14 +476,17 @@ contract TrustPool {
         Checkpoint memory last = c.last;
         if (last.at == 0 || block.timestamp > uint256(last.at) + r.checkpointGap) revert CheckpointStale();
 
+        Checkpoint memory prev = c.prev;
+        if (prev.at == 0) revert ConditionNotMet(); // two checkpoints, a gap apart, on every path
         uint8 reason;
-        uint256 floor;
         if (block.timestamp >= c.holdUntil) {
+            // Max hold has no price rule for both checkpoints to meet, so they must agree with each
+            // other instead: one checkpoint taken on a dumped price cannot set the floor.
+            uint256 hi = prev.value > last.value ? prev.value : last.value;
+            uint256 lo = prev.value < last.value ? prev.value : last.value;
+            if (lo * BPS < hi * (BPS - r.sellToleranceBps)) revert CheckpointsDisagree();
             reason = 3;
-            floor = last.value;
         } else {
-            Checkpoint memory prev = c.prev;
-            if (prev.at == 0) revert ConditionNotMet();
             uint256 base = uint256(c.totalIn) * BPS;
             if (
                 r.takeProfitBps != 0 && uint256(prev.value) * BPS >= base + uint256(c.totalIn) * r.takeProfitBps
@@ -496,8 +501,8 @@ contract TrustPool {
             } else {
                 revert ConditionNotMet();
             }
-            floor = prev.value < last.value ? prev.value : last.value;
         }
+        uint256 floor = prev.value < last.value ? prev.value : last.value;
         uint256 minOut = (floor * (BPS - r.sellToleranceBps)) / BPS;
 
         c.state = State.Settled;

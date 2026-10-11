@@ -91,8 +91,11 @@ contract UniswapV4AdapterForkTest is Test {
         vm.deal(address(this), 10 ether);
         adapter.buy{value: 1 ether}(address(token), 0, address(this));
 
-        vm.warp(pool.getCall(id).holdUntil);
+        TrustPool.Call memory h = pool.getCall(id);
         vm.startPrank(keeper);
+        vm.warp(uint256(h.holdUntil) - h.rules.checkpointGap);
+        pool.checkpoint(id);
+        vm.warp(h.holdUntil);
         pool.checkpoint(id);
         uint256 sellQuote = pool.getCall(id).last.value;
         pool.sell(id);
