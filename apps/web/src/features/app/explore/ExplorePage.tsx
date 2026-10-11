@@ -44,11 +44,11 @@ const REASON = { take_profit: 'take-profit', stop_loss: 'stop-loss', max_hold: '
 /** One line on what happened. The result itself sits in the attachment, the same size either way. */
 function headline({ kind, call }: Post): string {
   const sym = call.token.symbol
-  if (kind === 'opened') return `opened a pool on ${sym} with ${mon(call.callerStake)} of their own`
-  if (kind === 'bought') return `bought ${sym} for the pool with ${mon(call.totalIn)} from ${people(call.depositors)}, one price for all`
-  if (call.state === 'Settled') return `pool on ${sym} sold on ${REASON[call.saleReason ?? 'max_hold']}`
-  if (call.state === 'Refunded') return call.negligent ? `did not buy for the pool on ${sym}; every deposit was refunded` : `pool on ${sym} did not go ahead; every deposit was refunded`
-  return `pool on ${sym} could not be sold; each participant took their share of the tokens`
+  if (kind === 'opened') return `Opened a pool on ${sym} with ${mon(call.callerStake)} of their own`
+  if (kind === 'bought') return `Bought ${sym} for the pool with ${mon(call.totalIn)} from ${people(call.depositors)}, one price for all`
+  if (call.state === 'Settled') return `Their pool on ${sym} sold on ${REASON[call.saleReason ?? 'max_hold']}`
+  if (call.state === 'Refunded') return call.negligent ? `Did not buy for the pool on ${sym}; every deposit was refunded` : `Their pool on ${sym} did not go ahead; every deposit was refunded`
+  return `Their pool on ${sym} could not be sold; each participant took their share of the tokens`
 }
 
 function RulesLine({ call }: { call: Call }) {
@@ -71,11 +71,11 @@ function Ticker({ call }: { call: Call }) {
   const last = call.series[call.series.length - 1]!
   const bps = Math.round((last / entry - 1) * 10_000)
   const tone = toneOf(bps)
-  const ended = call.state !== 'Holding'
+  const sold = call.state === 'Settled'
   return (
     <div className="num mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[12.5px]">
       <span className="text-ink-3">
-        Entry <span className="text-ink">{price(entry)}</span> → {ended ? 'Exit' : 'Last'} <span className="text-ink">{price(last)}</span> MON
+        Entry <span className="text-ink">{price(entry)}</span> → {sold ? 'Exit' : 'Last'} <span className="text-ink">{price(last)}</span> MON
       </span>
       <span className={`flex items-center gap-1 font-medium ${TONE[tone]}`}>
         {tone !== 'flat' && <Triangle size={9} fill="currentColor" strokeWidth={0} className={bps < 0 ? 'rotate-180' : ''} />}
@@ -133,18 +133,24 @@ function Attachment({ post }: { post: Post }) {
         <StateTag state={call.state} size="sm" />
       </div>
 
-      {kind === 'opened' && open ? (
-        <div className="mt-3">
-          <div className="flex items-baseline justify-between text-[12.5px] text-ink-3">
-            <span>
-              Raised · closes in <Countdown at={call.rules.windowEnd} done="now" short className="text-accent-deep" />
-            </span>
-            <span className="num">
-              <span className="font-medium text-ink">{mon(call.totalIn)}</span> of {mon(capOf(call))}
-            </span>
+      {kind === 'opened' ? (
+        open && (
+          <div className="mt-3">
+            <div className="flex items-baseline justify-between text-[12.5px] text-ink-3">
+              <span>
+                Raised · closes in <Countdown at={call.rules.windowEnd} done="now" short className="text-accent-deep" />
+              </span>
+              <span className="num">
+                <span className="font-medium text-ink">{mon(call.totalIn)}</span> of {mon(capOf(call))}
+              </span>
+            </div>
+            <Fill value={call.totalIn} max={capOf(call)} className="mt-2" />
           </div>
-          <Fill value={call.totalIn} max={capOf(call)} className="mt-2" />
-        </div>
+        )
+      ) : kind === 'bought' && call.state !== 'Holding' ? (
+        <p className="num mt-3 text-[12.5px] text-ink-3">
+          Entry <span className="text-ink">{price(call.series[0] ?? 0)}</span> MON for every participant
+        </p>
       ) : call.series.length > 0 && call.state !== 'Refunded' ? (
         <>
           <Ticker call={call} />
@@ -155,7 +161,7 @@ function Attachment({ post }: { post: Post }) {
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         {kind === 'opened' ? (
           <RulesLine call={call} />
-        ) : call.state === 'Settled' && call.netReturnBps !== undefined ? (
+        ) : kind === 'ended' && call.state === 'Settled' && call.netReturnBps !== undefined ? (
           <p className="flex items-center gap-2 text-[13px] text-ink-2">
             <Signed bps={call.netReturnBps} pill /> for every participant, on the record
           </p>
@@ -172,7 +178,7 @@ function Attachment({ post }: { post: Post }) {
   )
 }
 
-function PostItem({ post, caller, me }: { post: Post; caller?: Caller; me?: string }) {
+function PostItem({ post, caller }: { post: Post; caller?: Caller }) {
   const { call, kind } = post
   const name = nameOf(call.caller, caller)
   return (
@@ -181,18 +187,15 @@ function PostItem({ post, caller, me }: { post: Post; caller?: Caller; me?: stri
         <CallerAvatar address={call.caller} size={40} />
       </Link>
       <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <p className="min-w-0 truncate text-[13.5px]">
-            <Link to={`/app/callers/${call.caller}`} className="font-semibold hover:underline">
-              {name}
-            </Link>
-            <span className="text-ink-3">
-              {' '}
-              · Tier <span className="num">{caller?.tier ?? call.tier}</span> · <span title={date(post.at)}>{ago(post.at)}</span>
-            </span>
-          </p>
-          {kind === 'opened' && me !== call.caller.toLowerCase() && <FollowButton address={call.caller} handle={caller?.handle} variant="secondary" compact />}
-        </div>
+        <p className="min-w-0 truncate text-[13.5px]">
+          <Link to={`/app/callers/${call.caller}`} className="font-semibold hover:underline">
+            {name}
+          </Link>
+          <span className="text-ink-3">
+            {' '}
+            · Tier <span className="num">{caller?.tier ?? call.tier}</span> · <span title={date(post.at)}>{ago(post.at)}</span>
+          </span>
+        </p>
         <p className="mt-0.5 text-[14px] leading-[1.5] text-ink-2">{headline(post)}.</p>
         {kind === 'opened' && call.thesis && <p className="mt-2 whitespace-pre-line text-[14.5px] leading-[1.55] text-ink">{call.thesis}</p>}
         <Attachment post={post} />
@@ -201,7 +204,7 @@ function PostItem({ post, caller, me }: { post: Post; caller?: Caller; me?: stri
             <Eye size={13} /> <span className="num">{call.watchers}</span> watching
           </span>
           <span className="flex items-center gap-1">
-            <Users size={13} /> <span className="num">{call.depositors}</span> in
+            <Users size={13} /> {people(call.depositors)}
           </span>
         </p>
       </div>
@@ -229,12 +232,18 @@ function CallerList({ callers, me }: { callers: Caller[]; me?: string }) {
               <div className="min-w-0">
                 <p className="truncate text-[13.5px] font-semibold">{nameOf(c.address, c)}</p>
                 <p className="text-[12px] leading-[1.45] text-ink-3">
-                  <span className="num">{c.record.settled}</span> settled · <span className="num">{c.record.losses}</span> at a loss
+                  <span className="whitespace-nowrap">
+                    <span className="num">{c.record.settled}</span> settled
+                  </span>{' '}
+                  ·{' '}
+                  <span className="whitespace-nowrap">
+                    <span className="num">{c.record.losses}</span> at a loss
+                  </span>
                   {c.record.settled > 0 && (
-                    <>
+                    <span className="whitespace-nowrap">
                       {' '}
                       · <Signed bps={averageBps(c.record)} />
-                    </>
+                    </span>
                   )}
                 </p>
               </div>
@@ -323,7 +332,7 @@ export default function ExplorePage() {
           <Card className="overflow-hidden">
             <ul className="divide-y divide-line">
               {posts.slice(0, shown).map((p) => (
-                <PostItem key={p.key} post={p} caller={byAddress.get(p.call.caller.toLowerCase())} me={me} />
+                <PostItem key={p.key} post={p} caller={byAddress.get(p.call.caller.toLowerCase())} />
               ))}
             </ul>
             {posts.length > shown && (
@@ -337,7 +346,7 @@ export default function ExplorePage() {
         )}
       </div>
 
-      <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">{data && <CallerList callers={data.callers} me={me} />}</aside>
+      <aside className="hidden space-y-4 lg:sticky lg:top-20 lg:block lg:self-start">{data && <CallerList callers={data.callers} me={me} />}</aside>
     </div>
   )
 }

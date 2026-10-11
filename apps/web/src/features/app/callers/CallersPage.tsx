@@ -75,30 +75,38 @@ export default function CallersPage() {
           </div>
           <ul className="divide-y divide-line">
             {shown.map(({ c, rank }) => (
-              <li key={c.address}>
-                <Link
-                  to={`/app/callers/${c.address}`}
-                  className={`grid cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-4 transition-colors hover:bg-subtle sm:gap-4 sm:px-5 ${COLS}`}
-                >
+              <li key={c.address} className="relative">
+                {/* The whole row opens the profile; the follow button sits above that link, not inside it. */}
+                <div className={`grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-4 transition-colors hover:bg-subtle sm:gap-4 sm:px-5 ${COLS}`}>
                   <Rank n={rank} />
                   <div className="flex min-w-0 items-center gap-3">
                     <CallerAvatar address={c.address} size={40} />
                     <div className="min-w-0">
-                      <p className="truncate text-[14.5px] font-semibold">{c.handle || shortAddress(c.address)}</p>
+                      <Link to={`/app/callers/${c.address}`} className="block truncate text-[14.5px] font-semibold after:absolute after:inset-0">
+                        {c.handle || shortAddress(c.address)}
+                      </Link>
                       <p className="truncate text-[12.5px] text-ink-3">
                         <span className="lg:hidden">
                           Tier <span className="num">{c.tier}</span> ·{' '}
                         </span>
                         <span title={date(c.record.lastActive)}>active {ago(c.record.lastActive)}</span>
                       </p>
-                      <p className="mt-1 flex flex-wrap gap-x-1 text-[12.5px] text-ink-2 lg:hidden">
+                      {/* Commas, not dots: when the line wraps, nothing is left hanging at the start of the next. */}
+                      <p className="mt-1 text-[12.5px] text-ink-2 lg:hidden">
                         <span className="whitespace-nowrap">
-                          <span className="num">{c.record.settled}</span> settled, <span className="num">{c.record.losses}</span> at a loss
+                          <span className="num">{c.record.settled}</span> settled,
+                        </span>{' '}
+                        <span className="whitespace-nowrap">
+                          <span className="num">{c.record.losses}</span> at a loss
+                          {c.record.settled > 0 && ','}
                         </span>
                         {c.record.settled > 0 && (
-                          <span className="whitespace-nowrap">
-                            · <Signed bps={averageBps(c.record)} />
-                          </span>
+                          <>
+                            {' '}
+                            <span className="whitespace-nowrap">
+                              avg <Signed bps={averageBps(c.record)} />
+                            </span>
+                          </>
                         )}
                       </p>
                     </div>
@@ -109,14 +117,14 @@ export default function CallersPage() {
                   <span className="hidden text-right text-[14px] lg:block">{c.record.settled > 0 ? <Signed bps={averageBps(c.record)} /> : <span className="text-ink-3">—</span>}</span>
                   <span className="num hidden text-right text-[14px] lg:block">{mon(c.bond)}</span>
                   <span className={`num hidden text-right text-[14px] lg:block ${c.record.slashes ? 'text-loss' : 'text-ink-3'}`}>{c.record.slashes}</span>
-                  <span className="flex justify-end" onClick={(e) => e.preventDefault()}>
+                  <span className="relative z-10 flex justify-end">
                     {me === c.address.toLowerCase() ? (
                       <span className="rounded-full bg-accent-fill px-2.5 py-1 text-[12px] font-medium text-accent-deep">You</span>
                     ) : (
                       <FollowButton address={c.address} handle={c.handle} variant="secondary" compact />
                     )}
                   </span>
-                </Link>
+                </div>
               </li>
             ))}
           </ul>
