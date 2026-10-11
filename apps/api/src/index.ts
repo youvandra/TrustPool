@@ -87,4 +87,6 @@ for (const sig of ['SIGINT', 'SIGTERM'] as const) {
 }
 
 log.info('trustpool api', { port: cfg.port, data: cfg.data, chainId: cfg.chain?.chainId })
-export default { port: cfg.port, fetch: app.fetch }
+// Bun closes a connection after 10 idle seconds by default, which cut /me/stream before its
+// first 25-second heartbeat, so alerts sent between reconnects were lost. Stay above the heartbeat.
+export default { port: cfg.port, fetch: app.fetch, idleTimeout: 60 }
