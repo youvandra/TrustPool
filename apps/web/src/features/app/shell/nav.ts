@@ -1,4 +1,4 @@
-import { Bell, BookOpen, Compass, Home, LayoutGrid, Users, type LucideIcon } from 'lucide-react'
+import { Bell, BookOpen, Compass, Home, LayoutGrid, Newspaper, Trophy, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   label: string
@@ -13,8 +13,9 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     group: 'Discover',
     items: [
       { label: 'Home', to: '/app', icon: Home, end: true },
+      { label: 'Explore', to: '/app/explore', icon: Newspaper },
       { label: 'Calls', to: '/app/calls', icon: Compass },
-      { label: 'Callers', to: '/app/callers', icon: Users },
+      { label: 'Callers', to: '/app/callers', icon: Trophy },
     ],
   },
   {
@@ -30,5 +31,5 @@ export const NAV: { group: string; items: NavItem[] }[] = [
   },
 ]
 
-/** Alerts and Docs stay off the bottom bar: the top bar already has the bell. */
-export const MOBILE_NAV: NavItem[] = NAV.flatMap((g) => g.items).filter((i) => i.to !== '/docs' && i.to !== '/app/alerts')
+/** Four slots around the open button. Home is the wordmark and Alerts the bell; Docs stays off as before. */
+export const MOBILE_NAV: NavItem[] = NAV.flatMap((g) => g.items).filter((i) => !['/app', '/docs', '/app/alerts'].includes(i.to))

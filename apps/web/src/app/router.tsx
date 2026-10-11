@@ -20,6 +20,7 @@ export const routes: RouteObject[] = [
         element: <AppShell />,
         children: [
           { index: true, lazy: page(() => import('@/features/app/home/HomePage')) },
+          { path: 'explore', lazy: page(() => import('@/features/app/explore/ExplorePage')) },
           { path: 'calls', lazy: page(() => import('@/features/app/calls/CallsPage')) },
           { path: 'calls/:id', lazy: page(() => import('@/features/app/calls/CallPage')) },
           { path: 'callers', lazy: page(() => import('@/features/app/callers/CallersPage')) },

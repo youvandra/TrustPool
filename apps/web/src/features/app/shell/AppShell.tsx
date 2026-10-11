@@ -73,6 +73,7 @@ function Sidebar() {
 
 const TITLES: [RegExp, string][] = [
   [/^\/app\/?$/, 'Home'],
+  [/^\/app\/explore/, 'Explore'],
   [/^\/app\/calls\/\d+/, 'Call'],
   [/^\/app\/calls/, 'Calls'],
   [/^\/app\/callers\/.+/, 'Caller'],

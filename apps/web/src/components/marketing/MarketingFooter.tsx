@@ -15,7 +15,7 @@ export default function MarketingFooter() {
           <p className="mt-4 max-w-[36ch] text-[14px] leading-[1.6] text-ink-3">A public record of callers who put their own money in first. Nothing here is a recommendation.</p>
         </div>
         {[
-          { t: 'Product', l: [['Launch app', '/app'], ['Calls', '/app/calls'], ['Callers', '/app/callers'], ['Open a call', '/app/new']] },
+          { t: 'Product', l: [['Launch app', '/app'], ['Explore', '/app/explore'], ['Calls', '/app/calls'], ['Callers', '/app/callers'], ['Open a call', '/app/new']] },
           { t: 'Learn', l: [['How it works', '/#how'], ['Docs', '/docs'], ['Known limits', '/docs#limits']] },
           { t: 'Build', l: [['Contracts', '/docs#contracts'], ['API reference', '/api/docs'], ['Source code', REPO]] },
         ].map((col) => (
