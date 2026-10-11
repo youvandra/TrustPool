@@ -72,6 +72,8 @@ export class TelegramFeed {
   private readonly seen = new Set<string>()
   private readonly sent: number[] = []
   private draining?: Promise<void>
+  /** Messages are built one at a time, so the chat gets them in the order Postgres sent them. */
+  private building: Promise<void> = Promise.resolve()
   private stop?: () => Promise<void>
   private readonly fetch: typeof fetch
   private readonly now: () => number
@@ -96,6 +98,7 @@ export class TelegramFeed {
 
   /** Resolves once every queued message has been posted or dropped. */
   async idle() {
+    await this.building
     while (this.draining) await this.draining
   }
 
@@ -112,6 +115,12 @@ export class TelegramFeed {
     this.seen.add(key)
     if (this.seen.size > 5000) this.seen.delete(this.seen.values().next().value!)
 
+    const next = this.building.then(() => this.enqueue(a))
+    this.building = next
+    await next
+  }
+
+  private async enqueue(a: { kind: AlertKind; callId: number; at?: number }) {
     try {
       const call = await this.store.getCall(a.callId)
       if (!call) return log.warn('telegram: call not found', { callId: a.callId })
