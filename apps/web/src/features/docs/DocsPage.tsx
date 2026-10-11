@@ -11,7 +11,7 @@ import { useLoad, useTitle } from '@/lib/hooks'
 const SECTIONS = [
   { id: 'overview', label: 'Overview' },
   { id: 'monad', label: 'Why Monad' },
-  { id: 'followers', label: 'For followers' },
+  { id: 'followers', label: 'For participants' },
   { id: 'callers', label: 'For callers' },
   { id: 'rules', label: 'Rules' },
   { id: 'contracts', label: 'Contracts' },
@@ -21,16 +21,27 @@ const SECTIONS = [
 
 const FAQ: [string, string][] = [
   [
-    'Can a caller also buy with a second wallet?',
-    'Nothing stops it completely. It costs them: their own money is locked, a bond is at stake, and a wallet they funded that buys just before a call is grounds for a public slash. Each call lists the wallets that bought just before it, and marks any that received MON straight from the caller shortly before buying.',
+    'Can a caller also buy with a second wallet before the pool?',
+    'Nothing stops it completely. It costs them: their own stake is in the pool on the same terms, a bond is at stake, and a wallet they funded that buys just before the pool is grounds for a public slash. Each call lists the wallets that bought just before the pool did, and marks any that received MON straight from the caller shortly before.',
   ],
-  ['Do I deposit money into trustpool?', 'No. You buy on your own. trustpool only holds the caller’s position.'],
   [
-    'Can a caller hide a losing call?',
-    'A settled call is permanent. Releasing an unsellable token counts as −100%. A call left open past its max hold is marked stale on the record.',
+    'Can a caller sell before everyone else?',
+    'No. There is one sale for the whole pool. Anyone may trigger it, the caller included, but only once a rule fixed at open is met, and the contract sets the least it must return.',
   ],
-  ['Who keeps the token list and slashes bonds?', 'An admin, in this version. The admin can never touch a locked position.'],
-  ['Is this investment advice?', 'No. It shows what callers did with their own money. No rankings by return, no price targets.'],
+  [
+    'How is take-profit or stop-loss decided without a price oracle?',
+    'Uniswap v4 has no built-in average price, so the contract records spot quotes. A sale needs two records at least one gap apart that both meet the rule; at max hold, two records that agree. One block of pushed price cannot trigger a sale or set its floor.',
+  ],
+  [
+    'What if the caller never buys?',
+    'After the buy deadline anyone can refund the pool. Every deposit comes back 1:1, and the caller’s record counts it as negligent. A pool that stayed below its minimum is refunded with no mark.',
+  ],
+  [
+    'What if the token cannot be sold?',
+    'If no sale has gone through by max hold plus a grace period, anyone can split the position: each participant claims the tokens pro rata. No fee is taken, and the record shows a split.',
+  ],
+  ['Who keeps the token list and slashes bonds?', 'An admin, a single key in this version. The admin can never touch MON or tokens held for a call, and cannot change a call’s rules.'],
+  ['Is this investment advice?', 'No. It shows what callers did with their own money, next to everyone else’s. No rankings by return, no price targets.'],
 ]
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -89,11 +100,18 @@ function LiveParams() {
   if (p === null) return <p>Could not read the contract right now.</p>
   const rows: [string, string][] = [
     ['Minimum bond', `${Number(p.minBond) / 1e18} MON`],
-    ['Lock', `${duration(Number(p.minLock) * 1000)} to ${duration(Number(p.maxLock) * 1000)}`],
-    ['Minimum exit notice', duration(Number(p.minNotice) * 1000)],
-    ['Release grace', duration(Number(p.releaseGrace) * 1000)],
-    ['Max hold before stale', duration(Number(p.maxHold) * 1000)],
-    ['Bond withdrawal wait', duration(Number(p.bondCooldown) * 1000)],
+    ['Minimum pool', `${Number(p.minPool) / 1e18} MON`],
+    ['Window', `${duration(p.minWindow * 1000)} to ${duration(p.maxWindow * 1000)}`],
+    ['Buy deadline', `${duration(p.buyGrace * 1000)} after the window`],
+    ['Max hold', `${duration(p.minHold * 1000)} to ${duration(p.maxHold * 1000)}`],
+    ['Stop-loss', `${p.minStopLossBps / 100}% to ${p.maxStopLossBps / 100}%`],
+    ["Caller's least stake", `${p.minCallerBps / 100}%`],
+    ['Price impact limit', `${p.maxImpactBps / 100}%`],
+    ['Gap between price records', duration(p.checkpointGap * 1000)],
+    ['Sale tolerance', `${p.sellToleranceBps / 100}%`],
+    ['Keeper reward', `${p.keeperBps / 100}%`],
+    ['Split grace', duration(p.splitGrace * 1000)],
+    ['Bond withdrawal wait', duration(p.bondCooldown * 1000)],
   ]
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-surface">
@@ -171,7 +189,7 @@ export default function DocsPage() {
 
         <article className="min-w-0 max-w-[720px]">
           <h1 className="text-[clamp(2.2rem,5vw,3.2rem)] font-semibold leading-[1.02] tracking-[-0.045em]">Docs</h1>
-          <p className="mt-4 text-[17px] text-ink-2">Everything a follower or a caller needs, in one page.</p>
+          <p className="mt-4 text-[17px] text-ink-2">Everything a participant or a caller needs, in one page.</p>
           <nav className="scroll-quiet -mx-5 mt-6 flex gap-2 overflow-x-auto px-5 lg:hidden" aria-label="Docs sections">
             {SECTIONS.map((s) => (
               <a key={s.id} href={`#${s.id}`} className="shrink-0 rounded-full border border-line bg-surface px-3.5 py-1.5 text-[13px] text-ink-2">
@@ -183,15 +201,20 @@ export default function DocsPage() {
           <div className="mt-12">
             <Section id="overview" title="Overview">
               <p>
-                A caller buys a token with their own MON through the trustpool contract. The position is locked, every exit is announced before it can happen,
-                and every result stays on their record. Nothing is pooled: followers buy on their own.
+                A caller opens a call on one token and fixes every rule up front: take-profit, stop-loss, max hold and their share of profit. For a short window anyone
+                can put MON into the pool, the caller first, and take it back 1:1. When the window closes the caller runs one buy for the whole pool, so everyone gets the
+                same entry. When a rule is met, anyone sells the whole position, so everyone gets the same exit, and claims pro rata.
+              </p>
+              <p>
+                The caller earns a share of profit only, loses the same percentage as everyone else, and the net result goes on their permanent record. The record sets how
+                much they may raise next time: from 2x their bond up to 20x. The cap also keeps one buy&apos;s price impact under 2%.
               </p>
             </Section>
 
             <Section id="monad" title="Why Monad">
               <ul className="list-disc space-y-2 pl-5 marker:text-ink-3">
                 <li>Cheap, fast blocks make it practical to settle every call on chain.</li>
-                <li>Open calls are priced every few minutes, and exit notices can be minutes rather than days.</li>
+                <li>Every pool is priced every few minutes, and windows can be minutes rather than days.</li>
                 <li>Swaps are real Uniswap v4 swaps on Monad testnet, on two demo tokens and pools we seeded.</li>
               </ul>
             </Section>
@@ -199,10 +222,11 @@ export default function DocsPage() {
             <Section id="followers" title="For followers">
               <Steps
                 items={[
-                  'Browse calls without signing in.',
-                  'Check the caller’s record, bond and entry price.',
-                  'Watch a call to get alerted the moment its exit is announced.',
-                  'Every open, exit and result also goes to a Telegram channel.',
+                  'Browse calls without signing in. Open windows come first.',
+                  'Check the caller’s record, tier, bond and the rules of the call.',
+                  'Join with any amount under the cap. Until the window closes you can take it back 1:1.',
+                  'After the sale, or a refund, or a split, claim your part from the call page or Portfolio.',
+                  'Every window, buy, sale and result also goes to a Telegram channel.',
                 ]}
               />
             </Section>
@@ -211,8 +235,9 @@ export default function DocsPage() {
               <Steps
                 items={[
                   'Sign in with email or a wallet. A wallet is created if you have none.',
-                  'Post a bond, then open a call: token, amount, lock and notice.',
-                  'To sell, announce the exit. You can execute once the notice ends.',
+                  'Post a bond, then open a call: token, your stake, window, take-profit, stop-loss, max hold and your share of profit.',
+                  'Keep at least 5% of the pool. When the window closes, buy for the whole pool before the deadline.',
+                  'The sale happens when a rule is met: anyone may send it, you included. Claim your part and your fee after.',
                 ]}
               />
               <div className="pt-2">
@@ -243,7 +268,7 @@ export default function DocsPage() {
             </Section>
 
             <Section id="api" title="API">
-              <p>Public read API for calls, callers and tokens. Personal routes need a Privy token.</p>
+              <p>Public read API for calls, participants, positions, callers and tokens. Personal routes need a Privy token.</p>
               <a href="/api/docs" className="inline-flex items-center gap-1.5 font-medium text-accent hover:text-accent-strong">
                 API reference <ExternalLink size={13} />
               </a>

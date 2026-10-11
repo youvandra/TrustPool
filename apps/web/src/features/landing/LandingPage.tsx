@@ -5,7 +5,7 @@ import Hero from './Hero'
 import { Audiences, Compare, FinalCta, HowItWorks, Ticker } from './Sections'
 
 export default function LandingPage() {
-  useTitle('trustpool · Follow callers who buy first')
+  useTitle('trustpool · One buy, one sale, the same price for everyone')
   return (
     <div className="bg-bg">
       <MarketingNav />

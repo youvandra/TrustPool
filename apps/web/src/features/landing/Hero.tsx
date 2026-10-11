@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { useEffect, useState } from 'react'
-import { CALLERS, CALLS, type Call } from '@trustpool/core'
+import { CALLERS, CALLS, settle, type Call } from '@trustpool/core'
 import { ArrowLink } from '@/components/ui'
 import { usePageVisible } from '@/lib/hooks'
 import HeroCard from './HeroCard'
@@ -8,31 +8,37 @@ import HeroShader from './HeroShader'
 
 const H = 3_600_000
 const SEED = CALLS.find((c) => c.id === 9)!
+const SHAPE = CALLS.find((c) => c.id === 7)!.series
 const CALLER = CALLERS.find((c) => c.address === SEED.caller)
 const T0 = Date.now()
 const SOLD_AT = 0.876 // the settled state sells 12.4% below entry
+const ENTRY = 0.0021
+const TOKENS = SEED.totalIn / ENTRY
 
-/** The demo series bent so its last point is the sale price: chart and result must agree. */
-function endingAt(series: number[], end: number): number[] {
-  const n = series.length - 1
-  const shift = end - series[n]!
-  return series.map((v, i) => v + (shift * i) / n)
+/** A demo price shape moved onto this call's entry, bent so its last point is `end`: chart and result agree. */
+function shaped(end: number): number[] {
+  const base = SHAPE.map((v) => (v / SHAPE[0]!) * ENTRY)
+  const n = base.length - 1
+  const shift = end - base[n]!
+  return base.map((v, i) => v + (shift * i) / n)
 }
 
-/** One call at three moments. The last is a loss on purpose: the page reads the same either way. */
+/** One pool at three moments. The last is a loss on purpose: the page reads the same either way. */
+const gross = TOKENS * ENTRY * SOLD_AT
 const STATES: Call[] = [
-  SEED,
-  { ...SEED, state: 'Exiting', announcedAt: T0 - 3 * H, exitAt: T0 + 9 * H + 14 * 60_000 },
+  { ...SEED, rules: { ...SEED.rules, windowEnd: T0 + 2 * H + 14 * 60_000 } },
+  { ...SEED, state: 'Holding', tokens: TOKENS, boughtAt: T0 - 5 * H, holdUntil: T0 + 31 * H, series: shaped(ENTRY * 1.03) },
   {
     ...SEED,
     state: 'Settled',
-    announcedAt: T0 - 14 * H,
-    exitAt: T0 - 2 * H,
-    monOut: SEED.monIn * SOLD_AT,
-    series: endingAt(SEED.series, SEED.series[0]! * SOLD_AT),
+    tokens: TOKENS,
+    saleReason: 'stop_loss',
+    gross,
+    ...settle(SEED.totalIn, gross, SEED.rules.shareBps),
+    series: shaped(ENTRY * SOLD_AT),
   },
 ]
-const LABELS = ['Bought and locked', 'Exit announced', 'On the record']
+const LABELS = ['Window open', 'Bought together', 'On the record']
 const CYCLE_MS = 4200
 
 /** Steps through the three moments, like Kinsign's phone. Rests while the page is hidden. */
@@ -66,7 +72,7 @@ function HeroVisual() {
   )
 }
 
-const WORDS = ['Follow', 'callers', 'who', 'buy', 'first.', 'Hear', 'before', 'they', 'sell.']
+const WORDS = ['One', 'buy.', 'One', 'sale.', 'The', 'same', 'price', 'for', 'everyone.']
 
 export default function Hero() {
   const visible = usePageVisible()
@@ -79,7 +85,7 @@ export default function Hero() {
             {WORDS.map((w, i) => (
               <motion.span
                 key={w + i}
-                className={`mr-[0.22em] inline-block ${i >= 5 ? 'text-accent' : ''}`}
+                className={`mr-[0.22em] inline-block ${i >= 4 ? 'text-accent' : ''}`}
                 initial={visible ? { y: 28 } : false}
                 animate={{ y: 0 }}
                 transition={{ delay: 0.04 * i, type: 'spring', stiffness: 220, damping: 24 }}
@@ -89,7 +95,7 @@ export default function Hero() {
             ))}
           </h1>
           <p className="mt-7 max-w-[44ch] text-[18px] leading-[1.6] text-ink-2">
-            Callers lock their own money before you see the call, and announce every exit hours ahead.
+            A caller opens a pool with their own money in and every rule fixed. Everyone buys together and sells together, and the result goes on the caller&apos;s record.
           </p>
           <div className="mt-9 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
             <ArrowLink to="/app">Launch app</ArrowLink>
